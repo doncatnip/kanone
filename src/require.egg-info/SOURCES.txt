@@ -1,0 +1,15 @@
+setup.py
+src/require/__init__.py
+src/require/error.py
+src/require/lib.py
+src/require/settings.py
+src/require.egg-info/PKG-INFO
+src/require.egg-info/SOURCES.txt
+src/require.egg-info/dependency_links.txt
+src/require.egg-info/namespace_packages.txt
+src/require.egg-info/top_level.txt
+src/require/validator/__init__.py
+src/require/validator/core.py
+src/require/validator/schema.py
+src/require/validator/simple.py
+src/require/validator/web.py
