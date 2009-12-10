@@ -37,7 +37,8 @@ text.String.info        = ( "Must be a string"
                          , "A string with a length between %(len_min) and %(len_max)s is required"
                          )
 
-text.String.msg       = ( "The string is too short"
+text.String.msg       = (  "Entered value is not a string"
+                         , "The string is too short"
                          , "The string is too long"
                          )
 

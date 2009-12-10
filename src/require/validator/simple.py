@@ -4,6 +4,9 @@ from .. import settings as s
 
 from .core import Validator
 
+import logging
+log = logging.getLogger(__name__)
+
 class Dict(Validator):
 
     info = s.text.Dict.info
@@ -38,10 +41,11 @@ class String(Validator):
     info = s.text.String.info
     msg  = s.text.String.msg
 
-    def __init__(self, len_min=None, len_max=None, strip=False):
+    def __init__(self, len_min=None, len_max=None, strip=False, transform=False):
         self.len_min = len_min
         self.len_max = len_max
-        self.__strip__ = strip
+        self.__strip__      = strip
+        self.__transform__  = transform
 
     def __extra__(self, context):
         extra = { }
@@ -62,11 +66,16 @@ class String(Validator):
         return self.info[0]
 
     def on_validate(self, context, value):
-        value = unicode(value)
-        if  ( self.len_min is not None and len(value)<self.len_min ):
+
+        log.debug( value )
+        if self.__transform__:
+            value = unicode(value)
+        elif not isinstance( value, str) and not isinstance( value, unicode ):
             raise Invalid( self.msg[0] )
-        elif  ( self.len_max is not None and len(value)>self.len_max ):
+        if  ( self.len_min is not None and len(value)<self.len_min ):
             raise Invalid( self.msg[1] )
+        elif  ( self.len_max is not None and len(value)>self.len_max ):
+            raise Invalid( self.msg[2] )
         if self.__strip__:
             return value.strip()
 
@@ -74,6 +83,10 @@ class String(Validator):
 
     def strip(self):
         self.__strip__ = True
+        return self
+
+    def transform( self):
+        self.__transform__ = True
         return self
 
 class Integer(Validator):

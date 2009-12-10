@@ -7,6 +7,9 @@ from .simple import List, Dict
 
 import re, copy
 
+import logging
+log = logging.getLogger(__name__)
+
 convert_info = 'Will be converted to a dictionary'
 
 
@@ -86,12 +89,17 @@ class Schema( SchemaBase, Validator ):
         if not self.allow_extra_fields:
 
             field_index = self.field_index_get( context )
+            log.debug("WTF ??? %s" % str(values) )
             for (key, value) in values.iteritems():
                 if not key in field_index:
                     raise Invalid( self.msg[1], field=key )
 
         return self.vstate_get(context, values)
 
+    def on_missing( self, context ):
+        return {}
+
+    on_blank = on_missing
 
 class ForEach( SchemaBase, Validator ):
 
@@ -161,6 +169,11 @@ class ForEach( SchemaBase, Validator ):
 
         return self.vstate_get(context, value)
 
+    def on_missing( self, context ):
+        return {}
+
+    on_blank = on_missing
+
 class Field( Validator ):
 
     info = s.text.Field.info
@@ -205,13 +218,10 @@ class Field( Validator ):
             result = self.validator(fieldcontext, value=field, cascade=False)
 
             if isinstance( result, ValidationState ):
-                context.state.abort = True
                 try:
                     result.__cascade__( errback = schema_failed )
                 except SchemaFailed:
                     raise Invalid ( self.msg[1] )
-                finally:
-                    context.state.abort = False
 
             if fieldcontext.error:
                 raise Invalid( fieldcontext.error[0]['msg'] )

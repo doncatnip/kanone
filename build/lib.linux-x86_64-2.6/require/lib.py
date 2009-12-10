@@ -54,15 +54,9 @@ def _append_fields(klass, key, fields):
         , newfields
         )
 
-
-def _create_method_test(klass, key, method_decorator):
-    for validator in method_decorator.validators:
-        setattr(klass, "test_%s" % validator.name, validator.method_test)
-
-
 def _callback(klass):
     advice_data = klass.__dict__['__advice_data__']
-
+    log.debug("ITERITEMS: %s" % advice_data )
     for key,(data, callback)  in advice_data.iteritems():
         callback( klass, key, data)
 
@@ -99,9 +93,6 @@ def post_validate(*validators):
 
 def fieldset(*fields):
     _advice('fieldset', _append_fields, fields )
-
-def method_test(method_decorator):
-    _advice('method_test', _create_method_test, method_decorator)
 
 
 class ValidationState(object):
@@ -214,7 +205,10 @@ class Context(UserDict):
             value = None
 
         self.value = value
-        self.state = state or Pulp()
+        if state is None:
+            state = Pulp()
+        self.state = state
+
         self.key = str(key)
         self.error = None
         self.__objstate__ = Pulp()
@@ -226,7 +220,7 @@ class Context(UserDict):
 
     def new(self, key, value):
         key = str(key)
-        self[key] = Context( value, key, root_state=getattr(self,'require',None))
+        self[key] = Context( value, key, self.state, root_state=getattr(self,'require',None))
         return self[key]
 
     def pack(self):
@@ -237,7 +231,7 @@ class Context(UserDict):
 
             field[key.upper()] = child.pack()
 
-        if self.error:
+        if self.error and self.error[0]['msg']:
             field["error"] = self.error[0]
 
         if child is None:
@@ -310,6 +304,7 @@ class ValidatorBase(object):
 
                 if isinstance( value, dict):
                     n = None
+                    log.debug("ITERITEMS %s" % value )
                     for (key, val) in value.iteritems():
                         if val is not None and val is not '':
                             n = value
@@ -378,43 +373,3 @@ class SchemaBase( object ):
 
     def field_index_get( self, context ):
         raise NotImplementedError( "SchemaBase can only be used as base class")
-
-
-def _do_validate( state, schema, errback, *args):
-    context = Context(args, state=state)
-    result = schema(context, errback=errback)
-    return result
-
-class MethodValidatorBase():
-
-    def __init__(self, schema, errback):
-        self.schema = schema
-        self.errback = errback
-
-    def __call__(self, f ):
-        self.name = f.__name__
-        def decorate( nself, state, *args):
-            return f( nself, state, self.method_test(state, *args))
-        return decorate
-
-    def method_test(self, state, *args):
-        return _do_validate( state, self.schema, self.errback, *args)
-
-class MethodDecorator():
-
-    def __init__(self, errback=None):
-        self.errback = errback or settings.errback
-        self.validators = []
-
-        from .validator import Schema
-
-    def __call__(self, *validator):
-        if len(validator)==1 and hasattr(validator[0], 'on_validate'):
-            validator = validator[0]
-        else:
-            validator = Schema(*validator)
-
-        validator = MethodValidatorBase(validator, self.errback)
-        self.validators.append(validator)
-
-        return validator

@@ -209,7 +209,40 @@ class Not( Validator ):
     on_blank = on_missing = on_validate
 
 
-class And(Validator):
+class __WrapFunctions__( Validator ):
+
+    __validators__ = []
+
+    class __FuncWrap__( object ):
+
+        def __init__( self, validator, wraps ):
+            self.validator = validator
+            self.wraps = wraps
+
+        def __call__( self, *args, **kwargs ):
+            for wrap in self.wraps:
+                wrap( *args, **kwargs )
+
+            return self.validator
+
+    def __getattr__( self, key ):
+        if not '__function_wraps__' in self.__dict__:
+            self.__function_wraps__ = {}
+
+        if key not in self.__function_wraps__:
+            wraps = []
+            for validator in self.__validators__:
+                func = getattr( validator, key, None )
+                if callable( func ):
+                    wraps.append( func )
+            if not wraps:
+                return object.__getattribute__( self, key )
+
+            self.__function_wraps__[key] = __WrapFunctions__.__FuncWrap__( self, wraps )
+
+        return self.__function_wraps__[key]
+
+class And( __WrapFunctions__ ):
 
     info = s.text.And.info
 
@@ -249,19 +282,13 @@ class And(Validator):
             result = validator(context, value=result, cascade=False)
  
             if isinstance( result, ValidationState ):
-                context.state.abort = True
-                try:
-                    result.__cascade__( )
-                except Invalid,e:
-                    raise Invalid( self.msg or e[0]['msg'] )
-                finally:
-                    context.state.abort = False
+                res, failed = result.__cascade__( )
+                if failed:
+#                    return value
+                    raise Invalid( self.msg )
 
             if context.error:
-                if self.msg:
-                    raise Invalid( self.msg )
-                else:
-                    raise context.error
+                raise context.error
 
         context.error = olderr
 
@@ -270,7 +297,7 @@ class And(Validator):
     on_blank = on_missing = on_validate
 
 
-class Or(Validator):
+class Or( __WrapFunctions__):
 
     info = s.text.Or.info
     msg  = s.text.Or.msg
@@ -296,8 +323,10 @@ class Or(Validator):
         if value is IGNORE:
             value = context.value
 
+        errors = []
         olderr = context.error
         context.error = None
+        lasterr = None
 
         for validator in self.__validators__:
             if  isinstance( validator, SchemaBase ) and not validator.allow_extra_fields \
@@ -319,20 +348,27 @@ class Or(Validator):
                 try:
                     result.__cascade__( errback = schema_failed )
                 except SchemaFailed:
-                    context.error = None
                     context.validated = False
                     continue
 
             if context.error:
+                errors.append( context.error[0] )
+                lasterr = context.error
                 context.error = None
                 context.validated = False
                 continue
 
             context.error = olderr
-
             return result
 
+        if lasterr:
+            errors = errors[:-1]
+            if errors:
+                lasterr[0]['previous_errors'] = errors
+            raise lasterr
+
         raise Invalid( self.msg )
+
 
     on_blank = on_missing = on_validate
 
