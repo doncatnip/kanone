@@ -2,7 +2,7 @@ from ..lib import pre_validate, missing, IGNORE, ValidationState, SchemaBase, Va
 from ..error import *
 from .. import settings as s
 
-from .core import Validator, Or, SchemaFailed, schema_failed, Not, Empty, Call
+from .core import Validator, Or, SchemaFailed, schema_failed, Not, Empty, Call, Pass
 from .simple import List, Dict
 
 import re, copy
@@ -23,6 +23,8 @@ class Schema( SchemaBase, Validator ):
     __validators__  = None
     __field_index__ = None
 
+    filled_min   = None
+    filled_max   = None
 
     def __prepare__( self, pre_validators, *validators ):
 
@@ -31,14 +33,15 @@ class Schema( SchemaBase, Validator ):
 
         pre_validators.insert\
             ( 0
-            ,   ( Dict()\
-                | ( List() & Call( self.list_convert ).text( info=convert_info ) ) 
+            ,   ( Dict()
+                | ( List() & Call( self.list_convert ).text( info=convert_info ) )
                 )
             )
 
         return pre_validators
 
     def list_convert( self, context, values ):
+
         valuelist = values
         values = {}
 
@@ -49,12 +52,10 @@ class Schema( SchemaBase, Validator ):
                 key = field_index[pos]
             except IndexError,e:
                 if not self.allow_extra_fields:
-                    raise Invalid( self.msg[0], field=key )
+                    raise Invalid( self.msg[0] )
                 break
 
             values[key] = valuelist[pos]
-
-        context.value = values
 
         return values
 
@@ -67,7 +68,7 @@ class Schema( SchemaBase, Validator ):
 
             self.__validators__ = {}
             self.__field_index__ = []
-
+            log.debug("SELF.FIELDS: %s" % self.__fields__ )
             for (name,validator) in self.__fields__:
                 self.__validators__[name] = validator
                 self.__field_index__.append(name)
@@ -84,22 +85,14 @@ class Schema( SchemaBase, Validator ):
     def __extra__(self, context):
         return {'fields' : self.field_index_get( context ) }
 
-    def on_validate(self, context, values):
+    def on_value( self, context, values ):
 
-        if not self.allow_extra_fields:
-
-            field_index = self.field_index_get( context )
-            log.debug("WTF ??? %s" % str(values) )
-            for (key, value) in values.iteritems():
-                if not key in field_index:
-                    raise Invalid( self.msg[1], field=key )
+        field_index = self.field_index_get( context )
+        for (key, value) in values.iteritems():
+            if not key in field_index and not self.allow_extra_fields:
+                raise Invalid( self.msg[1], field=key )
 
         return self.vstate_get(context, values)
-
-    def on_missing( self, context ):
-        return {}
-
-    on_blank = on_missing
 
 class ForEach( SchemaBase, Validator ):
 
@@ -124,20 +117,21 @@ class ForEach( SchemaBase, Validator ):
         for pos in range(len(values)):
             retval[str(pos)] = values[pos]
 
-        context.value = retval
-
         return retval
 
-    def field_index_get( self, context ):
+    def field_index_get( self, context, value=missing ):
         objstate = context.objstate(self)
+        if 'field_index' not in objstate:
+            if value is missing:
+                value = context.value
 
-        if context.value not in [missing, None]:
-            if not self.numeric_keys:
-                field_index = context.value.keys()
-            else:
-                field_index = [ str(pos) for pos in range(len(context.value)) ]
+            if value not in [missing, None]:
+                if not self.numeric_keys:
+                    field_index = context.value.keys()
+                else:
+                    field_index = [ str(pos) for pos in range(len(context.value)) ]
 
-            objstate.field_index = field_index
+                objstate.field_index = field_index
 
         return objstate.field_index
 
@@ -150,7 +144,7 @@ class ForEach( SchemaBase, Validator ):
     def validator_get( self, context, key):
         return self.validator
 
-    def on_validate(self, context, value):
+    def on_value(self, context, value):
 
         field_index = self.field_index_get( context )
 
@@ -162,17 +156,12 @@ class ForEach( SchemaBase, Validator ):
                 raise Invalid( "Invalid item positions, please use 0,1,2,...", positions = values.keys() )
 
             elemcontext = context.new(key, elem)
-            self.validator.do_validate( elemcontext, elem )
+            self.validator.__validate__( elemcontext, elem )
 
         if values:
             raise Invalid( "Invalid item positions, please use 0,1,2,...", positions = values.keys() )
 
         return self.vstate_get(context, value)
-
-    def on_missing( self, context ):
-        return {}
-
-    on_blank = on_missing
 
 class Field( Validator ):
 
@@ -203,7 +192,7 @@ class Field( Validator ):
             return Field.info[0]
         return Field.info[1]
 
-    def on_validate(self, context, value=IGNORE):
+    def validate(self, context, value):
 
         field = missing
         try:
@@ -215,7 +204,7 @@ class Field( Validator ):
             fieldcontext = copy.copy( context.require(self.field, context_only=True) )
             fieldcontext.error = None
 
-            result = self.validator(fieldcontext, value=field, cascade=False)
+            result = self.validator.__validate__(fieldcontext, value)
 
             if isinstance( result, ValidationState ):
                 try:
@@ -236,5 +225,3 @@ class Field( Validator ):
     def copy(self):
         self.__copy__ = True
         return self
-
-    on_blank = on_missing = on_validate

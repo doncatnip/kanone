@@ -60,7 +60,7 @@ class Email( Validator ):
         else:
             return self.info[0]
 
-    def on_validate( self, context, value):
+    def on_value( self, context, value):
         value = value.strip()
         mail = re.search(self.mail_re,value)
 
@@ -96,7 +96,7 @@ class NestedPost( Validator ):
         ( Dict()
         )
 
-    def on_validate( self, context, values ):
+    def on_value( self, context, values ):
         resultset = {}
 
         for (key, value) in values.iteritems():

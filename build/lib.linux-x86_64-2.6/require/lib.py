@@ -130,7 +130,7 @@ class ValidationState(object):
 
     def __do_validate__(self):
         if not self.__context__.validated:
-            self.__validator__.do_validate(self.__context__)
+            self.__validator__.__validate__(self.__context__, self.__values__)
             self.__context__.validated = True
 
         if self.__context__.error:
@@ -169,7 +169,7 @@ class ValidationState(object):
                 if context_only:
                     return context
 
-                validator.do_validate( context )
+                validator.__validate__( context )
                 context.validated = True
             else:
                 return TypeError("%s is not a Schema" % self.__validator__)
@@ -257,7 +257,7 @@ class ValidatorBase(object):
 
     def __call__( self, context, errback=None, value=missing, cascade=True):
 
-        result = self.do_validate( context, value )
+        result = self.__validate__( context, value )
         context.validated = True
 
         if context.error:
@@ -288,49 +288,13 @@ class ValidatorBase(object):
             self.info   = info
         return self
 
-    def do_validate(self, context, value=missing):
-        if value is IGNORE:
-            return value
+    def __validate__(self, context, value=missing):
 
         if value is missing:
             value = context.value
 
         try:
-            nextvalue = IGNORE
-
-            if isinstance( value, dict ) or isinstance( value, list ):
-                if len(value) == 0:
-                    value = None
-
-                if isinstance( value, dict):
-                    n = None
-                    log.debug("ITERITEMS %s" % value )
-                    for (key, val) in value.iteritems():
-                        if val is not None and val is not '':
-                            n = value
-                            break
-                    value = n
-
-                elif isinstance( value, list):
-                    n = None
-                    for val in value:
-                        if val is not None and val is not '':
-                            n = value
-                            break
-                    value = n
-
-            if value is missing:
-                nextvalue = self.on_missing(context)
-
-            elif value is None:
-                nextvalue = self.on_blank(context)
-
-            if nextvalue is not IGNORE:
-                value = nextvalue
-
-            if value not in [ missing, None ]:
-                value = self.on_validate(context, value)
-
+            value = self.validate( context, value )
         except DepencyError:
             pass
         except Invalid,e:
@@ -342,17 +306,23 @@ class ValidatorBase(object):
             if context.state.abort:
                 raise e
         else:
-            if value is not missing:
+            if value not in [missing, IGNORE]:
                 context.result = value
-            elif hasattr( context, 'result' ):
+            elif context.value is not missing:
+                context.result = context.value
+            elif value is not missing and hasattr( context, 'result' ):
                 del context.result
 
         return value
 
+    def validate( self, context, value ):
 
-    def on_validate(self, context, value):
-        return value
-
+        if value is missing:
+            return self.on_missing(context)
+        elif value is None:
+            return self.on_blank(context)
+        else:
+            return self.on_value(context, value)
 
 
 class SchemaBase( object ):

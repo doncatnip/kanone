@@ -12,10 +12,14 @@ class Dict(Validator):
     info = s.text.Dict.info
     msg = s.text.Dict.msg
 
-    def on_validate(self, context, value):
+    def on_value(self, context, value):
 
         if not isinstance(value, dict):
             raise Invalid(self.msg)
+
+        if len( value ) == 0:
+            return self.on_blank( context )
+
         return value
 
 class List(Validator):
@@ -23,17 +27,23 @@ class List(Validator):
     info = s.text.List.info
     msg = s.text.List.msg
 
-    def on_validate(self, context, value):
+    def on_value(self, context, value):
+
         if isinstance(value, str) or not isinstance(value, list) and not isinstance(value, tuple):
             raise Invalid( self.msg )
 
+
+        if len( value ) == 0:
+            return self.on_blank( context )
+
         return value
+
 
 class Boolean(Validator):
 
     info = s.text.Boolean.info
 
-    def on_validate(self, context, value):
+    def on_value(self, context, value):
         return bool(value)
 
 class String(Validator):
@@ -65,7 +75,7 @@ class String(Validator):
             return self.info[2]
         return self.info[0]
 
-    def on_validate(self, context, value):
+    def on_value(self, context, value):
 
         log.debug( value )
         if self.__transform__:
@@ -116,7 +126,7 @@ class Integer(Validator):
             return self.info[2]
         return self.info[0]
 
-    def on_validate(self, context, value):
+    def on_value(self, context, value):
         try:
             value = int(value)
         except (TypeError, ValueError):

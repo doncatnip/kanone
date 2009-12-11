@@ -4,6 +4,9 @@ from .. import settings as s
 
 import re, copy
 
+import logging
+log = logging.getLogger(__name__)
+
 class SchemaFailed(Exception):
     pass
 
@@ -60,6 +63,9 @@ class Validator ( ValidatorBase ):
 
         return validator
 
+    def on_value( self, context, value):
+        return value
+
     def on_missing(self, context):
         raise Invalid( Validator.msg[0] )
 
@@ -75,22 +81,6 @@ class Pass( Validator ):
         return IGNORE
 
 
-class Empty( Validator ):
-
-    info = s.text.Empty.info
-    msg  = s.text.Empty.msg
-
-    def __init__( self, default = IGNORE ):
-        self.default = default
-
-    def on_validate( self, context, value ):
-        raise Invalid( self.msg )
-
-    def on_blank( self, context ):
-        return self.default
-
-    on_missing = on_blank
-
 class Missing( Validator ):
 
     info = s.text.Missing.info
@@ -99,7 +89,7 @@ class Missing( Validator ):
     def __init__( self, default = IGNORE ):
         self.default = default
 
-    def on_validate( self, context, value ):
+    def on_value( self, context, value ):
         raise Invalid( self.msg )
 
     def on_missing( self, context ):
@@ -112,11 +102,40 @@ class Blank( Validator ):
     def __init__( self, default = IGNORE ):
         self.default = default
 
-    def on_validate( self, context, value):
+    def on_value( self, context, value):
+ 
+        if isinstance( value, ValidationState ):
+            value = value.__values__
+
+        if  not isinstance( value, str)\
+        and ( isinstance( value, dict ) or isinstance( value, list ) or isinstance( value, tuple) ):
+            n = missing
+            if len(value) > 0:
+                if isinstance( value, dict):
+                    for (key, val) in value.iteritems():
+                        if val not in [ missing, None, '']:
+                            n = value
+                            break
+
+                elif isinstance( value, list):
+                    for val in value:
+                        if val not in [ missing, None, '']:
+                            n = value
+                            break
+            if n is missing:
+                return self.default
+
         raise Invalid( self.msg )
 
     def on_blank( self, context ):
+ 
         return self.default
+
+class Empty( Blank, Missing ):
+
+    info = s.text.Empty.info
+    msg  = s.text.Empty.msg
+
 
 class Match( Validator ):
 
@@ -149,7 +168,7 @@ class Match( Validator ):
 
         return { 'type': self.type, 'required': required }
 
-    def on_validate(self, context, value):
+    def on_value(self, context, value):
 
         if type is Match.RAW:
             if value <> self.required:
@@ -159,8 +178,9 @@ class Match( Validator ):
                 raise Invalid( self.msg )
         elif type is Match.VALIDATOR:
             olderr = context.error
-            result = self.required.do_validate( context, value)
-            context.error = olderr
+
+            result = self.required.validate( context, value)
+
             if result <> value:
                 raise Invalid( self.msg )
 
@@ -180,33 +200,22 @@ class Not( Validator ):
         return { 'criteria': self.validator.info_get( context ) }
 
 
-    def on_validate(self, context, value=IGNORE):
-        if value is IGNORE:
-            value = context.value
-        if value is IGNORE:
-            return value
+    def validate(self, context, value ):
 
         olderr = context.error
-        context.error = None
 
-        result = self.validator( context, value=value, cascade=False)
+        try:
+            result = self.validator.validate( context, value)
+        except Invalid:
+            return value
 
         if isinstance( result, ValidationState ):
             try:
                 result = result.__cascade__( schema_failed )
             except SchemaFailed:
-                pass
-            else:
-                raise Invalid ( self.msg )
+                return value
 
-        if not context.error:
-            raise Invalid ( self.msg )
-
-        context.error = olderr
-
-        return value
-
-    on_blank = on_missing = on_validate
+        raise Invalid ( self.msg )
 
 
 class __WrapFunctions__( Validator ):
@@ -264,38 +273,27 @@ class And( __WrapFunctions__ ):
 
         return { 'criteria': criteria }
 
-    def on_validate(self, context, value = IGNORE ):
-        if value is IGNORE:
-            value = context.value
-        if value is IGNORE:
-            return value
-
-        result = missing
-
-        olderr = context.error
-        context.error = None
+    def validate(self, context, value ):
 
         result = value
-
         for validator in self.__validators__:
+            log.debug("AND: %s" % str(result))
+            log.debug("AND: %s" % validator)
+            try:
+                result = validator.validate(context, result)
+            except Invalid,e:
+                e[0].update( validator.info_get( context ) )
+                raise e
 
-            result = validator(context, value=result, cascade=False)
- 
+            log.debug("AND DONE - RESULT: %s" % str(result)) 
             if isinstance( result, ValidationState ):
                 res, failed = result.__cascade__( )
                 if failed:
 #                    return value
                     raise Invalid( self.msg )
 
-            if context.error:
-                raise context.error
-
-        context.error = olderr
-
+        log.debug("AND FINISHED: %s" % str(result) )
         return result
-
-    on_blank = on_missing = on_validate
-
 
 class Or( __WrapFunctions__):
 
@@ -318,14 +316,12 @@ class Or( __WrapFunctions__):
 
         return { 'criteria': criteria }
 
-    def on_validate(self, context, value = IGNORE):
+    def validate(self, context, value):
 
         if value is IGNORE:
             value = context.value
 
         errors = []
-        olderr = context.error
-        context.error = None
         lasterr = None
 
         for validator in self.__validators__:
@@ -342,7 +338,14 @@ class Or( __WrapFunctions__):
             else:
                 value_ = value
 
-            result = validator(context, value=value_, cascade=False)
+            try:
+                result = validator.validate(context, value_)
+            except Invalid, err:
+                errors.append( err[0] )
+                context.validated = False
+                lasterr = err
+                lasterr[0].update( validator.info_get( context ) )
+                continue
 
             if isinstance( result, ValidationState ):
                 try:
@@ -351,14 +354,6 @@ class Or( __WrapFunctions__):
                     context.validated = False
                     continue
 
-            if context.error:
-                errors.append( context.error[0] )
-                lasterr = context.error
-                context.error = None
-                context.validated = False
-                continue
-
-            context.error = olderr
             return result
 
         if lasterr:
@@ -370,15 +365,12 @@ class Or( __WrapFunctions__):
         raise Invalid( self.msg )
 
 
-    on_blank = on_missing = on_validate
-
-
 class Call( Validator ):
 
     def __init__( self, func ):
         self.__func__ = func
 
-    def on_validate( self, context, value=IGNORE ):
+    def validate( self, context, value ):
         return self.__func__( context, value )
 
-    on_missing = on_blank = on_validate
+
