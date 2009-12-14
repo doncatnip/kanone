@@ -8,7 +8,7 @@ from .. import settings as s
 from .simple import String, Dict
 from .core import Validator
 
-re_domain = re.compile ( r'^(xn--)?([a-z0-9]+(-[a-z0-9]+)*)$' )
+re_domain = re.compile ( r'^(xn--)?([a-z0-9]+([-a-z0-9]+)*)$' )
 
 class DomainInvalid(Exception):
     def __init__(self, msg, part):
@@ -20,6 +20,12 @@ class DomainInvalid(Exception):
 
     __repr__ = __str__
 
+class DomainInvalidCharacter( DomainInvalid ):
+    pass
+
+class DomainInvalidFormat( DomainInvalid ):
+    pass
+
 class DomainTooLong( DomainInvalid ):
     pass
 
@@ -27,6 +33,9 @@ def domain2puny( domain ):
     retval=''
 
     for part in domain.split('.'):
+        if part[2:4] == '--':
+            raise DomainInvalidFormat("Domain cannot contain a hyphen at pos 2-3", part=part)
+
         puny = part.encode('punycode')
 
         if not puny.endswith('-'):
@@ -37,7 +46,7 @@ def domain2puny( domain ):
         if len(next)>63:
             raise DomainTooLong("Domain part %s is too long", part=part)
         if not re_domain.match( next ):
-            raise DomainInvalid("Domain part %s contains invalid characters", part=part)
+            raise DomainInvalidCharacter("Domain part %s contains invalid characters", part=part)
 
         retval += next
 
@@ -92,7 +101,7 @@ class Domain( Validator ):
         try:
             domain = domain2puny( domain )
         except DomainInvalid,e:
-            raise Invalid( self.msg[3], part = e.part )
+            raise Invalid( e[0], part = e.part )
 
         if not self.__no_tld__:
             domain = "%s.%s" % (domain, tld)
