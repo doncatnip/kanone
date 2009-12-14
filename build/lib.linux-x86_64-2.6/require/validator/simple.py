@@ -29,7 +29,7 @@ class List(Validator):
 
     def on_value(self, context, value):
 
-        if isinstance(value, str) or not isinstance(value, list) and not isinstance(value, tuple):
+        if isinstance(value, str) or (not isinstance(value, list) and not isinstance(value, tuple)):
             raise Invalid( self.msg )
 
 
@@ -77,7 +77,6 @@ class String(Validator):
 
     def on_value(self, context, value):
 
-        log.debug( value )
         if self.__transform__:
             value = unicode(value)
         elif not isinstance( value, str) and not isinstance( value, unicode ):

@@ -23,6 +23,7 @@ class Schema( SchemaBase, Validator ):
     __validators__  = None
     __field_index__ = None
 
+    # TODO
     filled_min   = None
     filled_max   = None
 
@@ -68,7 +69,6 @@ class Schema( SchemaBase, Validator ):
 
             self.__validators__ = {}
             self.__field_index__ = []
-
             for (name,validator) in self.__fields__:
                 self.__validators__[name] = validator
                 self.__field_index__.append(name)
@@ -97,6 +97,10 @@ class Schema( SchemaBase, Validator ):
 class ForEach( SchemaBase, Validator ):
 
     info = "Every item must met the criteria"
+
+    # TODO
+    filled_min   = None
+    filled_max   = None
 
     def __prepare__( self, pre_validators, criteria, numeric_keys=True):
 
@@ -204,7 +208,7 @@ class Field( Validator ):
             fieldcontext = copy.copy( context.require(self.field, context_only=True) )
             fieldcontext.error = None
 
-            result = self.validator.__validate__(fieldcontext, value)
+            result = self.validator.__validate__(fieldcontext, field)
 
             if isinstance( result, ValidationState ):
                 try:

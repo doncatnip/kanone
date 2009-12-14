@@ -29,6 +29,13 @@ text.Or.msg             = "No criteria met"
 
 text.And.info           = "All criterias must be met"
 
+text.Domain.info        = "Valid domain name"
+text.Domain.msg         = ( 'Invalid TLD'
+                        , 'No subdomains allowed' 
+                        , 'Maxumum allowed subdomains: %(subdomain_max)'
+                        , 'Domain contains invalid characters'
+                        )
+
 text.Boolean.info       = "Must be a boolean"
 
 text.String.info        = ( "Must be a string"

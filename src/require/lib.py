@@ -11,6 +11,21 @@ import copy, logging
 log = logging.getLogger(__name__)
 
 
+# TODO
+# * immutable validators -  e.g. Dict, List, Integer, Float, Boolean, String, Schema
+#   * A Validator is considered immutable if only the class was returned by some
+#     SchemaBase.validator_get - e.g. fieldset( ( 'some_field',   Integer ) )
+#   * they are initiated only once per python instance by ValidationState and
+#     its __validate__ function is only called once per context
+# * Validators:
+#   * remove strip, len_min, len_max from simple.String
+#   * remove min, max from simple.Integer
+#   * new: simple.Float ( immutable )
+#   * new: core.Strip( immutable )               ( String )
+#   * new: core.Len( min=None, max=None )        ( String/List/Dict )
+#   * new: core.Limit( min=None, max=None )      ( Integer/Float )
+#   * new: schema.Merge( klass, other )
+# * differenciate between syntax and message/throw elements
 
 class missing:
     pass
@@ -56,7 +71,7 @@ def _append_fields(klass, key, fields):
 
 def _callback(klass):
     advice_data = klass.__dict__['__advice_data__']
-    log.debug("ITERITEMS: %s" % advice_data )
+
     for key,(data, callback)  in advice_data.iteritems():
         callback( klass, key, data)
 
@@ -223,27 +238,26 @@ class Context(UserDict):
         self[key] = Context( value, key, self.state, root_state=getattr(self,'require',None))
         return self[key]
 
-    def pack(self):
-        field = {}
+    def pack(self, klass=dict):
+        field = klass()
 
         child=None
         for (key, child) in self.iteritems():
-
-            field[key.upper()] = child.pack()
+            if not 'fields' in field:
+                field['fields'] = {}
+            field['fields'][key] = child.pack()
 
         if self.error and self.error[0]['msg']:
             field["error"] = self.error[0]
 
-        if child is None:
-            if self.value is not missing:
-                field["value"] = self.value
+        if self.value is not missing:
+            field["value"] = self.value
 
-            if hasattr(self, "result"):
-                if isinstance(self.result, ValidationState ):
-                    result,failed = self.result.__cascade__()
-                else:
-                    result = self.result
-                field["result"] = result
+        if hasattr(self, "result"):
+            if not isinstance(self.result, ValidationState ):
+                field["result"] = self.result
+            else:
+                field["fieldindex"] = self.result.__validator__.field_index_get( self )
 
         return field
 
@@ -266,6 +280,9 @@ class ValidatorBase(object):
 
         elif isinstance( result, ValidationState ) and cascade:
             result, failed = result.__cascade__( errback=errback )
+
+        if isinstance( result, dict ) and not isinstance( result, Pulp ):
+            result = Pulp( result )
 
         return result
 
@@ -301,16 +318,14 @@ class ValidatorBase(object):
             if not 'info' in e[0]:
                 e[0].update( self.info_get( context ) )
             context.error = e
-            if hasattr(context,'result'):
-                del context.result
             if context.state.abort:
                 raise e
         else:
             if value not in [missing, IGNORE]:
                 context.result = value
-            elif context.value is not missing:
+            elif context.value not in [missing, IGNORE]:
                 context.result = context.value
-            elif value is not missing and hasattr( context, 'result' ):
+            elif value is missing and hasattr( context, 'result' ):
                 del context.result
 
         return value

@@ -8,19 +8,38 @@ from .. import settings as s
 from .simple import String, Dict
 from .core import Validator
 
+re_domain = re.compile ( r'^(xn--)?([a-z0-9]+(-[a-z0-9]+)*)$' )
+
+class DomainInvalid(Exception):
+    def __init__(self, msg, part):
+        self.part = part
+        Exception.__init__(self, msg)
+
+    def __str__(self ):
+        return self[0] % self.part
+
+    __repr__ = __str__
+
+class DomainTooLong( DomainInvalid ):
+    pass
+
 def domain2puny( domain ):
     retval=''
 
     for part in domain.split('.'):
-        try:
-            part.encode('ascii')
-        except:
-            try:
-                part='xn--'+part.encode('punycode')
-            except:
-                return False
+        puny = part.encode('punycode')
 
-        retval += part
+        if not puny.endswith('-'):
+            next='xn--'+puny
+        else:
+            next = part
+
+        if len(next)>63:
+            raise DomainTooLong("Domain part %s is too long", part=part)
+        if not re_domain.match( next ):
+            raise DomainInvalid("Domain part %s contains invalid characters", part=part)
+
+        retval += next
 
     return retval
 
@@ -37,6 +56,48 @@ def resolve_domain( domain ):
         return False
     return True
 
+
+class Domain( Validator ):
+    info = s.text.Domain.info
+    msg = s.text.Domain.msg
+
+    re_domain_tld = r'^(.+)\.([\w]{2,})$'
+
+    pre_validate\
+        ( String()
+        )
+
+
+    def __init__( self, no_tld = False, subdomain_max=None ):
+        self.__no_tld__         = no_tld
+        self.__subdomain_max__   = subdomain_max
+
+    def on_value( self, context, value ):
+        if not self.__no_tld__:
+            domain = self.re_domain_tld.match( value )
+            if not domain or len(domain.groups())<2:
+                raise Invalid( self.msg[0] )
+
+            domain, tld = domain.groups()
+        else:
+            domain = value
+
+        if self.__subdomain_max__ is not None:
+            if domain.count('.')>(self.__subdomain_max__+int(not self.__no_tld__)):
+                if self.__subdomain_max__ == 0:
+                    raise Invalid( self.msg[1] )
+                else:
+                    raise Invalid( self.msg[2], subdomain_max= self.__subdomain_max__ )
+
+        try:
+            domain = domain2puny( domain )
+        except DomainInvalid,e:
+            raise Invalid( self.msg[3], part = e.part )
+
+        if not self.__no_tld__:
+            domain = "%s.%s" % (domain, tld)
+
+        return domain
 
 class Email( Validator ):
 
@@ -67,9 +128,10 @@ class Email( Validator ):
         if not mail or len(mail.groups()) != 3:
             raise Invalid( self.msg[0] )
 
-        domain = domain2puny( mail.group(2) )
-        if domain == False:
-            raise Invalid( self.msg[2], domain = mail.group(2) )
+        try:
+            domain = domain2puny( mail.group(2) )
+        except DomainInvalid,e:
+            raise Invalid( self.msg[2], domain = mail.group(2), part = e.part )
 
         localpart = mail.group(1)
         try:

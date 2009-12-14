@@ -101,13 +101,18 @@ class Blank( Validator ):
 
     def __init__( self, default = IGNORE ):
         self.default = default
+        self.check_container = \
+            isinstance( default, dict )\
+            or  isinstance( default, list )\
+            or  isinstance( default, tuple )
 
     def on_value( self, context, value):
  
         if isinstance( value, ValidationState ):
             value = value.__values__
 
-        if  not isinstance( value, str)\
+        if self.check_container \
+        and not isinstance( value, str)\
         and ( isinstance( value, dict ) or isinstance( value, list ) or isinstance( value, tuple) ):
             n = missing
             if len(value) > 0:
@@ -117,7 +122,7 @@ class Blank( Validator ):
                             n = value
                             break
 
-                elif isinstance( value, list):
+                elif isinstance( value, list) or isinstance( value, tuple ):
                     for val in value:
                         if val not in [ missing, None, '']:
                             n = value
@@ -158,29 +163,24 @@ class Match( Validator ):
         self.required = required
 
     def __extra__( self, context):
-
-        if type is Match.RAW:
+        if self.type is Match.RAW:
             required = self.required
-        elif type is Match.REGEX:
+        elif self.type is Match.REGEX:
             required = self.required.pattern
-        elif type is Match.VALIDATOR:
+        elif self.type is Match.VALIDATOR:
             required = self.required.info_get( context )
 
         return { 'type': self.type, 'required': required }
 
-    def on_value(self, context, value):
-
-        if type is Match.RAW:
+    def validate(self, context, value):
+        if self.type is Match.RAW:
             if value <> self.required:
                 raise Invalid( self.msg )
-        elif type is Match.REGEX:
+        elif self.type is Match.REGEX:
             if not self.pattern.match(value):
                 raise Invalid( self.msg )
-        elif type is Match.VALIDATOR:
-            olderr = context.error
-
+        elif self.type is Match.VALIDATOR:
             result = self.required.validate( context, value)
-
             if result <> value:
                 raise Invalid( self.msg )
 
@@ -253,8 +253,6 @@ class __WrapFunctions__( Validator ):
 
 class And( __WrapFunctions__ ):
 
-    info = s.text.And.info
-
     def __init__(self, *criteria):
 
         criteria = list(criteria)
@@ -264,6 +262,7 @@ class And( __WrapFunctions__ ):
 
         self.__validators__ = criteria
         self.msg = None
+        self.info = None
 
     def __extra__( self, context):
         criteria = []
@@ -277,22 +276,21 @@ class And( __WrapFunctions__ ):
 
         result = value
         for validator in self.__validators__:
-            log.debug("AND: %s" % str(result))
-            log.debug("AND: %s" % validator)
             try:
                 result = validator.validate(context, result)
             except Invalid,e:
-                e[0].update( validator.info_get( context ) )
+                if not self.info:
+                    e[0].update( validator.info_get( context ) )
+                else:
+                    e[0].update( self.info_get( context ) )
                 raise e
 
-            log.debug("AND DONE - RESULT: %s" % str(result)) 
             if isinstance( result, ValidationState ):
                 res, failed = result.__cascade__( )
                 if failed:
 #                    return value
                     raise Invalid( self.msg )
 
-        log.debug("AND FINISHED: %s" % str(result) )
         return result
 
 class Or( __WrapFunctions__):
