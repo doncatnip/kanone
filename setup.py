@@ -10,6 +10,6 @@ setup(
     url = 'hostloco.com',
     packages = find_packages('src'),
     package_dir={'':'src'},
-    namespace_packages=['require' ],
+#    namespace_packages=['require' ],
     include_package_data=True,
 )

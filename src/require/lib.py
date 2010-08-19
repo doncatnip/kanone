@@ -2,7 +2,7 @@ from zope.interface.advice import addClassAdvisor
 from UserDict import UserDict
 import sys
 
-from pyped.util.utypes import Pulp
+from pulp import Pulp
 
 from .error import DepencyError, IsMissing, Invalid
 from . import settings
@@ -116,6 +116,7 @@ class ValidationState(object):
         self.__context__ = context
         self.__validator__ = validator
         self.__values__ = values
+        self.__results = None
 
     def __cascade__(self, errback=None):
         result = Pulp()
@@ -171,34 +172,27 @@ class ValidationState(object):
 
             if isinstance(self.__validator__,SchemaBase):
 
-                validator = self.__validator__.validator_get( self.__context__, attr )
-
-                self.__do_validate__()
-
                 if attr in self.__values__:
                     value = self.__values__[attr]
                 else:
                     value = missing
 
                 context = self.__context__.new(attr, value)
-                if context_only:
-                    return context
-
+                validator = self.__validator__.validator_get( context, attr )
                 validator.__validate__( context )
                 context.validated = True
             else:
                 return TypeError("%s is not a Schema" % self.__validator__)
 
+
         if context_only:
             return self.__context__[attr]
-
         if self.__context__[attr].error:
             raise DepencyError( "Got an error for requested field '%(field)s" )
         elif hasattr(self.__context__[attr], 'result'):
             return self.__context__[attr].result
         else:
             raise IsMissing("Field '%(field)s' is missing", field = attr)
-
 
     def __call__(self, attr, context_only=False):
         path = attr.split('.')
@@ -207,15 +201,37 @@ class ValidationState(object):
             part = path.pop(0)
             if not path and context_only:
                 part = "%s_context" % part
+
             valid = getattr(valid, part)
 
         return valid
+
+    def __results__(self ):
+        if self.__results is None:
+            field_index = self.__validator__.field_index_get( self.__context__ )
+            self.__results = []
+            for key in field_index:
+                value = self( key, context_only=True )
+                if hasattr( value, 'result' ):
+                    self.__results.append( value.result )
+        return self.__results
+
+    def __iter__(self ):
+        field_index = self.__validator__.field_index_get( self.__context__ )
+
+        for key in field_index:
+            value = self( key, context_only=True )
+            if hasattr( value, 'result' ):
+                yield (key, value.result)
 
 class Context(UserDict):
 
     validated = False
 
-    def __init__(self, value, key="result", state=None, root_state=None):
+    def __init__(self, value, keypath=None, state=None, root_state=None):
+        if keypath is None:
+            keypath = [ ]
+
         if value == '':
             value = None
 
@@ -224,7 +240,12 @@ class Context(UserDict):
             state = Pulp()
         self.state = state
 
-        self.key = str(key)
+        self.keypath    = keypath
+        if not keypath:
+            self.key = 'result'
+        else:
+            self.key = keypath[-1]
+
         self.error = None
         self.__objstate__ = Pulp()
 
@@ -235,17 +256,17 @@ class Context(UserDict):
 
     def new(self, key, value):
         key = str(key)
-        self[key] = Context( value, key, self.state, root_state=getattr(self,'require',None))
+        self[key] = Context( value, self.keypath + [ key ], self.state, root_state=getattr(self,'require',None))
         return self[key]
 
-    def pack(self, klass=dict):
+    def pack(self, klass=dict, exclude_result=False):
         field = klass()
 
         child=None
         for (key, child) in self.iteritems():
             if not 'fields' in field:
                 field['fields'] = {}
-            field['fields'][key] = child.pack()
+            field['fields'][key] = child.pack( klass, exclude_result )
 
         if self.error and self.error[0]['msg']:
             field["error"] = self.error[0]
@@ -255,7 +276,8 @@ class Context(UserDict):
 
         if hasattr(self, "result"):
             if not isinstance(self.result, ValidationState ):
-                field["result"] = self.result
+                if not exclude_result:
+                    field["result"] = self.result
             else:
                 field["fieldindex"] = self.result.__validator__.field_index_get( self )
 

@@ -137,3 +137,20 @@ class Integer(Validator):
             raise Invalid( self.msg[1] )
 
         return value
+
+class Float( Integer ):
+    info = s.text.Float.info
+    msg = s.text.Float.msg
+
+    def on_value(self, context, value):
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            raise Invalid( self.msg[0] )
+
+        if (self.min is not None and value<self.min):
+            raise Invalid( self.msg[1] )
+        elif (self.max is not None and value>self.max):
+            raise Invalid( self.msg[1] )
+
+        return value

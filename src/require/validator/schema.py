@@ -2,7 +2,7 @@ from ..lib import pre_validate, missing, IGNORE, ValidationState, SchemaBase, Va
 from ..error import *
 from .. import settings as s
 
-from .core import Validator, Or, SchemaFailed, schema_failed, Not, Empty, Call, Pass
+from .core import Validator, Or, SchemaFailed, schema_failed, Not, Empty, Call, Pass, Match
 from .simple import List, Dict
 
 import re, copy
@@ -198,17 +198,22 @@ class Field( Validator ):
 
     def validate(self, context, value):
 
-        field = missing
-        try:
-            field = context.require( self.field )
-        except (IsMissing, DepencyError):
-            pass
+        if self.field.startswith('(this).'):
+            field = "%s%s%s" % \
+                ( '.'.join(context.keypath[:-1])
+                , [ '', '.' ][len(context.keypath)>1]
+                , self.field[7:]
+                )
+        else:
+            field = self.field
+
+        fieldcontext = copy.copy( context.require(field, context_only=True) )
+        fieldcontext.error = None
 
         if self.validator:
-            fieldcontext = copy.copy( context.require(self.field, context_only=True) )
-            fieldcontext.error = None
+            fieldvalue = getattr(fieldcontext, 'result', fieldcontext.value)
 
-            result = self.validator.__validate__(fieldcontext, field)
+            result = self.validator.__validate__(fieldcontext, fieldvalue)
 
             if isinstance( result, ValidationState ):
                 try:
@@ -218,8 +223,9 @@ class Field( Validator ):
 
             if fieldcontext.error:
                 raise Invalid( fieldcontext.error[0]['msg'] )
+
         else:
-            result = field
+            result = fieldcontext.result
 
         if self.__copy__:
             return result

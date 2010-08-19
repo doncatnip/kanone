@@ -59,7 +59,8 @@ class Validator ( ValidatorBase ):
         else:
             self.__init__( )
 
-        validator = And ( *pre_validators  ) & self
+        validator = And ( *pre_validators + [ self ] )
+        validator.text = self.text
 
         return validator
 
@@ -151,6 +152,8 @@ class Match( Validator ):
     info = s.text.Match.info
     msg  = s.text.Match.msg
 
+    __case_insensitive__ = False
+
     def __init__(self, required):
         if not isinstance( required, ValidatorBase ):
             if callable(getattr( required, 'match', None )):
@@ -173,18 +176,28 @@ class Match( Validator ):
         return { 'type': self.type, 'required': required }
 
     def validate(self, context, value):
-        if self.type is Match.RAW:
-            if value <> self.required:
-                raise Invalid( self.msg )
-        elif self.type is Match.REGEX:
+
+        if self.type is Match.REGEX:
             if not self.pattern.match(value):
                 raise Invalid( self.msg )
+            return value
+        elif self.type is Match.RAW:
+            compare = self.required
         elif self.type is Match.VALIDATOR:
-            result = self.required.validate( context, value)
-            if result <> value:
+            compare = self.required.validate( context, value)
+
+        if self.__case_insensitive__:
+            compare = str(compare).lower()
+            value = str(value).lower()
+
+        if value <> compare:
                 raise Invalid( self.msg )
 
         return value
+
+    def case_insensitive( self):
+        self.__case_insensitive__ = True
+        return self
 
 class Not( Validator ):
 
@@ -251,9 +264,9 @@ class __WrapFunctions__( Validator ):
 
         return self.__function_wraps__[key]
 
-class And( __WrapFunctions__ ):
+class And( Validator ):
 
-    def __init__(self, *criteria):
+    def __init__(self, *criteria ):
 
         criteria = list(criteria)
         for pos in range(len(criteria)):
@@ -279,19 +292,21 @@ class And( __WrapFunctions__ ):
             try:
                 result = validator.validate(context, result)
             except Invalid,e:
+                if self.msg:
+                    e[0]['msg'] = self.msg
                 if not self.info:
                     e[0].update( validator.info_get( context ) )
                 else:
                     e[0].update( self.info_get( context ) )
                 raise e
 
-            if isinstance( result, ValidationState ):
-                res, failed = result.__cascade__( )
-                if failed:
-#                    return value
-                    raise Invalid( self.msg )
+           #if isinstance( result, ValidationState ):
+           #    res, failed = result.__cascade__( )
+           #    if failed:
+           #        raise Invalid( self.msg )
 
         return result
+
 
 class Or( __WrapFunctions__):
 
@@ -345,12 +360,12 @@ class Or( __WrapFunctions__):
                 lasterr[0].update( validator.info_get( context ) )
                 continue
 
-            if isinstance( result, ValidationState ):
-                try:
-                    result.__cascade__( errback = schema_failed )
-                except SchemaFailed:
-                    context.validated = False
-                    continue
+            #   if isinstance( result, ValidationState ):
+            #       try:
+            #           result.__cascade__( errback = schema_failed )
+            #       except SchemaFailed:
+            #           context.validated = False
+            #           continue
 
             return result
 

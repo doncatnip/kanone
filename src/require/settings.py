@@ -1,4 +1,4 @@
-from pyped.util.utypes import Pulp
+from pulp import Pulp
 from .error import Invalid
 
 text = Pulp()
@@ -59,6 +59,20 @@ text.Integer.msg      = ( "The entered value is not a number"
                          , "The number is too small"
                          , "The number is too big"
                          )
+
+
+text.Float.info       = ( "Must be a float"
+                         , "A number greater than or equal to %(min)s is required"
+                         , "A number smaller than or equal to %(max)s is required"
+                         , "A number between %(min) and %(max)s is required"
+                         )
+
+text.Float.msg      = ( "The entered value is not a number"
+                         , "The number is too small"
+                         , "The number is too big"
+                         )
+
+
 
 text.Dict.info          = "Must be a dictionary"
 text.Dict.msg           = "Received value is not a dictionary"
