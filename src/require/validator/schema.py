@@ -210,7 +210,7 @@ class Field( Validator ):
         fieldcontext = copy.copy( context.require(field, context_only=True) )
         fieldcontext.error = None
 
-        if self.validator:
+        if self.validator is not None:
             fieldvalue = getattr(fieldcontext, 'result', fieldcontext.value)
 
             result = self.validator.__validate__(fieldcontext, fieldvalue)
@@ -224,11 +224,11 @@ class Field( Validator ):
             if fieldcontext.error:
                 raise Invalid( fieldcontext.error[0]['msg'] )
 
+            if self.__copy__:
+                return result
         else:
-            result = fieldcontext.result
-
-        if self.__copy__:
-            return result
+            if (hasattr(fieldcontext,'result')):
+                return fieldcontext.result
 
         return value
 
