@@ -1,5 +1,5 @@
-from ..lib import pre_validate, missing, IGNORE, ValidationState, SchemaBase, ValidatorBase
-from ..error import *
+from ..lib import MISSING, IGNORE, ValidatorBase
+from ..error import Invalid
 from .. import settings as s
 
 from .core import Validator, Or, SchemaFailed, schema_failed, Not, Empty, Call, Pass, Match
@@ -10,66 +10,100 @@ import re, copy
 import logging
 log = logging.getLogger(__name__)
 
-convert_info = 'Will be converted to a dictionary'
 
+class Schema( Validator ):
 
-class Schema( SchemaBase, Validator ):
-
-    info = s.text.Schema.info
-    msg = s.text.Schema.msg
-
-    allow_extra_fields = False
+    messages\
+        ( fail='Validation failed (errors: %(errors)s )'
+        , extraFields='No extra fields allowed (extra fields: %(extraFields)s)'
+        , type='Invalid input type (must be dict, list or tuple)'
+        )
 
     __validators__  = None
     __field_index__ = None
 
-    # TODO
-    filled_min   = None
-    filled_max   = None
-
-    def __prepare__( self, pre_validators, *validators ):
+    def __init__( self, *validators, allow_extraFields=False ):
 
         if validators:
-            self.__fields__ = validators
+            self.__fieldset__ = validators
 
-        pre_validators.insert\
-            ( 0
-            ,   ( Dict()
-                | ( List() & Call( self.list_convert ).text( info=convert_info ) )
-                )
-            )
+        self.allow_extraFields = False
 
-        return pre_validators
 
-    def list_convert( self, context, values ):
+    def populate( self, context, value ):
+        if value in [None, MISSING]:
+            return value
 
-        valuelist = values
-        values = {}
+        extraFields = []
 
-        field_index = self.field_index_get( context )
+        typeError = False
+        errors = []
+        result = {}
 
-        for pos in range(len(valuelist)):
-            try:
-                key = field_index[pos]
-            except IndexError,e:
-                if not self.allow_extra_fields:
-                    raise Invalid( self.msg[0] )
-                break
+        field_index = list(self.field_index_get( context ))
 
-            values[key] = valuelist[pos]
+        if isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set):
+            valuelist = value
+            value = {}
 
-        return values
+            for pos in range(len(valuelist)):
+                try:
+                    key = field_index[pos]
+                except IndexError,e:
+                    if not self.allow_extraFields:
+                        extraFields.append( key )
+                else:
+                    self.__newContext__( context, result, errors, key, valuelist[pos] )
+                    del field_index[pos]
+
+        elif isinstance( value, dict ):
+            for (key,val) in value:
+                if not key in field_index:
+                    extraFields.append( key )
+                else:
+                    self.__newContext__( context, result, errors, key, val )
+                    del field_index[field_index.index(key)]
+        else:
+            typeError = True
+
+        # fill missing fields
+        for key in field_index:
+            self.__newContext__( context, result, errors, key, value )
+
+        if typeError:
+            context.data( self ).error = self.invalid( 'type' )
+        elif extraFields:
+            context.data( self ).error = self.invalid( 'extraFields',extraFields=extraFields)
+        elif errors:
+            context.data( self ).error = self.invalid( 'fail',errors=errors)
+
+        context.data( self ).result = result
+
+        return value
+
+    def on_value(self, context, value):
+        if context.data( self ).error:
+            raise context.data( self ).error
+        return context.data( self ).result
+
+    def __newContext__( self, context, result, errors, key, value ):
+        fieldcontext = context(key)
+        fieldcontext.validator = self.validator_get( context, str(key) )
+        values[key] = fieldcontext.value = value
+        try:
+            result[key] = fieldcontext.validate()
+        except Invalid,e:
+            errors.append( e )
+
 
     def field_index_get( self, context ):
-
-        if self.__field_index__ is None:
-
-            if not hasattr(self, '__fields__'):
+        if self.__field_index__ is none:
+            if not hasattr(self, '__fieldset__'):
                 raise TypeError('No fields defined in this schema: %s' % self.__class__.__name__)
 
             self.__validators__ = {}
             self.__field_index__ = []
-            for (name,validator) in self.__fields__:
+            for (name,validator) in self.__fieldset__:
                 self.__validators__[name] = validator
                 self.__field_index__.append(name)
 
@@ -79,133 +113,107 @@ class Schema( SchemaBase, Validator ):
         field_index = self.field_index_get( context )
 
         if key not in self.__validators__:
-            raise AttributeError("No Validator for field '%s' set" % key)
+            raise AttributeError("No Validator for field '%s' set" % context.path)
         return self.__validators__[key]
 
-    def __extra__(self, context):
-        return {'fields' : self.field_index_get( context ) }
 
-    def on_value( self, context, values ):
 
-        field_index = self.field_index_get( context )
-        for (key, value) in values.iteritems():
-            if not key in field_index and not self.allow_extra_fields:
-                raise Invalid( self.msg[1], field=key )
+class ForEach( Schema ):
 
-        return self.vstate_get(context, values)
+    messages\
+        ( numericKeys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
+        )
 
-class ForEach( SchemaBase, Validator ):
-
-    info = "Every item must met the criteria"
-
-    # TODO
-    filled_min   = None
-    filled_max   = None
-
-    def __prepare__( self, pre_validators, criteria, numeric_keys=True):
-
-        list_check = ( List() & Call( self.list_convert ).text( info=convert_info )  )
-        pre_validators.insert(0, Dict() | list_check )
+    def __init__( self, criteria, numericKeys=True):
 
         if not isinstance( criteria, ValidatorBase ):
             criteria = Match( criteria )
 
-        self.numeric_keys = numeric_keys
+        self.numericKeys = numericKeys
         self.validator = criteria
 
-        return pre_validators
+    def populate( self, context, value ):
+        typeError = False
+        result = {}
+        errors = []
 
-    def list_convert( self, context, values ):
-        retval = {}
+        numericKeysError = []
 
-        for pos in range(len(values)):
-            retval[str(pos)] = values[pos]
+        if isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set):
+            for pos in range(len(value)):
+                self.__newContext__( context, result, errors, pos, value[pos] )
 
-        return retval
+        elif isinstance( value, dict):
+            pos=0
+            for (key, val) in value:
+                if self.numericKeys:
+                    try:
+                        key = int(key)
+                    except ValueError,e:
+                        numericKeysError.append(key)
+                    else:
+                        if key != pos:
+                            numericKeysError.append(key)
+                    finally:
+                        pos+=1
 
-    def field_index_get( self, context, value=missing ):
-        objstate = context.objstate(self)
-        if 'field_index' not in objstate:
-            if value is missing:
-                value = context.value
+                self.__newContext__( context, result, errors, key, val)
+        else:
+            typeError = True
 
-            if value not in [missing, None]:
-                if not self.numeric_keys:
-                    field_index = context.value.keys()
-                else:
-                    field_index = [ str(pos) for pos in range(len(context.value)) ]
+        if typeError:
+            context.data( self ).error = self.invalid('type')
+        elif numericKeysError:
+            context.data( self ).error = self.invalid('numericKeysError', keys=numericKeysError)
+        elif errors:
+            context.data( self ).error = self.invalid('fail', errors=errors)
 
-                objstate.field_index = field_index
+        if result:
+            context.data( self ).result = result
 
-        return objstate.field_index
-
-    def __extra__(self, context):
-        retval = { 'numeric_keys': self.numeric_keys }
-        if not self.numeric_keys:
-            retval['fields'] = self.field_index_get( context )
-        return retval
+        return value
 
     def validator_get( self, context, key):
         return self.validator
 
-    def on_value(self, context, value):
-
-        field_index = self.field_index_get( context )
-
-        values = dict(value)
-
-        for key in field_index:
-            elem = values.pop(key, missing)
-            if elem is missing:
-                raise Invalid( "Invalid item positions, please use 0,1,2,...", positions = values.keys() )
-
-            elemcontext = context.new(key, elem)
-            self.validator.__validate__( elemcontext, elem )
-
-        if values:
-            raise Invalid( "Invalid item positions, please use 0,1,2,...", positions = values.keys() )
-
-        return self.vstate_get(context, value)
 
 class Field( Validator ):
 
-    info = s.text.Field.info
-    msg = s.text.Field.msg
+    messages\
+        ( notFound='Field %(path)s not found'
+        )
 
-    __copy__ = False
+    def __init__(self, path, criteria=None, copy=False):
+        self.path = path
 
-    def __init__(self, field, criteria=None):
-        self.field      = field
+        self.copy = copy
 
         if criteria is None:
-            self.copy()
-
-        elif  not isinstance( criteria, Validator):
+            self.copy = True
+        elif not isinstance( criteria, Validator):
             criteria = Match( criteria )
+        if criteria is not None:
+            self.__update__ = criteria.__update__
 
         self.validator  = criteria
 
-    def __extra__(self, context):
-        retval = { 'field': self.field }
-        if self.validator is not None:
-            retval['criteria'] = self.validator.info_get(context)
-        return retval
+    def populate(self, context, value):
+        
+        if self.field.startswith('(root).'):
+            path = self.field[7:]
+            parent = self.root
+        else:
+            path = self.path.split('.')
+            parent = self
 
-    def __info__(self, context ):
-        if self.validator is None:
-            return Field.info[0]
-        return Field.info[1]
+
+            parent = self.parent
+
+        if self.validator is not None:
+            return self.validator.populate( fieldcontext, value )
+        return value
 
     def validate(self, context, value):
-
-        if self.field.startswith('(this).'):
-            field = "%s%s%s" % \
-                ( '.'.join(context.keypath[:-1])
-                , [ '', '.' ][len(context.keypath)>1]
-                , self.field[7:]
-                )
-        else:
-            field = self.field
 
         fieldcontext = copy.copy( context.require(field, context_only=True) )
         fieldcontext.error = None

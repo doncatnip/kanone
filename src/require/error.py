@@ -1,22 +1,23 @@
 class Invalid(Exception):
 
-    def __init__(self, msg, **kwargs):
-        kwargs = self.parse(kwargs)
-        kwargs['msg'] = msg
-        Exception.__init__(self, kwargs)
+    def __init__(self, type, msg, **kwargs):
+        self.msg = msg
+        self.type = type
+        self.extra = dict(kwargs)
+        Exception.__init__(self,"%s:%s" (type,msg),self.extra)
 
-    @staticmethod
-    def parse(kwargs):
-        ret = dict(kwargs)
-        if 'extra' in ret:
-            _extra = ret.pop('extra')
-            for (key, value) in _extra.iteritems():
-                ret[key] = value
+    def __str__(self):
+        if self.context is not None:
+            return self.context.root.errorFormatter( context, self )
+        else:
+            return self.__repr__()
 
-        return ret
+class DepencyError( Invalid ):
 
-class DepencyError(Invalid):
-    pass
+    def __init__(self, context ):
+        self.context = context
+        self.msg = "Depency Error"
+        self.type = 'depency'
+        self.extra = {}
+        Exception.__init__(self,msg)
 
-class IsMissing(Invalid):
-    pass

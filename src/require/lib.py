@@ -4,34 +4,31 @@ import sys
 
 from pulp import Pulp
 
-from .error import DepencyError, IsMissing, Invalid
-from . import settings
+from .error import ContextNotFound, Invalid
 
 import copy, logging
 log = logging.getLogger(__name__)
 
 
 # TODO
-# * immutable validators -  e.g. Dict, List, Integer, Float, Boolean, String, Schema
-#   * A Validator is considered immutable if only the class was returned by some
-#     SchemaBase.validator_get - e.g. fieldset( ( 'some_field',   Integer ) )
-#   * they are initiated only once per python instance by ValidationState and
-#     its __validate__ function is only called once per context
 # * Validators:
-#   * remove strip, len_min, len_max from simple.String
+#   * let web.Email inherit from String
 #   * remove min, max from simple.Integer
-#   * new: simple.Float ( immutable )
-#   * new: core.Strip( immutable )               ( String )
-#   * new: core.Len( min=None, max=None )        ( String/List/Dict )
-#   * new: core.Limit( min=None, max=None )      ( Integer/Float )
+#   * add option strip to String
+#   * new: simple.Float()
+#   * new: core.Limit( min=None, max=None )   ( Dict/List/Integer/Float )
+#   * new: core.Len( min=None, max=None )     ( String/Integer/Float )
 #   * new: schema.Merge( klass, other )
-# * differenciate between syntax and message/throw elements
 
-class missing:
+class PASS:
     pass
 
-class IGNORE:
-    pass
+class __MISSING__:
+    def __str__(self):
+        return ''
+
+MISSING = __MISSING__()
+
 
 def _append_list(klass, key, data):
     setattr\
@@ -40,11 +37,28 @@ def _append_list(klass, key, data):
         , list(getattr(klass,key,[])) + list(data)
         )
 
+def _merge_dict(klass, key, data):
+    fields = dict(getattr\
+        ( klass
+        , '__%s__', % key
+        , {}
+        ))
 
-def _append_fields(klass, key, fields):
+    fields.update( data )
+
+    setattr\
+        ( klass
+        , "__%s__" % key
+        , fields
+        )
+   
+def _merge_fields(klass, key, fields):
+    if (len(fields)%2 != 0) or (len(fields)<2):
+        raise SyntaxError("Invalid number of fields supplied (%s). Use: %s(key, value, key, value, …)" % (len(fields),key)
+
     prev_fields = getattr\
         ( klass
-        , '__fields__'
+        , '__%s__' % key
         , []
         )
 
@@ -52,20 +66,24 @@ def _append_fields(klass, key, fields):
 
     field_index = {}
     pos = 0
-    for (name, validator) in prev_fields:
+    for (name, value) in prev_fields:
         field_index[name] = pos
-        pos+=0
+        pos+=1
 
-    for (name, validator) in fields:
-        if name in field_index:
-            newfields[field_index[name]] = (name,validator)
+    pos = 0
+    for value in fields:
+        if pos%2 != 0:
+            if name in field_index:
+                newfields[field_index[name]] = (name,value)
+            else:
+                newfields.append((name,value))
         else:
-            newfields.append((name,validator))
-
+            name = value
+        pos += 1
 
     setattr\
         ( klass
-        , '__fields__'
+        , '__%s__' % key
         , newfields
         )
 
@@ -85,13 +103,13 @@ def _advice(name, callback,  data, depth=3 ):
 
     if (locals is frame.f_globals) or (
         ('__module__' not in locals) and sys.version_info[:3] > (2, 2, 0)):
-        raise TypeError("%s can be used only from a class definition." % name)
+        raise SyntaxError("%s can be used only from a class definition." % name)
 
     if not '__advice_data__' in locals:
         locals['__advice_data__'] = {}
 
     if name in locals['__advice_data__']:
-        raise TypeError("%s can be used only once in a class definition." % name)
+        raise SyntaxError("%s can be used only once in a class definition." % name)
 
 
     if not locals['__advice_data__']:
@@ -107,276 +125,199 @@ def post_validate(*validators):
     _advice('post_validate', _append_list,  validators)
 
 def fieldset(*fields):
-    _advice('fieldset', _append_fields, fields )
+    _advice('fieldset', _merge_fields, fields )
+
+def messages(**fields):
+    _advice('messages', _merge_dict, fields )
 
 
-class ValidationState(object):
+def defaultErrorFormatter( context, error ):
+    return error.msg % (error.extra)
 
-    def __init__(self, validator, context, values ):
-        self.__context__ = context
-        self.__validator__ = validator
-        self.__values__ = values
-        self.__results = None
 
-    def __cascade__(self, errback=None):
-        result = Pulp()
+class DataHolder( object ):
+    def __init__(self):
+        __data__ = {}
 
-        failed = False
-        field_index = self.__validator__.field_index_get( self.__context__ )
+    def __call__(self, validator):
+        if not validator in self.__data__
+            self.__data__[ validator ] = Pulp()
+        return self.__data__[ validator ]
 
-        for key in field_index:
+class Context( dict ):
+    __orig_value__ = MISSING
+
+    parent = None
+    root = None
+
+    key = ''
+
+    isValidated = False
+    isPopulated = False
+
+    def __init__(self, key='', parent=None):
+        if parent is not None:
+            self.parent = parent
+            self.root = parent.root
+            self['path'] = '%s.%s' % (parent.path,key)
+        else:
+            self.root = self
+            self.errorFormatter = defaultErrorFormatter
+
+    @propget
+    def path(self):
+        if 'path' in self:
+            return ''
+        return self['path']
+
+    @propget
+    def childs(self):
+        if not 'childs' in self:
+            self[ 'childs' ] = {}
+        return self['childs']
+
+    @propget
+    def value(self):
+        return self.populate()
+
+    @propset
+    def value(self,value):
+        self.__orig_value__ = value
+        self.isValidated = False
+        self.isPopulated = False
+        self.clear()
+
+    @propget
+    def result(self):
+        return self.validate()
+
+    @propget
+    def error(self):
+        if not 'error' in self:
+            return MISSING
+        return self['error']
+
+    @propget
+    def valdiator(self,value):
+        if not hasattr(self, '__validator__'):
+            return None
+        return self.__validator__
+
+    @propset
+    def validator(self,value):
+        self.__validator__ = value
+        self.clear()
+
+    def clear( self ):
+        dict.clear( self )
+
+        self.isValidated = False
+        self.isPopulated = False
+
+        self['value'] = self.__orig_value__
+
+    def populate(self ):
+        if self.isPopulated:
+            return self['value']
+
+        if self.parent is not None:
+            self.parent.populate()
+
+        self.data = DataHolder()
+
+        if (self.validator is not None) and hasattr(self.validator,'populate'):
+            populated = self.validator.populate( self, self['value'] )
+        else:
+            populated = PASS
+
+        if (populated is not PASS) and self.validator.__update__:
+            self['value'] = populated
+
+        return self['value']
+
+    def validate(self ):
+
+        if self.isValidated:
+            if self.error is MISSING:
+                return self['result']
+            else:
+                raise self.error
+
+        if self.parent is not None:
             try:
-                next = getattr(self, key)
-            except IsMissing,e:
-                pass
-            except DepencyError,e:
-                failed = True
-            else:
-                if isinstance(next, ValidationState):
-                    result[key], cascade_failed = next.__cascade__(  )
-                    if cascade_failed:
-                        failed = True
-                else:
-                    result[key] = next
+                self.parent.validate()
+            except Invalid,e:
+                e = DepencyError( self )
+                self.isValidated = True
+                self.error = e
+                raise e
 
-        if errback and failed:
-            errback( self.__context__ )
+        if self.validator is None:
+            raise AttributeError("No validator set for context '%s'" % self.path )
+        try:
+            result = validator.validate( context, context.value );
+        except Invalid,e:
+            e.context = self
+            self.error = e
+            raise e
+        finally:
+            self.isValidated = True
 
-        return (result, failed)
-
-    def __do_validate__(self):
-        if not self.__context__.validated:
-            self.__validator__.__validate__(self.__context__, self.__values__)
-            self.__context__.validated = True
-
-        if self.__context__.error:
-            raise DepencyError\
-                ( "Got an error for requested field '%(field)s'"
-                , field=self.__context__.key
-                , error=self.__context__.error[0]
-                )
-
-        if hasattr(self.__context__, 'result'):
-            return self.__context__.result
-
-        raise IsMissing("Field '%(field)s' is missing", field=self.__context__.key)
-
-    def __getattr__(self, attr):
-        if attr.endswith('_context'):
-            attr = attr[:-8]
-            context_only = True
+        if result is not PASS:
+            self.result = result
         else:
-            context_only = False
+            self.result = self.value
 
-        if not attr in self.__context__:
+        return self.result
 
-            if isinstance(self.__validator__,SchemaBase):
+    def __call__( self, path ):
+        path = path.split('.',1)
 
-                if attr in self.__values__:
-                    value = self.__values__[attr]
-                else:
-                    value = missing
+        try:
+            child = self.childs[path[0]]
+        except KeyError,e:
+            child = self.childs[path[0]] = Context( key=path[0], parent=self )
 
-                context = self.__context__.new(attr, value)
-                validator = self.__validator__.validator_get( context, attr )
-                validator.__validate__( context )
-                context.validated = True
-            else:
-                return TypeError("%s is not a Schema" % self.__validator__)
-
-
-        if context_only:
-            return self.__context__[attr]
-        if self.__context__[attr].error:
-            raise DepencyError( "Got an error for requested field '%(field)s" )
-        elif hasattr(self.__context__[attr], 'result'):
-            return self.__context__[attr].result
+        if(len(path)==1):
+            return child
         else:
-            raise IsMissing("Field '%(field)s' is missing", field = attr)
+            path=path[1]
 
-    def __call__(self, attr, context_only=False):
-        path = attr.split('.')
-        valid = self
-        while path:
-            part = path.pop(0)
-            if not path and context_only:
-                part = "%s_context" % part
+        return child.field(path)
 
-            valid = getattr(valid, part)
-
-        return valid
-
-    def __results__(self ):
-        if self.__results is None:
-            field_index = self.__validator__.field_index_get( self.__context__ )
-            self.__results = []
-            for key in field_index:
-                value = self( key, context_only=True )
-                if hasattr( value, 'result' ):
-                    self.__results.append( value.result )
-        return self.__results
-
-    def __iter__(self ):
-        field_index = self.__validator__.field_index_get( self.__context__ )
-
-        for key in field_index:
-            value = self( key, context_only=True )
-            if hasattr( value, 'result' ):
-                yield (key, value.result)
-
-class Context(UserDict):
-
-    validated = False
-
-    def __init__(self, value, keypath=None, state=None, root_state=None):
-        if keypath is None:
-            keypath = [ ]
-
-        if value == '':
-            value = None
-
-        self.value = value
-        if state is None:
-            state = Pulp()
-        self.state = state
-
-        self.keypath    = keypath
-        if not keypath:
-            self.key = 'result'
-        else:
-            self.key = keypath[-1]
-
-        self.error = None
-        self.__objstate__ = Pulp()
-
-        if root_state is not None:
-            self.require = root_state
-
-        UserDict.__init__(self)
-
-    def new(self, key, value):
-        key = str(key)
-        self[key] = Context( value, self.keypath + [ key ], self.state, root_state=getattr(self,'require',None))
-        return self[key]
-
-    def pack(self, klass=dict, exclude_result=False):
-        field = klass()
-
-        child=None
-        for (key, child) in self.iteritems():
-            if not 'fields' in field:
-                field['fields'] = {}
-            field['fields'][key] = child.pack( klass, exclude_result )
-
-        if self.error and self.error[0]['msg']:
-            field["error"] = self.error[0]
-
-        if self.value is not missing:
-            field["value"] = self.value
-
-        if hasattr(self, "result"):
-            if not isinstance(self.result, ValidationState ):
-                if not exclude_result:
-                    field["result"] = self.result
-            else:
-                field["fieldindex"] = self.result.__validator__.field_index_get( self )
-
-        return field
-
-    def objstate(self, obj):
-        return self.__objstate__(obj.__hash__())
 
 class ValidatorBase(object):
 
-    __staticinfo__      = settings.text.Validator.info
-    __pre_validate__    = []
+    __update__ = False
 
-    def __call__( self, context, errback=None, value=missing, cascade=True):
-
-        result = self.__validate__( context, value )
-        context.validated = True
-
-        if context.error:
-            if errback:
-                errback(context)
-
-        elif isinstance( result, ValidationState ) and cascade:
-            result, failed = result.__cascade__( errback=errback )
-
-        if isinstance( result, dict ) and not isinstance( result, Pulp ):
-            result = Pulp( result )
-
-        return result
-
-    def __info__(self, context):
-        return getattr(self,'info', self.__staticinfo__)
-
-    def __extra__(self, context):
-        return {}
-
-    def info_get(self, context):
-        info,extra = self.__info__( context ), self.__extra__( context )
-        retval = { 'info': info, 'type': self.__class__.__name__ }
-        retval.update( extra )
-        return retval
-
-    def text( self, msg=None, info=None):
-        if msg:
-            self.msg    = msg
-        if info:
-            self.info   = info
-        return self
-
-    def __validate__(self, context, value=missing):
-
-        if value is missing:
-            value = context.value
-
-        try:
-            value = self.validate( context, value )
-        except DepencyError:
-            pass
-        except Invalid,e:
-            if not 'info' in e[0]:
-                e[0].update( self.info_get( context ) )
-            context.error = e
-            if context.state.abort:
-                raise e
-        else:
-            if value not in [missing, IGNORE]:
-                context.result = value
-            elif context.value not in [missing, IGNORE]:
-                context.result = context.value
-            elif value is missing and hasattr( context, 'result' ):
-                del context.result
-
-        return value
+    def __call__( self, value=missing ):
+        return Context( self, value )
 
     def validate( self, context, value ):
-
-        if value is missing:
-            return self.on_missing(context)
-        elif value is None:
-            return self.on_blank(context)
+        if (value is MISSING):
+            return self.on_missing( context )
+        elif (value is None):
+            return self.on_blank( context )
         else:
-            return self.on_value(context, value)
+            return self.on_value( context, vale )
 
+    def invalid( self, type='invalid', **kwargs ):
+        if 'catchall' in self.__messages__:
+            msg = self.__messages__['catchall']
+        else:
+            msg = self.__messages__[type]
+        type = "%s.%s" % (self.__class__.name,type)
+        return Invalid( type, msg, **kwargs )
 
-class SchemaBase( object ):
+    def error( self, **messages ):
+        # copy class attribute to object
+        self.__messages__ = dict(self.__messages__)
+        self.messages.update(messages)
+        return self
 
-    def vstate_get(self, context, values):
-
-        objstate = context.objstate( self )
-        if not 'vstate' in objstate:
-            objstate.vstate = ValidationState(self, context, values)
-
-            if not hasattr(context,'require'):
-                context.require = objstate.vstate
-
-        return objstate.vstate
-
-    def validator_get( self, context, key ):
-        raise NotImplementedError( "SchemaBase can only be used as base class")
-
-    def field_index_get( self, context ):
-        raise NotImplementedError( "SchemaBase can only be used as base class")
+    def update( self ):
+        if  not hasattr(self.validator,'populate')
+        or not hasattr(self.validator.populate,'__call__'):
+            raise SyntaxError("%s validator does not support update()" % self.validator.__class__.__name__)
+        __update__ = True
+        return self
