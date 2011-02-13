@@ -25,14 +25,18 @@ class Validator ( ValidatorBase ):
         else:
             self.__init__( *args, **kwargs )
 
-        if not pre_validators and not post_validators:
-            return self
+        validator = self
 
-        if not isinstance( self, And ):
-            validator = And ( *(pre_validators + [ self ] + post_validators) )
-        else:
-            self.__validators__ = pre_validators + self.__validators__ + post_validators;
-            validator = self
+        if pre_validators or post_validators:
+
+            if not isinstance( self, And ):
+                validator = And ( *(pre_validators + [ self ] + post_validators) )
+            else:
+                self.__validators__ = pre_validators + self.__validators__ + post_validators;
+                validator = self
+
+        validator.__args__ = args
+        validator.__kwargs__ = kwargs
 
         return validator
 
@@ -57,6 +61,20 @@ class Validator ( ValidatorBase ):
     def __invert__( self ):
         return Not( self )
 
+    def clone( self,*args,**kwargs ):
+        if not args:
+            valargs = self.__args__
+        else:
+            valargs = args
+
+        valkwargs = dict(self.__kwargs__)
+        valkwargs.update( kwargs )
+
+        validator = self.__class__( *valargs, **valkwargs)
+        validator.__messages__ = dict(self.__messages__)
+
+        return validator
+
     def on_value( self, context, value ):
         return value
 
@@ -70,7 +88,7 @@ class Validator ( ValidatorBase ):
 
 class Pass( Validator ):
 
-    def on_missing self, context ):
+    def on_missing( self, context ):
         return PASS
 
     def on_blank ( self, context ):
@@ -160,20 +178,16 @@ class Match( Validator ):
                 self.type = Match.RAW
         else:
             self.type = Match.VALIDATOR
-            self.__update__ = required.__update__
 
         self.__ignore_case__ = ignore_case
         self.required = required
-
-    def populate(self, context, value):
-        return self.required.populate( context, value )
 
     def validate(self, context, value ):
 
         if self.type is Match.REGEX:
             if not self.pattern.match(value):
                 raise self.invalid('missmatch', type=self.type, criteria=required.pattern)
-            return value
+            return PASS
         elif self.type is Match.RAW:
             compare = self.required
         elif self.type is Match.VALIDATOR:
@@ -187,9 +201,10 @@ class Match( Validator ):
             value = str(value).lower()
 
         if value <> compare:
-            raise self.invalid( 'misssmatch', type=self.type, critaria=compare )
+            raise self.invalid( 'missmatch', type=self.type, critaria=compare )
 
         return PASS
+
 
 class Not( Validator ):
 
@@ -201,14 +216,10 @@ class Not( Validator ):
         if not isinstance( criteria, Validator ):
             criteria = Match( criteria )
         self.validator = criteria
-        self.__update__ = criteria.__update__
-
-    def populate(self, context, value):
-        return self.validator.populate( context, value)
 
     def validate(self, context, value ):
         try:
-            result = self.validator.validate( context )
+            result = self.validator.validate( context, value )
         except Invalid:
             return value
 
@@ -216,8 +227,6 @@ class Not( Validator ):
 
 
 class And( Validator ):
-
-    __update__ = True
 
     def __init__(self, *criteria ):
 
@@ -228,28 +237,18 @@ class And( Validator ):
 
         self.__validators__ = criteria
 
-    def populate(self, context, value):
+    def validate(self, context, value):
         result = value
 
         for validator in self.__validators__:
-            if validator.__update__:
-                result = value = validator.populate( context, value )
             try:
                 result = validator.validate( context, result )
             except Invalid,e:
-                if ('catchall' in self.__messages__)
+                if ('catchall' in self.__messages__):
                     e = self.invalid('catchall')
-                context.data( self ).error = e
-                return value
+                raise e
 
-        context.data( self ).result = result
-
-        return value
-
-    def validate(self, context, value):
-        if context.data( self ).error:
-            raise context.data( self ).error
-        return context.data( self ).result
+        return result
 
 
 class Or( And ):
@@ -258,42 +257,29 @@ class Or( And ):
         ( fail='No criteria met (Errors: %(errors)s)'
         )
 
-    def populate(self, context, value):
+    def validate(self, context, value):
         errors = []
+        result = value
 
         for validator in self.__validators__:
-            if validator.__update__:
-                result = value = validator.populate( context, value  )
             try:
                 result = validator.validate( context, result )
             except Invalid, e:
                 errors.append( e )
                 continue
 
-            context.data( self ).result = result
-            return value
+            return result
 
         if errors:
-            context.data( self ).error = self.invalid(errors=errors)
-        else:
-            context.data( self ).result = value
+            raise self.invalid(errors=errors)
 
         return value
 
 
 class Call( Validator ):
 
-    def __init__( self, validate=None, populate=None ):
-        if validate is None and populate is None:
-            raise SyntaxError("Call validator needs atleast one of these arguments: Call(validate=valFunc,populate=popFunc)")
-        self.__func_validate__ = validate
-        selt.__update__ = populate is not None 
-        self.__func_populate__ = populate
+    def __init__( self, func ):
+        self.__func__ = func
 
     def validate( self, context, value ):
-        if self.__func_validate__ is None:
-            return value
-        return self.__func_validate__( context, value )
-
-    def populate( self, context, value ):
-        return self.__func_populate__( context, value )
+        return self.__func__( context, value )

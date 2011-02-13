@@ -1,6 +1,6 @@
 class Invalid(Exception):
 
-    def __init__(self, type, msg, **kwargs):
+    def __init__(self, msg, type='fail', **kwargs):
         self.msg = msg
         self.type = type
         self.extra = dict(kwargs)
@@ -11,13 +11,4 @@ class Invalid(Exception):
             return self.context.root.errorFormatter( context, self )
         else:
             return self.__repr__()
-
-class DepencyError( Invalid ):
-
-    def __init__(self, context ):
-        self.context = context
-        self.msg = "Depency Error"
-        self.type = 'depency'
-        self.extra = {}
-        Exception.__init__(self,msg)
 

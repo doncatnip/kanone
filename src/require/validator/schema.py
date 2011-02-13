@@ -1,11 +1,9 @@
-from ..lib import MISSING, IGNORE, ValidatorBase
+from ..lib import MISSING, PASS, messages, ValidatorBase
 from ..error import Invalid
-from .. import settings as s
 
-from .core import Validator, Or, SchemaFailed, schema_failed, Not, Empty, Call, Pass, Match
-from .simple import List, Dict
+from .core import Validator, Match
 
-import re, copy
+import re
 
 import logging
 log = logging.getLogger(__name__)
@@ -22,18 +20,15 @@ class Schema( Validator ):
     __validators__  = None
     __field_index__ = None
 
-    def __init__( self, *validators, allow_extraFields=False ):
+    def __init__( self, *validators, **kwargs ):
 
         if validators:
             self.__fieldset__ = validators
 
-        self.allow_extraFields = False
+        self.allow_extraFields = kwargs.get('allow_extraFields',False)
 
 
-    def populate( self, context, value ):
-        if value in [None, MISSING]:
-            return value
-
+    def on_value( self, context, value ):
         extraFields = []
 
         typeError = False
@@ -49,7 +44,7 @@ class Schema( Validator ):
             for pos in range(len(valuelist)):
                 try:
                     key = field_index[pos]
-                except IndexError,e:
+                except IndexError, e:
                     if not self.allow_extraFields:
                         extraFields.append( key )
                 else:
@@ -68,30 +63,23 @@ class Schema( Validator ):
 
         # fill missing fields
         for key in field_index:
-            self.__newContext__( context, result, errors, key, value )
+            self.__newContext__( context, result, errors, key, MISSING )
 
         if typeError:
-            context.data( self ).error = self.invalid( 'type' )
+            raise self.invalid( 'type' )
         elif extraFields:
-            context.data( self ).error = self.invalid( 'extraFields',extraFields=extraFields)
+            raise self.invalid( 'extraFields',extraFields=extraFields)
         elif errors:
-            context.data( self ).error = self.invalid( 'fail',errors=errors)
+            raise self.invalid( errors=errors)
 
-        context.data( self ).result = result
-
-        return value
-
-    def on_value(self, context, value):
-        if context.data( self ).error:
-            raise context.data( self ).error
-        return context.data( self ).result
+        return result
 
     def __newContext__( self, context, result, errors, key, value ):
         fieldcontext = context(key)
         fieldcontext.validator = self.validator_get( context, str(key) )
-        values[key] = fieldcontext.value = value
+        fieldcontext.value = value
         try:
-            result[key] = fieldcontext.validate()
+            result[key] = fieldcontext.result
         except Invalid,e:
             errors.append( e )
 
@@ -121,10 +109,10 @@ class Schema( Validator ):
 class ForEach( Schema ):
 
     messages\
-        ( numericKeys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
+        ( keys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
         )
 
-    def __init__( self, criteria, numericKeys=True):
+    def __init__( self, criteria, returnDict=False):
 
         if not isinstance( criteria, ValidatorBase ):
             criteria = Match( criteria )
@@ -132,12 +120,12 @@ class ForEach( Schema ):
         self.numericKeys = numericKeys
         self.validator = criteria
 
-    def populate( self, context, value ):
+    def on_value( self, context, value ):
         typeError = False
         result = {}
         errors = []
 
-        numericKeysError = []
+        keyErrors = []
 
         if isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set):
             for pos in range(len(value)):
@@ -146,14 +134,16 @@ class ForEach( Schema ):
         elif isinstance( value, dict):
             pos=0
             for (key, val) in value:
-                if self.numericKeys:
+                if not returnDict:
                     try:
                         key = int(key)
                     except ValueError,e:
-                        numericKeysError.append(key)
+                        keyErrors.append(key)
+                        continue
                     else:
                         if key != pos:
-                            numericKeysError.append(key)
+                            keyErrors.append(key)
+                            continue
                     finally:
                         pos+=1
 
@@ -162,16 +152,16 @@ class ForEach( Schema ):
             typeError = True
 
         if typeError:
-            context.data( self ).error = self.invalid('type')
-        elif numericKeysError:
-            context.data( self ).error = self.invalid('numericKeysError', keys=numericKeysError)
+            raise self.invalid('type')
+        elif keyErrors:
+            raise self.invalid('numericKeysError', keys=keyErrors)
         elif errors:
-            context.data( self ).error = self.invalid('fail', errors=errors)
+            raise self.invalid(errors=errors)
 
-        if result:
-            context.data( self ).result = result
+        if not returnDict:
+            return result.values()
 
-        return value
+        return result
 
     def validator_get( self, context, key):
         return self.validator
@@ -180,66 +170,54 @@ class ForEach( Schema ):
 class Field( Validator ):
 
     messages\
-        ( notFound='Field %(path)s not found'
+        ( noResult='Field %(path)s has no result'
         )
 
-    def __init__(self, path, criteria=None, copy=False):
+    def __init__(self, path, criteria=None, useResult=False, copy=False, update=False):
         self.path = path
-
         self.copy = copy
+        self.update = update
 
         if criteria is None:
             self.copy = True
         elif not isinstance( criteria, Validator):
             criteria = Match( criteria )
-        if criteria is not None:
-            self.__update__ = criteria.__update__
 
         self.validator  = criteria
 
-    def populate(self, context, value):
-        
-        if self.field.startswith('(root).'):
-            path = self.field[7:]
-            parent = self.root
-        else:
-            path = self.path.split('.')
-            parent = self
-
-
-            parent = self.parent
-
-        if self.validator is not None:
-            return self.validator.populate( fieldcontext, value )
-        return value
-
     def validate(self, context, value):
+        path = path.split('.')
 
-        fieldcontext = copy.copy( context.require(field, context_only=True) )
-        fieldcontext.error = None
+        if path[0] is not '':
+            fieldcontext = self.root
+        else:
+            fieldcontext = self
+
+            while path and path[0] is '':
+                fieldcontext = fieldcontext.parent
+                del path[0]
+
+        for part in path:
+            fieldcontext = fieldcontext( part )
+
+        result = MISSING
 
         if self.validator is not None:
-            fieldvalue = getattr(fieldcontext, 'result', fieldcontext.value)
-
-            result = self.validator.__validate__(fieldcontext, fieldvalue)
-
-            if isinstance( result, ValidationState ):
+            if useResult:
+                value = fieldcontext.value
+            else:
                 try:
-                    result.__cascade__( errback = schema_failed )
-                except SchemaFailed:
-                    raise Invalid ( self.msg[1] )
+                    value = fieldcontext.result
+                except Invalid,e:
+                    value = PASS
 
-            if fieldcontext.error:
-                raise Invalid( fieldcontext.error[0]['msg'] )
+            if value is not PASS:
+                result = self.validator.validate( fieldcontext, value )
 
-            if self.__copy__:
-                return result
-        else:
-            if (hasattr(fieldcontext,'result')):
-                return fieldcontext.result
+        if self.update and result not in [MISSING,PASS]:
+            context['value'] = result
 
-        return value
+        if self.copy:
+            return result
 
-    def copy(self):
-        self.__copy__ = True
-        return self
+        return PASS

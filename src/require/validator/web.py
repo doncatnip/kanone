@@ -1,56 +1,7 @@
 import re, sys
 
-from ..lib import pre_validate, missing, IGNORE, ValidationState, SchemaBase
-from ..error import *
-
-from .. import settings as s
-
 from .simple import String, Dict
-from .core import Validator
-
-re_domain = re.compile ( r'^(xn--)?([a-z0-9]+([-a-z0-9]+)*)$' )
-
-class DomainInvalid(Exception):
-    def __init__(self, msg, part):
-        self.part = part
-        Exception.__init__(self, msg)
-
-    def __str__(self ):
-        return self[0] % self.part
-
-    __repr__ = __str__
-
-class DomainInvalidCharacter( DomainInvalid ):
-    pass
-
-class DomainInvalidFormat( DomainInvalid ):
-    pass
-
-class DomainTooLong( DomainInvalid ):
-    pass
-
-def domain2puny( domain ):
-    retval=''
-
-    for part in domain.split('.'):
-        if part[2:4] == '--':
-            raise DomainInvalidFormat("Domain cannot contain a hyphen at pos 2-3", part=part)
-
-        puny = part.encode('punycode')
-
-        if not puny.endswith('-'):
-            next='xn--'+puny
-        else:
-            next = part
-
-        if len(next)>63:
-            raise DomainTooLong("Domain part %s is too long", part=part)
-        if not re_domain.match( next ):
-            raise DomainInvalidCharacter("Domain part %s contains invalid characters", part=part)
-
-        retval += next
-
-    return retval
+from ..lib import messages
 
 def resolve_domain( domain ):
 
@@ -66,111 +17,156 @@ def resolve_domain( domain ):
     return True
 
 
-class Domain( Validator ):
-    info = s.text.Domain.info
-    msg = s.text.Domain.msg
+class Domain( String ):
 
-    re_domain_tld = r'^(.+)\.([\w]{2,})$'
-
-    pre_validate\
-        ( String()
+    messages\
+        ( noHyphen="Domain cannot contain a hyphen at pos 2-3"
+        , tooLong="Domain part %(domainPart)s is too long"
+        , noSubdomains="No subdomains allowed"
+        , maxSubdomains="Maximum allowed subdomains: %(maxSubdomains)s"
+        , minSubdomains="Invalid domain name format ( try my.domain.com )"
+        , invalid="Domain part %(domainPart)s contains invalid characters"
+        , resolve="Domain name could not be resolved"
+        , restrictTLD="TLD %(tld)s is not allowed"
         )
 
+    re_domain = re.compile ( r'^(xn--)?([a-z0-9]+([-a-z0-9]+)*)$' ,re.IGNORECASE )
 
-    def __init__( self, no_tld = False, subdomain_max=None ):
-        self.__no_tld__         = no_tld
-        self.__subdomain_max__   = subdomain_max
+    def __init__( self, resolve=False, restrictTLD=None, minSubdomains=1, maxSubdomains=None,  strip=True, lower=True, update=False, strict=False):
+        if maxSubdomains==0:
+            if restrictTLD is not None:
+                raise SyntaxError("Can not restrict top level domains when not allowing any subdomains")
+            if resolve:
+                raise SyntaxError("Cant resolve a single domain name ( maxSubdomains is set to 0 )")
+
+        String.__init__(self, strip=strip, lower=lower, update=update, strict=strict )
+        if minSubdomains>maxSubdomains:
+            minSubdomains = maxSubdomains
+
+        self.minSubdomains = minSubdomains
+        self.maxSubdomains = maxSubdomains
+        self.resolve = resolve
 
     def on_value( self, context, value ):
-        if not self.__no_tld__:
-            domain = self.re_domain_tld.match( value )
-            if not domain or len(domain.groups())<2:
-                raise Invalid( self.msg[0] )
+        value = String.on_value( self, context, value)
 
-            domain, tld = domain.groups()
-        else:
-            domain = value
+        if self.strip:
+            domain = [ part.strip() for part in value.split('.') ]
 
-        if self.__subdomain_max__ is not None:
-            if domain.count('.')>(self.__subdomain_max__+int(not self.__no_tld__)):
-                if self.__subdomain_max__ == 0:
-                    raise Invalid( self.msg[1] )
+        if self.update:
+            context['value'] = '.'.join(domain)
+
+        if self.maxSubdomains is not None:
+            if len(domain)>(self.maxSubdomains+1):
+                if self.maxSubdomains == 0:
+                    raise self.invalid("noSubdomains")
                 else:
-                    raise Invalid( self.msg[2], subdomain_max= self.__subdomain_max__ )
+                    raise self.invalid("maxSubdomains",maxSubdomains=self.maxSubdomains)
 
-        try:
-            domain = domain2puny( domain )
-        except DomainInvalid,e:
-            raise Invalid( e[0], part = e.part )
+        if len(domain)<self.minSubdomains:
+            raise self.invalid('minSubdomains')
 
-        if not self.__no_tld__:
-            domain = "%s.%s" % (domain, tld)
+        if self.restrictTLD is not None:
+            if not domain[-1] in self.restrictTLD:
+                raise self.invalid('restrictTLD', tld=domain[-1])
 
-        return domain
+        punydomain=''
 
-class Email( Validator ):
+        for part in domain:
 
-    info = s.text.Email.info
-    msg = s.text.Email.msg
+            next = None
 
-    pre_validate\
-        ( String()
+            if part[2:4] == '--':
+                if not part.startswith('xn'):
+                    raise self.invalid('noHyphen')
+
+                next = part
+
+            if next is None:
+                puny = part.encode('punycode')
+
+                if not puny.endswith('-'):
+                    next='xn--'+puny
+                else:
+                    next = part
+
+            if len(next)>63:
+                raise self.invalid('tooLong', domainPart=part)
+
+            if not self.re_domain.match( next ):
+                raise self.invalid('invalid', domainPart=part)
+
+            if punydomain:
+                punydomain += '.'
+
+            punydomain += next
+
+        if self.resolve and not resolve_domain( punydomain ):
+            raise self.invalid('resolve')
+
+        return punydomain
+
+class Email( String ):
+
+    messages\
+        ( format="Invalid email format ( try my.email@address.com )"
+        , invalid=u"The part before @ (%(localPart)s) contains invalid symbols"
+        , domain_noHyphen="Domain cannot contain a hyphen at pos 2-3"
+        , domain_tooLong="Domain part %(domainPart)s is too long"
+        , domain_invalid="Domain part %(domainPart)s contains invalid characters"
+        , domain_resolve="Domain name could not be resolved"
+        , domain_restrictTLD="TLD %(tld)s is not allowed"
         )
 
-    mail_re = r'([^@]+)@(.+)\.([\w]{2,})$'
+    mail_re = r'([^@]+)@(.+))$'
 
-    __resolve_domain__ = False
-
-    def __extra__( self, context):
-        return { 'resolve_domain': self.__resolve_domain__ }
-
-    def __info__( self, context ):
-        if self.__resolve_domain__:
-            return self.info[1]
-        else:
-            return self.info[0]
+    def __init__( self, restrictTLD=None, resolve=False, strip=True, lower=True, update=False, strict=False ):
+        String.__init__(self, strip=strip, lower=lower, update=update, strict=strict )
+        self.domainValidator = Domain\
+            ( restrictTLD=restrictTLD
+            , resolve=resolve
+            , strip=strip
+            , lower=lower
+            , strict=strict
+            , update=update
+            )
 
     def on_value( self, context, value):
-        value = value.strip()
+        value = String.on_value( self, context, value )
+
         mail = re.search(self.mail_re,value)
 
-        if not mail or len(mail.groups()) != 3:
-            raise Invalid( self.msg[0] )
+        if not mail or len(mail.groups()) != 2:
+            raise self.invalid( 'format' )
+
+        localPart = mail.group(1)
+        if self.strip:
+            localPart = localPart.strip()
+
+        domainContext = self.domainValidator( mail.group(2) )
+        if self.update:
+            context['value'] = u"%s@%s" % (domainContext.value, localPart )
 
         try:
-            domain = domain2puny( mail.group(2) )
-        except DomainInvalid,e:
-            raise Invalid( self.msg[2], domain = mail.group(2), part = e.part )
-
-        localpart = mail.group(1)
-        try:
-            localpart.encode('ascii')
+            localPart = localPart.encode('ascii')
         except UnicodeEncodeError,e:
-            raise Invalid( self.msg[1], localpart=localpart )
+            raise self.invalid( 'invalid', localPart=localPart )
 
-        domain=("%s.%s" % (domain, mail.group(3))).encode('ascii')
+        try:
+            domain = domainContext.result
+        except Invalid,e:
+            raise self.invalid( 'domain_'+e.type.split('.')[-1], **e.extra )
 
-        if self.__resolve_domain__:
-            if not resolve_domain( domain ):
-                raise Invalid( self.msg[3], domain=domain )
-
-        return ("%s@%s" % (localpart, domain)).encode('ascii')
-
-    def resolve( self ):
-        self.__resolve_domain__ = True
-        return self
+        return ("%s@%s" % (localPart, domain))
 
 
-class NestedPost( Validator ):
+class NestedPost( Dict ):
 
-    pre_validate\
-        ( Dict()
-        )
-
-    def on_value( self, context, values ):
+    def on_value( self, context, value ):
+        value = Dict.on_value( self, context, value )
         resultset = {}
 
-        for (key, value) in values.iteritems():
+        for (key, val) in value.iteritems():
             parts = key.split('.')
 
             result = resultset
@@ -182,6 +178,6 @@ class NestedPost( Validator ):
                         result[part] = {}
                 result = result[part]
  
-            result[parts[0]] = value
+            result[parts[0]] = val
 
         return resultset

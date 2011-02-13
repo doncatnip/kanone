@@ -4,7 +4,7 @@ import sys
 
 from pulp import Pulp
 
-from .error import ContextNotFound, Invalid
+from .error import  Invalid
 
 import copy, logging
 log = logging.getLogger(__name__)
@@ -12,10 +12,6 @@ log = logging.getLogger(__name__)
 
 # TODO
 # * Validators:
-#   * let web.Email inherit from String
-#   * remove min, max from simple.Integer
-#   * add option strip to String
-#   * new: simple.Float()
 #   * new: core.Limit( min=None, max=None )   ( Dict/List/Integer/Float )
 #   * new: core.Len( min=None, max=None )     ( String/Integer/Float )
 #   * new: schema.Merge( klass, other )
@@ -40,7 +36,7 @@ def _append_list(klass, key, data):
 def _merge_dict(klass, key, data):
     fields = dict(getattr\
         ( klass
-        , '__%s__', % key
+        , '__%s__' % key
         , {}
         ))
 
@@ -54,7 +50,7 @@ def _merge_dict(klass, key, data):
    
 def _merge_fields(klass, key, fields):
     if (len(fields)%2 != 0) or (len(fields)<2):
-        raise SyntaxError("Invalid number of fields supplied (%s). Use: %s(key, value, key, value, …)" % (len(fields),key)
+        raise SyntaxError("Invalid number of fields supplied (%s). Use: %s(key, value, key, value, …)" % (len(fields),key))
 
     prev_fields = getattr\
         ( klass
@@ -140,12 +136,15 @@ class DataHolder( object ):
         __data__ = {}
 
     def __call__(self, validator):
-        if not validator in self.__data__
+        if not validator in self.__data__:
             self.__data__[ validator ] = Pulp()
         return self.__data__[ validator ]
 
 class Context( dict ):
-    __orig_value__ = MISSING
+
+    __value__ = MISSING
+    __error__ = MISSING
+    __result__ = MISSING
 
     parent = None
     root = None
@@ -164,49 +163,53 @@ class Context( dict ):
             self.root = self
             self.errorFormatter = defaultErrorFormatter
 
-    @propget
-    def path(self):
-        if 'path' in self:
-            return ''
-        return self['path']
+    @apply
+    def path():
+        def fget(self):
+            if 'path' in self:
+                return ''
+            return self['path']
 
-    @propget
-    def childs(self):
-        if not 'childs' in self:
-            self[ 'childs' ] = {}
-        return self['childs']
+    @apply
+    def childs():
+        def fget(self):
+            if not 'childs' in self:
+                self[ 'childs' ] = {}
+            return self['childs']
 
-    @propget
-    def value(self):
-        return self.populate()
+    @apply
+    def value():
+        def fget(self):
+            return self.populate()
 
-    @propset
-    def value(self,value):
-        self.__orig_value__ = value
-        self.isValidated = False
-        self.isPopulated = False
-        self.clear()
+        def fset(self,value):
+            self.__value__ = value
+            self.isValidated = False
+            self.isPopulated = False
+            self.clear()
 
-    @propget
-    def result(self):
-        return self.validate()
+    @apply
+    def result():
+        def fget(self):
+            return self.validate()
 
-    @propget
-    def error(self):
-        if not 'error' in self:
-            return MISSING
-        return self['error']
+    @apply
+    def error():
+        def fget(self):
+            if not 'error' in self:
+                return MISSING
+            return self['error']
 
-    @propget
-    def valdiator(self,value):
-        if not hasattr(self, '__validator__'):
-            return None
-        return self.__validator__
+    @apply
+    def validator():
+        def fget(self):
+            if not hasattr(self, '__validator__'):
+                return None
+            return self.__validator__
 
-    @propset
-    def validator(self,value):
-        self.__validator__ = value
-        self.clear()
+        def fset(self,value):
+            self.__validator__ = value
+            self.clear()
 
     def clear( self ):
         dict.clear( self )
@@ -214,7 +217,9 @@ class Context( dict ):
         self.isValidated = False
         self.isPopulated = False
 
-        self['value'] = self.__orig_value__
+        self.__resulf__ = MISSING
+        self.__error__ = MISSING
+        self['value'] = self.__value__
 
     def populate(self ):
         if self.isPopulated:
@@ -224,51 +229,40 @@ class Context( dict ):
             self.parent.populate()
 
         self.data = DataHolder()
+        result = PASS
 
-        if (self.validator is not None) and hasattr(self.validator,'populate'):
-            populated = self.validator.populate( self, self['value'] )
+        if (self.validator is None):
+            raise AttributeError("No validator set for context '%s'" % self.path )
+
+        try:
+            result = self.validator.validate( self, self['value'] )
+        except Invalid,e:
+            e.context = self
+            __error__ = e
         else:
-            populated = PASS
-
-        if (populated is not PASS) and self.validator.__update__:
-            self['value'] = populated
+            if result is not PASS:
+                self.__result__ = result
 
         return self['value']
 
     def validate(self ):
 
-        if self.isValidated:
-            if self.error is MISSING:
-                return self['result']
-            else:
-                raise self.error
+        if not self.isPopulated:
+            self.populate()
 
-        if self.parent is not None:
-            try:
-                self.parent.validate()
-            except Invalid,e:
-                e = DepencyError( self )
-                self.isValidated = True
-                self.error = e
-                raise e
+        if not self.isValidated:
 
-        if self.validator is None:
-            raise AttributeError("No validator set for context '%s'" % self.path )
-        try:
-            result = validator.validate( context, context.value );
-        except Invalid,e:
-            e.context = self
-            self.error = e
-            raise e
-        finally:
+            if self.__result__ is not MISSING:
+                self['result'] = self.__result__
+            elif self.__error__ is not MISSIG:
+                self['error'] = self.__error__
+
             self.isValidated = True
 
-        if result is not PASS:
-            self.result = result
-        else:
-            self.result = self.value
+        if self.__error__ is MISSING:
+            return self.__result__
 
-        return self.result
+        raise self.error
 
     def __call__( self, path ):
         path = path.split('.',1)
@@ -288,10 +282,17 @@ class Context( dict ):
 
 class ValidatorBase(object):
 
+    messages\
+        ( fail='Validation failed'
+        )
+
     __update__ = False
 
-    def __call__( self, value=missing ):
-        return Context( self, value )
+    def __call__( self, value=MISSING ):
+        context = Context( value )
+        context.validator = self
+        context.value = value
+        return context
 
     def validate( self, context, value ):
         if (value is MISSING):
@@ -301,23 +302,16 @@ class ValidatorBase(object):
         else:
             return self.on_value( context, vale )
 
-    def invalid( self, type='invalid', **kwargs ):
+    def invalid( self, type='fail', **kwargs ):
         if 'catchall' in self.__messages__:
             msg = self.__messages__['catchall']
         else:
             msg = self.__messages__[type]
         type = "%s.%s" % (self.__class__.name,type)
-        return Invalid( type, msg, **kwargs )
+        return Invalid( msg, type=type, **kwargs )
 
     def error( self, **messages ):
         # copy class attribute to object
         self.__messages__ = dict(self.__messages__)
-        self.messages.update(messages)
-        return self
-
-    def update( self ):
-        if  not hasattr(self.validator,'populate')
-        or not hasattr(self.validator.populate,'__call__'):
-            raise SyntaxError("%s validator does not support update()" % self.validator.__class__.__name__)
-        __update__ = True
+        self.__messages__.update(messages)
         return self
