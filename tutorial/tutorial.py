@@ -8,12 +8,15 @@ from require import *
 #  example 1: the obvious
 #_______
 
-hello = String(strip=True)
-print hello( ' Hello World ! ' ).result
+hello = String(strip=True,update=True)
 
+print hello( '    Hello World ! ' )
+print hello( '    Hello World ! ' ).value
+print hello( '    Hello World ! ' )
 
+"""
 #*************
-#  example 2: a basic schema
+#  example 2: schema definition
 #_______
 
 # define some validator for later use
@@ -23,15 +26,17 @@ print hello( ' Hello World ! ' ).result
 #         unchanged (e.g. unstripped) but field.result will 
 #         still be whatever the validator returns
 
-email = web.Email(strip=True,lower=True,resolve=True,update=True).error\
-    ( format="Invalid email format ( try my.email@address.com )"
-    , invalid=u"The part before @ (%(localpart)s) contains invalid symbols"
-    , domain_tld="Invalid top level domain %(tld)s"
-    , domain_noHyphen="Domain cannot contain a hyphen at pos 2-3"
-    , domain_tooLong="Domain part %(domainPart)s is too long"
-    , domain_invalid="Domain part %(domainPart)s contains invalid characters"
-    , domain_resolve="Domain name could not be resolved"
-    )
+
+# this schema actually takes a string as input and returns one ...
+
+
+myMail = Email\
+    ( update_enabled=False
+    , domainPart_restrictTLD = [ 'com', 'net', 'org' ]
+    , domainPart_resolve = True
+    ).error( input_blank='And your email address ?!' )
+
+
  
 # define the schema
 class Person( Schema ):
@@ -40,29 +45,54 @@ class Person( Schema ):
 
     fieldset\
         ( 'name'
-        ,   ( String(strip=True,update=True)
+        ,   ( String(strip=True,update=True).error\
+                    ( blank="Please enter your name"
+                    )
             & Len(min=2,max=20).error\
                     ( min="Name too short"
                     , max="Name too long"
                     )
+            )
+
+        , 'email'
+        ,   email.clone( resolve=False ).error\
+                ( invalid="That's just not possible !"
+                )
+        )
+
+# Wait, that name field looks ugly ..
+# can't we have all errors defined in one go ?
+# Yes. But for that, we have to use 'tags', so that this And validator
+# knows what validator did threw the error
+
+
+## using tags ##
+
+# define the schema
+class Person( Schema ):
+
+    messages( fail='Please try again :)' )
+
+    fieldset\
+        ( 'name'
+        ,   ( String(strip=True).tag('str')
+            & Len(min=2,max=20).tag('len')
             ).error\
-                ( blank="Please enter your name"
+                ( str_blank="Please enter your name"
+                , len_min="Name too short"
+                , len_max="Name too long"
                 )
 
         , 'email'
-        , email.clone( resolve=False ).error\
-            ( invalid="That's just not possible !"
-            )
+        ,   email.clone( resolve=False ).error\
+                ( invalid="That's just not possible !"
+                )
         )
 
-    # just because we can ...
-    post_validate( Call( lambda context, value: pprint.pprint("Validation done.\n") ) )
 
 # note: you only need to clone() your validator, if you want to alter
-# parameters or errors, otherwise just use the existing one
+# parameters, errors or want to use tag() otherwise just use the existing one
 
-# instantiate the schema
-personSchema = Person()
 
 # init context with some default values
 context = personSchema( [ 'bob' ] )
@@ -175,7 +205,7 @@ class EmailConfirm( Schema ):
 # otherwise the field is relative to root.
 # use .. to jump to the parent context ... parent of parent, etc
 
-"""
+
 # instantiate the schema
 # (note: order matters only if you're working with lists as input)
 personSchema = Person() + EmailConfirm()

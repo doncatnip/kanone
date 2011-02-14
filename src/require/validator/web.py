@@ -181,3 +181,34 @@ class NestedPost( Dict ):
             result[parts[0]] = val
 
         return resultset
+
+"""
+class Email( Schema ):
+
+    returnList = True
+
+    messages\
+        ( input_blank = 'Please enter an email address'
+        , format_fail = 'Invalid email format ( try my.email@address.com )'
+        , localPart_invalid = u"The part before @ (%(localpart)s) contains invalid symbols"
+        , domainPart_restrictTLD="Invalid top level domain %(tld)s"
+        , domainPart_noHyphen="Domain cannot contain a hyphen at pos 2-3"
+        , domainPart_tooLong="Domain part %(domainPart)s is too long"
+        , domainPart_invalid="Domain part %(domainPart)s contains invalid characters"
+        )
+
+    pre_valiate\
+        ( String( lower=True,stripWhiteSpace=True ).tag('input')
+        , Update().tag('update')
+        , Split('@',1).tag('format')
+        )
+
+    fieldset\
+        ( 'localPart',  MailLocalPart( ).tag('localPart')
+        , 'domainPart', Domain( ).tag('domainPart')
+        )
+
+    post_validate\
+        ( Join('@')
+        )
+"""

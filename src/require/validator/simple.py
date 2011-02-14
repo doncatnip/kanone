@@ -82,10 +82,10 @@ class String(Validator):
         )
 
     def __init__(self, strip=False, lower=False, update=False, strict=False):
-        strip = strip
-        lower = lower
-        update = update
-        strict = strict
+        self.strip = strip
+        self.lower = lower
+        self.update = update
+        self.strict = strict
 
     def on_value(self, context, value):
 

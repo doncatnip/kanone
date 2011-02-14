@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 class PASS:
     pass
 
-class __MISSING__:
+class __MISSING__( str ):
     def __str__(self):
         return ''
 
@@ -158,58 +158,57 @@ class Context( dict ):
         if parent is not None:
             self.parent = parent
             self.root = parent.root
-            self['path'] = '%s.%s' % (parent.path,key)
+            if parent.path:
+                self['path'] = '%s.%s' % (parent.path,key)
+            else:
+                self['path'] = key
         else:
             self.root = self
             self.errorFormatter = defaultErrorFormatter
 
-    @apply
-    def path():
-        def fget(self):
-            if 'path' in self:
-                return ''
-            return self['path']
+    @property
+    def path(self):
+        if not 'path' in self:
+            return ''
+        return self['path']
 
-    @apply
-    def childs():
-        def fget(self):
-            if not 'childs' in self:
-                self[ 'childs' ] = {}
-            return self['childs']
+    @property
+    def childs(self):
+        if not 'childs' in self:
+            self[ 'childs' ] = {}
+        return self['childs']
 
-    @apply
-    def value():
-        def fget(self):
-            return self.populate()
+    @property
+    def value(self):
+        return self.populate()
 
-        def fset(self,value):
+    @value.setter
+    def value( self,value):
             self.__value__ = value
             self.isValidated = False
             self.isPopulated = False
             self.clear()
 
-    @apply
-    def result():
-        def fget(self):
-            return self.validate()
+    @property
+    def result(self):
+        return self.validate()
 
-    @apply
-    def error():
-        def fget(self):
-            if not 'error' in self:
-                return MISSING
-            return self['error']
+    @property
+    def error(self):
+        if not 'error' in self:
+            return MISSING
+        return self['error']
 
-    @apply
-    def validator():
-        def fget(self):
-            if not hasattr(self, '__validator__'):
-                return None
-            return self.__validator__
+    @property
+    def validator(self):
+        if not hasattr(self, '__validator__'):
+            return None
+        return self.__validator__
 
-        def fset(self,value):
-            self.__validator__ = value
-            self.clear()
+    @validator.setter
+    def validator(self,value):
+        self.__validator__ = value
+        self.clear()
 
     def clear( self ):
         dict.clear( self )
@@ -217,9 +216,12 @@ class Context( dict ):
         self.isValidated = False
         self.isPopulated = False
 
-        self.__resulf__ = MISSING
+        self.__result__ = MISSING
         self.__error__ = MISSING
-        self['value'] = self.__value__
+
+        if self.validator is not None:
+            self['value'] = self.__value__
+            self.populate()
 
     def populate(self ):
         if self.isPopulated:
@@ -235,13 +237,17 @@ class Context( dict ):
             raise AttributeError("No validator set for context '%s'" % self.path )
 
         try:
-            result = self.validator.validate( self, self['value'] )
+            result = self.validator.validate( self, self.__value__)
         except Invalid,e:
             e.context = self
-            __error__ = e
+            self.__error__ = e
         else:
             if result is not PASS:
                 self.__result__ = result
+            else:
+                self.__result__ = self.__value__
+
+        self.isPopulated = True
 
         return self['value']
 
@@ -254,7 +260,7 @@ class Context( dict ):
 
             if self.__result__ is not MISSING:
                 self['result'] = self.__result__
-            elif self.__error__ is not MISSIG:
+            elif self.__error__ is not MISSING:
                 self['error'] = self.__error__
 
             self.isValidated = True
@@ -262,7 +268,7 @@ class Context( dict ):
         if self.__error__ is MISSING:
             return self.__result__
 
-        raise self.error
+        raise self.__error__
 
     def __call__( self, path ):
         path = path.split('.',1)
@@ -277,7 +283,7 @@ class Context( dict ):
         else:
             path=path[1]
 
-        return child.field(path)
+        return child(path)
 
 
 class ValidatorBase(object):
@@ -300,14 +306,15 @@ class ValidatorBase(object):
         elif (value is None):
             return self.on_blank( context )
         else:
-            return self.on_value( context, vale )
+            return self.on_value( context, value )
 
     def invalid( self, type='fail', **kwargs ):
         if 'catchall' in self.__messages__:
             msg = self.__messages__['catchall']
         else:
             msg = self.__messages__[type]
-        type = "%s.%s" % (self.__class__.name,type)
+        type = "%s.%s" % (self.__class__.__name__,type)
+        print "invalid"
         return Invalid( msg, type=type, **kwargs )
 
     def error( self, **messages ):
