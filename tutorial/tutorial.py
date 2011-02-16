@@ -3,16 +3,31 @@ from require import *
 
 # require - stateful validation
 
-
 #*************
 #  example 1: the obvious
 #_______
 
-hello = String(strip=True,update=True)
 
-print hello( '    Hello World ! ' )
-print hello( '    Hello World ! ' ).value
-print hello( '    Hello World ! ' )
+
+#*************
+#  example 2: using tags
+#_______
+
+Hello = Params( Integer.tag('integer') & Field('isInt',Set(value=True)) | String(strip=True,update=True) )
+
+MoreHello = Params( Hello( integer_strict=True ) & ( Field( 'isInt', value=Match(True) )  & Pass()  ) | Email.tag('mail') )
+
+hello = MoreHello( mail_domainPart_resolve=True )
+
+context = hello( 10 )
+print context.value
+print context.result
+print context('isInt').value
+
+context.value = '  bob@lixum.net'
+print context.value
+print context.result
+print context('isInt').value
 
 """
 #*************

@@ -10,12 +10,6 @@ import copy, logging
 log = logging.getLogger(__name__)
 
 
-# TODO
-# * Validators:
-#   * new: core.Limit( min=None, max=None )   ( Dict/List/Integer/Float )
-#   * new: core.Len( min=None, max=None )     ( String/Integer/Float )
-#   * new: schema.Merge( klass, other )
-
 class PASS:
     pass
 
@@ -154,10 +148,11 @@ class Context( dict ):
     isValidated = False
     isPopulated = False
 
-    def __init__(self, key='', parent=None):
+    def __init__(self, value=MISSING, validator=None, key='', parent=None):
         if parent is not None:
             self.parent = parent
             self.root = parent.root
+            self.key = key
             if parent.path:
                 self['path'] = '%s.%s' % (parent.path,key)
             else:
@@ -165,6 +160,9 @@ class Context( dict ):
         else:
             self.root = self
             self.errorFormatter = defaultErrorFormatter
+
+        self.validator = validator
+        self.value = value
 
     @property
     def path(self):
@@ -184,10 +182,8 @@ class Context( dict ):
 
     @value.setter
     def value( self,value):
-            self.__value__ = value
-            self.isValidated = False
-            self.isPopulated = False
-            self.clear()
+        self.__value__ = value
+        self.clear()
 
     @property
     def result(self):
@@ -211,7 +207,15 @@ class Context( dict ):
         self.clear()
 
     def clear( self ):
+        if not(self.isPopulated or self.isValidated):
+            return
+
         dict.clear( self )
+
+        if parent is not None and parent.path:
+            self['path'] = '%s.%s' % (parent.path,self.key)
+        else:
+            self['path'] = self.key
 
         self.isValidated = False
         self.isPopulated = False
@@ -239,7 +243,6 @@ class Context( dict ):
         try:
             result = self.validator.validate( self, self.__value__)
         except Invalid,e:
-            e.context = self
             self.__error__ = e
         else:
             if result is not PASS:
@@ -292,13 +295,8 @@ class ValidatorBase(object):
         ( fail='Validation failed'
         )
 
-    __update__ = False
-
-    def __call__( self, value=MISSING ):
-        context = Context( value )
-        context.validator = self
-        context.value = value
-        return context
+    def appendSubValidators( self, subValidators )
+        pass
 
     def validate( self, context, value ):
         if (value is MISSING):
@@ -308,16 +306,7 @@ class ValidatorBase(object):
         else:
             return self.on_value( context, value )
 
-    def invalid( self, type='fail', **kwargs ):
-        if 'catchall' in self.__messages__:
-            msg = self.__messages__['catchall']
-        else:
-            msg = self.__messages__[type]
-        type = "%s.%s" % (self.__class__.__name__,type)
-        print "invalid"
-        return Invalid( msg, type=type, **kwargs )
-
-    def error( self, **messages ):
+    def messages( self, **messages ):
         # copy class attribute to object
         self.__messages__ = dict(self.__messages__)
         self.__messages__.update(messages)
