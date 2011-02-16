@@ -178,7 +178,9 @@ class Context( dict ):
 
     @property
     def value(self):
-        return self.populate()
+        if 'value' in self:
+            return self['value']
+        return self.__value__
 
     @value.setter
     def value( self,value):
@@ -225,7 +227,6 @@ class Context( dict ):
 
         if self.validator is not None:
             self['value'] = self.__value__
-            self.populate()
 
     def populate(self ):
         if self.isPopulated:

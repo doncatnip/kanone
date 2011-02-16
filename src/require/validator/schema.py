@@ -25,23 +25,58 @@ class Schema( Validator ):
         if validators:
             self.__fieldset__ = validators
 
-        self.allow_extraFields = kwargs.get('allow_extraFields',False)
+        self.allowExtraFields = kwargs.get('allowExtraFields',False)
+        self.returnList = kwargs.get('returnList',True)
+        self.populateFirst = kwargs.get('populateFirst',None)
 
+        self.__autopopulate__()
+
+    # autopopulate:
+    # Search for Field validators - if its used as or by any sub
+    # validator, we need to populate the context before validating it
+    # otherwise there will be no validator/value set yet when the
+    # accessed field comes after the one which uses the Field validator.
+    # We check this, because it saves performance if we only use it
+    # when it's needed ( as one should allways instantiate his Schemas
+    # only once per app ).
+    def __autopopulate__(self):
+        if self.populateFirst is None:
+            self.populateFirst = False
+            subValidators = []
+            self.appendSubValidators( subValidators )
+
+            for validator in subValidators:
+                if isinstance(validator, Field ):
+                    self.populateFirst = True
+                    break
+
+    # overridden (Validator)
     def appendSubValidators( self, subValidators ):
         self.field_index_get()
         for (key, validator) in self.__validators__:
             validator.appendSubValidators( subValidators )
             subValidators.append(validator)
 
+    # overridden (Validator)
     def on_value( self, context, value ):
         extraFields = []
 
-        typeError = False
-        errors = []
-        result = {}
-
         field_index = list(self.field_index_get( context ))
 
+        errors = []
+
+        # we could also just fetch dict.values() later, but it would
+        # just eat performance where it could be avoided
+        if not self.returnList:
+            result = {}
+        else:
+            result = []
+
+        # allow access to childs of this context while validating
+        context.isPopulated = True
+
+        # create new child contexts, set values/validators and validate
+        # ( if possible) while converting in one go to save performance
         if isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set):
             valuelist = value
             value = {}
@@ -50,49 +85,71 @@ class Schema( Validator ):
                 try:
                     key = field_index[pos]
                 except IndexError, e:
-                    if not self.allow_extraFields:
+                    if not self.allowExtraFields:
                         extraFields.append( key )
-                else:
-                    self.__newContext__( context, result, errors, key, valuelist[pos] )
+                elif not extraFields:
+                    childContext = self.__newContext__( context, key, valuelist[pos] )
                     del field_index[pos]
+                    if not self.populateFirst:
+                        self.__validateField__( childContext, result, errors )
 
         elif isinstance( value, dict ):
             for (key,val) in value:
                 if not key in field_index:
-                    extraFields.append( key )
-                else:
-                    self.__newContext__( context, result, errors, key, val )
+                    if not self.allowExtraFields:
+                        extraFields.append( key )
+                elif not extraFields:
+                    childContext = self.__newContext__( context, key, val )
                     del field_index[field_index.index(key)]
+                    if not self.populateFirst:
+                        self.__validateField__( childContext, result, errors )
         else:
-            typeError = True
+            context.isPopulated = False
+            raise Invalid( 'type' )
+
+        # maybe TODO: should we delete all created childs if there was an error ?
+
+        if extraFields:
+            context.isPopulated = False
+            raise Invalid( 'extraFields',extraFields=extraFields)
 
         # fill missing fields
         for key in field_index:
-            self.__newContext__( context, result, errors, key, MISSING )
+            childContext = self.__newContext__( context, key, MISSING )
+            if not self.populateFirst:
+                self.__validateField__( childContext, result, errors )
 
-        if typeError:
-            raise self.invalid( 'type' )
-        elif extraFields:
-            raise self.invalid( 'extraFields',extraFields=extraFields)
-        elif errors:
-            raise self.invalid( errors=errors)
+        if self.populateFirst:
+
+            # validate all fields
+            for key in self.__field_index__:
+                self.__validateField__( context( key ), result, errors )
+
+
+        context.isPopulated = False
+
+        if errors:
+            raise Invalid( errors=errors)
 
         return result
 
-    def __newContext__( self, context, result, errors, key, value ):
-        fieldcontext = context(key)
-        fieldcontext.validator = self.validator_get( context, str(key) )
-        fieldcontext.value = value
-        try:
-            result[key] = fieldcontext.result
-        except Invalid,e:
-            errors.append( e )
+    def __newContext__( self, context, key, value ):
+        return context(value,self.validator_get( context, str(key) ))
 
+    def __validateField__( self, context, result, errors):
+        try:
+            result = context.result
+        except Invalid,e:
+            errors.append(e)
+        if not self.returnList:
+            result[key] = result
+        else:
+            result.append( result )
 
     def field_index_get( self, context ):
         if self.__field_index__ is none:
             if not hasattr(self, '__fieldset__'):
-                raise TypeError('No fields defined in this schema: %s' % self.__class__.__name__)
+                raise SyntaxError('No fields defined in this schema: %s' % self.__class__.__name__)
 
             self.__validators__ = {}
             self.__field_index__ = []
@@ -117,13 +174,16 @@ class ForEach( Schema ):
         ( keys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
         )
 
-    def __init__( self, criteria, returnDict=False):
+    def __init__( self, criteria, numericKeys=True, returnList=True, populateFirst=None):
 
         if not isinstance( criteria, ValidatorBase ):
             criteria = Match( criteria )
 
+        self.returnList = returnList
         self.numericKeys = numericKeys
         self.validator = criteria
+        self.populateFirst = populateFirst
+        self.__autopopulate__()
 
     def appendSubValidators( self, subValidators ):
         self.validator.appendSubValidators( subValidators )
@@ -161,17 +221,18 @@ class ForEach( Schema ):
             typeError = True
 
         if typeError:
-            raise self.invalid('type')
+            raise Invalid('type')
         elif keyErrors:
-            raise self.invalid('numericKeysError', keys=keyErrors)
+            raise Invalid('keys', keys=keyErrors)
         elif errors:
-            raise self.invalid(errors=errors)
+            raise Invalid(errors=errors)
 
         if not returnDict:
             return result.values()
 
         return result
 
+    # overridden (Schema)
     def validator_get( self, context, key):
         return self.validator
 
