@@ -189,6 +189,10 @@ class ForEach( Schema ):
         self.validator.appendSubValidators( subValidators )
         subValidators.append( self.validator )
 
+    def appendSubValidators( self, subValidators ):
+        self.validator.appendSubValidators( subValidators )
+        subValidators.append( self.validator )
+
     def on_value( self, context, value ):
         typeError = False
         result = {}
