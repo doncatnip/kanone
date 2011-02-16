@@ -1,10 +1,12 @@
 class Invalid(Exception):
 
-    def __init__(self, msg, type='fail', **kwargs):
-        self.msg = msg
-        self.type = type
+    context = None
+    msg = 'Invalid'
+
+    def __init__(self, _key='fail', **kwargs):
+        self.key = _key
         self.extra = dict(kwargs)
-        Exception.__init__(self,"%s:%s" % (type,msg),self.extra)
+        Exception.__init__( self )
 
     def __str__(self):
         if self.context is not None:

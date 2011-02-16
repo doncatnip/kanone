@@ -27,6 +27,11 @@ class Schema( Validator ):
 
         self.allow_extraFields = kwargs.get('allow_extraFields',False)
 
+    def appendSubValidators( self, subValidators ):
+        self.field_index_get()
+        for (key, validator) in self.__validators__:
+            validator.appendSubValidators( subValidators )
+            subValidators.append(validator)
 
     def on_value( self, context, value ):
         extraFields = []
@@ -120,6 +125,10 @@ class ForEach( Schema ):
         self.numericKeys = numericKeys
         self.validator = criteria
 
+    def appendSubValidators( self, subValidators ):
+        self.validator.appendSubValidators( subValidators )
+        subValidators.append( self.validator )
+
     def on_value( self, context, value ):
         typeError = False
         result = {}
@@ -184,6 +193,10 @@ class Field( Validator ):
             criteria = Match( criteria )
 
         self.validator  = criteria
+
+    def appendSubValidators( self, subValidators ):
+        self.validator.appendSubValidators( subValidators )
+        subValidators.append( self.validator )
 
     def validate(self, context, value):
         path = path.split('.')

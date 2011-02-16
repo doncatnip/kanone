@@ -1,7 +1,9 @@
-import re, sys
+import re
 
-from .simple import String, Dict
 from ..lib import messages
+
+from .basic import String, Dict
+from .alter import Lower, EliminateWhiteSpace, Split, Join, Update
 
 def resolve_domain( domain ):
 
@@ -59,7 +61,7 @@ class Domain( String ):
         if self.maxSubdomains is not None:
             if len(domain)>(self.maxSubdomains+1):
                 if self.maxSubdomains == 0:
-                    raise self.invalid("noSubdomains")
+                    raise Invalid("noSubdomains")
                 else:
                     raise self.invalid("maxSubdomains",maxSubdomains=self.maxSubdomains)
 
@@ -150,7 +152,6 @@ class Email( String ):
         try:
             localPart = localPart.encode('ascii')
         except UnicodeEncodeError,e:
-            raise self.invalid( 'invalid', localPart=localPart )
 
         try:
             domain = domainContext.result
@@ -158,6 +159,75 @@ class Email( String ):
             raise self.invalid( 'domain_'+e.type.split('.')[-1], **e.extra )
 
         return ("%s@%s" % (localPart, domain))
+
+
+DomainName = Tagger\
+    ( String( lower=True, eliminateWhiteSpace=True
+
+Domain = Tagger\
+    ( String().alter( lower=True, eliminateWhiteSpace=True, update=True ).tag('input')
+    & Split('.').tag('format')
+    & Len().tag('numSubdomains')
+    & ForEach\
+        ( DomainNameValidator().tag('subdomain')
+        , onLast=In().tag('restrictTLD')
+        )
+    & Join('.')
+    & DomainLookup(enabled=False).tag('resolve')
+    )
+
+
+
+class EmailLocalPartValidator( Validator ):
+
+    messages\
+        ( invalid=u"Local part contains invalid symbols"
+        )
+
+    def on_value( self, context, value):
+        try:
+            localPart = localPart.encode('ascii')
+        except UnicodeEncodeError,e:
+            raise self.invalid( 'invalid' )
+        return localPart
+
+
+EmailLocalPart = Tagger\
+    ( String.( toLowerCase=True, eliminateWhiteSpace=True, updateValue=True ).tag('input')
+    & EmailLocalPartValidator().tag('format')
+    )
+
+
+class EmailSchema( Schema ):
+
+    returnList = True
+
+    pre_valiate\
+        ( String.convert().tag('string')
+        , Lower().tag('lower')
+        , EliminateWhiteSpace().tag('eliminateWhiteSpace')
+        , Update().tag('updateInput')
+        , Split('@',1).tag('format')
+        )
+
+    fieldset\
+        ( 'localPart',  (~Blank()).tag('format') & EmailLocalPartValidator().tag('localPart')
+        , 'domainPart', (~Blank()).tag('format') & Domain( input_enabled=False ).tag('domainPart')
+        )
+
+    post_validate\
+        ( Join('@')
+        )
+
+Email = Tagger( EmailSchema ).messages\
+        ( blank = 'Please enter an email address'
+        , format_fail = 'Invalid email format ( try my.email@address.com )'
+        , localPart_invalid = u"The part before @ (%(value)s) contains invalid symbols"
+        , domainPart_restrictTLD="Invalid top level domain %(tld)s"
+        , domainPart_noHyphen="Domain cannot contain a hyphen at pos 2-3"
+        , domainPart_tooLong="Domain part %(subdomain)s is too long"
+        , domainPart_invalid="Domain part %(subdomain)s contains invalid characters"
+        )
 
 
 class NestedPost( Dict ):
@@ -182,33 +252,3 @@ class NestedPost( Dict ):
 
         return resultset
 
-"""
-class Email( Schema ):
-
-    returnList = True
-
-    messages\
-        ( input_blank = 'Please enter an email address'
-        , format_fail = 'Invalid email format ( try my.email@address.com )'
-        , localPart_invalid = u"The part before @ (%(localpart)s) contains invalid symbols"
-        , domainPart_restrictTLD="Invalid top level domain %(tld)s"
-        , domainPart_noHyphen="Domain cannot contain a hyphen at pos 2-3"
-        , domainPart_tooLong="Domain part %(domainPart)s is too long"
-        , domainPart_invalid="Domain part %(domainPart)s contains invalid characters"
-        )
-
-    pre_valiate\
-        ( String( lower=True,stripWhiteSpace=True ).tag('input')
-        , Update().tag('update')
-        , Split('@',1).tag('format')
-        )
-
-    fieldset\
-        ( 'localPart',  MailLocalPart( ).tag('localPart')
-        , 'domainPart', Domain( ).tag('domainPart')
-        )
-
-    post_validate\
-        ( Join('@')
-        )
-"""
