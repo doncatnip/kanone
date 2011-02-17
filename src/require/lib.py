@@ -147,6 +147,7 @@ class Context( dict ):
 
     isValidated = False
     isPopulated = False
+    isPopulating = False
 
     def __init__(self, value=MISSING, validator=None, key='', parent=None):
         if parent is not None:
@@ -178,9 +179,7 @@ class Context( dict ):
 
     @property
     def value(self):
-        if 'value' in self:
-            return self['value']
-        return self.__value__
+        return self.populate()
 
     @value.setter
     def value( self,value):
@@ -229,8 +228,10 @@ class Context( dict ):
             self['value'] = self.__value__
 
     def populate(self ):
-        if self.isPopulated:
-            return self['value']
+        if self.isPopulated or self.isPopulating:
+            if 'value' in self:
+                return self['value']
+            return self.__value__
 
         if self.parent is not None:
             self.parent.populate()
@@ -240,6 +241,8 @@ class Context( dict ):
 
         if (self.validator is None):
             raise AttributeError("No validator set for context '%s'" % self.path )
+
+        self.isPopulating = True
 
         try:
             result = self.validator.validate( self, self.__value__)
@@ -251,6 +254,7 @@ class Context( dict ):
             else:
                 self.__result__ = self.__value__
 
+        self.isPopulating = False
         self.isPopulated = True
 
         return self['value']

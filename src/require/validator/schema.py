@@ -1,7 +1,8 @@
 from ..lib import MISSING, PASS, messages, ValidatorBase
 from ..error import Invalid
 
-from .core import Validator, Match
+from .core import Validator
+from .check import Match
 
 import re
 
@@ -46,7 +47,7 @@ class Schema( Validator ):
             self.appendSubValidators( subValidators )
 
             for validator in subValidators:
-                if isinstance(validator, Field ):
+                if isinstance(validator, FieldValidator ):
                     self.populateFirst = True
                     break
 
@@ -72,9 +73,6 @@ class Schema( Validator ):
         else:
             result = []
 
-        # allow access to childs of this context while validating
-        context.isPopulated = True
-
         # create new child contexts, set values/validators and validate
         # ( if possible) while converting in one go to save performance
         if isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set):
@@ -88,10 +86,10 @@ class Schema( Validator ):
                     if not self.allowExtraFields:
                         extraFields.append( key )
                 elif not extraFields:
-                    childContext = self.__newContext__( context, key, valuelist[pos] )
+                    contextChild = self.__newContext__( context, key, valuelist[pos] )
                     del field_index[pos]
                     if not self.populateFirst:
-                        self.__validateField__( childContext, result, errors )
+                        self.__validateField__( contextChild, result, errors )
 
         elif isinstance( value, dict ):
             for (key,val) in value:
@@ -99,34 +97,27 @@ class Schema( Validator ):
                     if not self.allowExtraFields:
                         extraFields.append( key )
                 elif not extraFields:
-                    childContext = self.__newContext__( context, key, val )
+                    contextChild = self.__newContext__( context, key, val )
                     del field_index[field_index.index(key)]
                     if not self.populateFirst:
-                        self.__validateField__( childContext, result, errors )
+                        self.__validateField__( contextChild, result, errors )
         else:
-            context.isPopulated = False
             raise Invalid( 'type' )
 
         # maybe TODO: should we delete all created childs if there was an error ?
-
         if extraFields:
-            context.isPopulated = False
             raise Invalid( 'extraFields',extraFields=extraFields)
 
         # fill missing fields
         for key in field_index:
-            childContext = self.__newContext__( context, key, MISSING )
+            contextChild = self.__newContext__( context, key, MISSING )
             if not self.populateFirst:
-                self.__validateField__( childContext, result, errors )
+                self.__validateField__( contextChild, result, errors )
 
         if self.populateFirst:
-
             # validate all fields
             for key in self.__field_index__:
-                self.__validateField__( context( key ), result, errors )
-
-
-        context.isPopulated = False
+                self.__validateField__( context.childs[ key ], result, errors )
 
         if errors:
             raise Invalid( errors=errors)
@@ -134,7 +125,7 @@ class Schema( Validator ):
         return result
 
     def __newContext__( self, context, key, value ):
-        return context(value,self.validator_get( context, str(key) ))
+        return context(value,self.validator_get( context, key ))
 
     def __validateField__( self, context, result, errors):
         try:
@@ -171,10 +162,10 @@ class Schema( Validator ):
 class ForEach( Schema ):
 
     messages\
-        ( keys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
+        ( numericKeys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
         )
 
-    def __init__( self, criteria, numericKeys=True, returnList=True, populateFirst=None):
+    def __init__( self, criteria, onFirst=criteriaOnFirst, onLast=criteriaOnLast, numericKeys=True, returnList=True, populateFirst=None):
 
         if not isinstance( criteria, ValidatorBase ):
             criteria = Match( criteria )
@@ -189,25 +180,33 @@ class ForEach( Schema ):
         self.validator.appendSubValidators( subValidators )
         subValidators.append( self.validator )
 
-    def appendSubValidators( self, subValidators ):
-        self.validator.appendSubValidators( subValidators )
-        subValidators.append( self.validator )
-
     def on_value( self, context, value ):
         typeError = False
-        result = {}
+
+        if self.returnList:
+            result = []
+        else:
+            result = {}
+
         errors = []
 
         keyErrors = []
 
+        keys = []
+
         if isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set):
             for pos in range(len(value)):
-                self.__newContext__( context, result, errors, pos, value[pos] )
+                pos = str(pos)
+                contextChild = self.__newContext__( context, pos, value[pos] )
+                if not self.populateFirst:
+                    self.__validateField__( contextChild, result, errors )
+                else:
+                    keys.append( pos )
 
         elif isinstance( value, dict):
             pos=0
             for (key, val) in value:
-                if not returnDict:
+                if self.numericKeys:
                     try:
                         key = int(key)
                     except ValueError,e:
@@ -220,15 +219,22 @@ class ForEach( Schema ):
                     finally:
                         pos+=1
 
-                self.__newContext__( context, result, errors, key, val)
+                contextChild = self.__newContext__( context, key, val)
+                if not self.populateFirst:
+                    self.__validateField__( contextChild, result, errors )
+                else:
+                    keys.append( key )
         else:
-            typeError = True
-
-        if typeError:
             raise Invalid('type')
-        elif keyErrors:
-            raise Invalid('keys', keys=keyErrors)
-        elif errors:
+
+        if keyErrors:
+            raise Invalid('numericKeys', keys=keyErrors)
+
+        if self.populateFirst:
+            for key in keys:
+                self.__validateField__( context.childs[ key ], result, errors )
+
+        if errors:
             raise Invalid(errors=errors)
 
         if not returnDict:
@@ -241,16 +247,48 @@ class ForEach( Schema ):
         return self.validator
 
 
-class Field( Validator ):
+class FieldValidator( Validator ):
+
+    def __init__(self):
+        raise SyntaxError( "FieldValidator cannot be used directly"
+
+    def getField( self, context, path):
+        pathSplit = path.split('.')
+
+        if pathSplit[0] is not '':
+            fieldcontext = self.root
+        else:
+            fieldcontext = self
+
+            while pathSplit and pathSplit[0] is '':
+                fieldcontext = fieldcontext.parent
+                del pathSplit[0]
+
+        if fieldcontext is self:
+            selfReference = True
+
+        if not selfReference:
+            for part in pathSplit:
+                if (fieldcontext.parent is self.parent) and (part == self.key):
+                    selfReference = True
+                    break
+                fieldcontext = fieldcontext( part )
+
+        if selfReference:
+            raise SyntaxError( "Cannot reference myself. Nice try, though :)"
+
+        return fieldcontext
+
+
+class Field( FieldValidator ):
 
     messages\
         ( noResult='Field %(path)s has no result'
         )
 
-    def __init__(self, path, criteria=None, useResult=False, copy=False, update=False):
+    def __init__(self, path, criteria=None, useResult=False, copy=False):
         self.path = path
         self.copy = copy
-        self.update = update
 
         if criteria is None:
             self.copy = True
@@ -264,19 +302,8 @@ class Field( Validator ):
         subValidators.append( self.validator )
 
     def validate(self, context, value):
-        path = path.split('.')
 
-        if path[0] is not '':
-            fieldcontext = self.root
-        else:
-            fieldcontext = self
-
-            while path and path[0] is '':
-                fieldcontext = fieldcontext.parent
-                del path[0]
-
-        for part in path:
-            fieldcontext = fieldcontext( part )
+        fieldcontext = self.getField( self, context, self.path )
 
         result = MISSING
 
@@ -291,9 +318,6 @@ class Field( Validator ):
 
             if value is not PASS:
                 result = self.validator.validate( fieldcontext, value )
-
-        if self.update and result not in [MISSING,PASS]:
-            context['value'] = result
 
         if self.copy:
             return result
