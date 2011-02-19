@@ -6,58 +6,35 @@ import logging, copy
 log = logging.getLogger(__name__)
 
 
-class Validator ( ValidatorBase ):
+#### Basic stuff
 
-    messages\
-        ( missing= 'Please provide a value'
-        , blank='Field cannot be empty'
-        )
+class Parameters( dict ):
+    def __setattr__(self,key, value):
+        self[key] = value
+    def __getattr__(self,key):
+        try:
+            return self[key]
+        except KeyError,e:
+            raise AttributeError('Parameter %s not found' % key )
 
-    def __validate__( self, validatorfunc ):
-        def wrapValidate( nself, context, value ):
-            try:
-                return validatorfunc( nself, context, value )
-            except Invalid,e:
-                if e.validator is None:
-                    e.validator = nself
+class BaseValidator( object ):
 
-                    if 'catchall' in nself.__messages__:
-                        msg = nself.__messages__['catchall']
-                    else:
-                        msg = nself.__messages__[e.key]
+    def __preinit__( klass, *args, **kwargs):
+        pass
 
-                    e.msg = msg
-                    e.context = context
-                raise e
+    def __new__( klass, *args, **kwargs ):
+        self = klass.__preinit__( *args, **kwargs)
 
-        return wrapValidate
-
-    def __new__( klass, *args, enabled=True, **kwargs ):
-        self = ValidatorBase.__new__( klass )
-
-        pre_validators = list(getattr( klass, '__pre_validate__', [] ))
-        post_validators = list(getattr( klass, '__post_validate__', [] ))
-
-        if hasattr( self, '__prepare__' ):
-            pre_validators,post_validators = self.__prepare__(  pre_validators, post_validators, *args, **kwargs )
-        else:
-            self.__init__( *args, **kwargs )
-
-        validator = self
+        pre_validators = getattr( klass, '__pre_validate__', [] )
+        post_validators = getattr( klass, '__post_validate__', [] )
 
         if pre_validators or post_validators:
-
             if not isinstance( self, And ):
-                validator = And ( *(pre_validators + [ self ] + post_validators) )
+                self = And ( *(pre_validators + [ self ] + post_validators) )
             else:
                 self.__validators__ = pre_validators + self.__validators__ + post_validators;
-                validator = self
 
-        validator.validate = validator.__validate__( validator.validate )
-        validator.__args__ = args
-        validator.__kwargs__ = kwargs
-
-        return validator
+        return self
 
     def __and__( self, other ):
         if isinstance( self, And ):
@@ -81,20 +58,73 @@ class Validator ( ValidatorBase ):
     def __invert__( self ):
         return Not( self )
 
-    def __call__( self,*args,**kwargs ):
 
-        if not args:
-            valargs = self.__args__
+class Validator( ValidatorBase ):
+
+    messages\
+        ( fail='Validation failed'
+        , missing= 'Please provide a value'
+        , blank='Field cannot be empty'
+        )
+
+    tagName = None
+
+    @classmethod
+    def __preinit__( klass, *args, **kwargs):
+        self = object.__new__( klass )
+        self.params = Parameters()
+        self.params.messages = self.__messages__
+        self.validate = self.__wrapValidate__( self.validate )
+        return self
+
+    def __wrapValidate__( self, validatorfunc ):
+        def wrapped(context, value):
+            self.beforeValidate( context, value )
+            try:
+                return validatorfunc( context, value )
+            except Invalid,e:
+                if e.validator is None:
+                    e.validator = self
+                if 'catchall' in context.params.messages:
+                    msg = context.params.messages['catchall']
+                else:
+                    msg = context.params.messages[e.key]
+
+                e.msg = msg
+                e.context = context
+
+                raise e
+
+        return wrapped
+
+
+    def tag( self, name ):
+        if self.tagName is not None:
+            raise SyntaxError( "This validator (%s) is allready tagged" % self )
+        self.tagName = name
+
+    def appendSubValidators( self, params ):
+        pass
+
+
+    def beforeValidate( self, context ):
+        context.params = None
+
+        if self.tagName is not None and hasattr( context.root, 'taggedParameters' ):
+            if context.params.tagName in context.root.taggedParameters:
+                params = context.root.taggedParameters[ self.tagName ]
+
+        if context.params is None:
+            context.params = self.params
+
+    def validate( self, context, value ):
+        if (value is MISSING):
+            return self.on_missing( context )
+        elif (value is in [None,'',[],{}]):
+            return self.on_blank( context )
         else:
-            valargs = args
+            return self.on_value( context, value )
 
-        valkwargs = dict(self.__kwargs__)
-        valkwargs.update( kwargs )
-
-        validator = self.__class__( *valargs, **valkwargs)
-        validator.__messages__ = dict(self.__messages__)
-
-        return validator
 
     def on_value( self, context, value ):
         return value
@@ -106,27 +136,195 @@ class Validator ( ValidatorBase ):
         raise Invalid( 'blank' )
 
 
-class Pass( Validator ):
+
+class Parameterize( Validator ):
+
+    @classmethod
+    def __preinit__( klass, validator, args=None, kwargs=None ):
+        self = object.__new__( klass )
+
+        if kwargs is None:
+            kwargs = {}
+        if args is None:
+            args = ()
+
+        self.args = args
+        self.kwargs = kwargs
+        self.validator = validator
+
+
+        self.appendSubValidators = self.validator.appendSubValidators
+        self.validate = self.validator.validate
+        if hasattr( self.validator, 'messages' ):
+            self.messages = self.validator.messages
+
+        if (hasattr(self.validator,'setParameters')):
+            self.params = Parameters()
+            self.validator.setParameters( params, *args, **kwargs )
+            self.params.update( validator.params )
+        else:
+            self.params = validator.params
+
+        return self
+
+    def __call__( self, *args, **kwargs ):
+        if not args and not kwargs:
+            return self
+
+        return self.__class__( self.validator, args, kwargs )
+
+    def messages( self, **messages ):
+        self.params.messages = dict(self.messages)
+        self.params.messages.update( messages )
+        return self
+
+
+
+class ValidatorFactory( Validator ):
+
+    _singletons = {}
+
+    @classmethod
+    def __preinit__(klass, *args, **kwargs):
+        if not klass in _singletons
+            self = Validator.__preinit__( klass, *args, **kwargs )
+            _singletons[ klass ] = self
+            return self
+
+        return _singletons[ klass ]( *args, **kwargs )
+
+    def __call__( self, *args, **kwargs):
+        return Parameterize( self, args, kwargs )
+        
+
+
+
+#### Tagging stuff
+
+
+def __setParsedKeywordArg( tagKwargs, key, value ):
+    tagPath = key.split('_',1)
+    
+    if len(tagPath)==2:
+        if tagPath[0] not in tagKwargs:
+            tagKwargs[tagPath[0]] = {}
+        tagKwargs[tagPath[0]][tagPath[1]] = value
+
+
+def __parseTaggedKeywords( kwargs, alias ):
+
+    tagKwargs = {}
+
+    for (key,value) in kwargs:
+        if key.startswith('_'):
+            continue
+
+        if key in alias:
+            if alias[key] isinstance( tuple ):
+                for realKey in alias[key]:
+                    __setParsedKeywordArg( tagKwargs, realKey, value )
+            elif hasattr( alias[key], '__call__' ):
+                realKwargs = alias[key]( key, value )
+                for (realKey, realValue) in realKwargs:
+                    __setParsedKeywordArg( tagKwargs, realKey, realValue )
+            else:
+                _setParsedKeywordArg( tagKwargs, alias[key], value )
+            continue
+
+        _setParsedKeywordArg( tagKwargs, key, value )
+
+    return tagKwargs
+
+
+class Tagger( ValidatorFactory ):
+
+    def __init__( self, validator, paramAlias, messageAlias,  **kwargs ):
+        self.validator = validator
+        self.paramAlias = paramAlias
+        self.messageAlias = messageAlias
+        taggedValidators = [ validator ]
+        validators = validator.appendSubValidators( taggedValidators )
+
+
+    def setParameters( params, validator=None, paramAlias=None, messageAlias=None, **taggedParams )
+        taggedParameters = __parseTaggedKeywords( taggedParams, params.paramAlias )
+        params.taggedParameters = {}
+
+        for (tag, theParams) in taggedParameters:
+            if tag in self.taggedValidators:
+                newParams = Parameters( self.taggedValidators[tag].validator.params )
+                self.taggedValidators[tag].setParameters( params, **theParams )
+
+                params.taggedParameters[tag] = newParams
+
+
+    def validate(self, context, value):
+        context.root.taggedParameters = context.params.taggedParameters
+        try:
+            return self.validator.validate( context, value )
+        finally:
+            if previousTagger is not None:
+                context.root.taggedParameters = previousTagger
+
+
+    def messages( self, **taggedMessages ):
+        taggedMessages = __parseTaggedKeywords( taggedMessages, self.messageAlias )
+
+
+# just a lil helper
+# usage:
+# UserName = Compose\
+#       ( String.convert.tag('string') & Len(min=5).tag('len')
+#       ).paramAlias( len='len_min' ).messageAlias(type='string_type')
+#
+# someUserName = UserName( len=8 ).message( type='Must be a string !' )
+#
+# An alias can be: single tag, list of tags, function receiving alias, value
+# and returning dict { realtag:value, .. }
+class Compose( object ):
+
+    paramAlias = {}
+    messageAlias = {}
+
+    def __init__( self, validator ):
+        self.validator = validator
+
+    def __call__( self, **kwargs ):
+        return Tagger( self.validator, self.paramAlias, self.messageAlias, **kwargs )
+
+    def messageAlias( self, **alias ):
+        self.messageAlias = alias
+        return self
+
+    def paramAlias( self, **alias ):
+        self.paramAlias = alias
+        return self
+
+
+#### Validators
+
+
+# is an 'Immutable' ( allways same instance )
+class __Pass__( Validator ):
 
     def validate( self, context, value ):
         return PASS
 
+Pass = Pass()
 
 
-class Not( Validator ):
+class Not( ValidatorFactory ):
 
     messages\
         ( fail='Field must not match criteria'
         )
 
-    def __init__(self, criteria):
-        #if not isinstance( criteria, Validator ):
-        #    criteria = Match( criteria )
-        self.validator = criteria
+    def setParameters_(self, params, criteria):
+        params.validator = criteria
 
-    def appendSubValidators( self, subValidators):
-        self.validator.appendSubValidators( subValidators )
-        subValidators.append( self.validator )
+    def appendSubValidators( self, params, subValidators):
+        params.validator.appendSubValidators( subValidators )
+        subValidators.append( params.validator )
 
     def validate(self, context, value ):
         try:
@@ -137,20 +335,14 @@ class Not( Validator ):
         raise Invalid('fail')
 
 
-class And( Validator ):
+class And( ValidatorFactory ):
 
-    def __init__(self, chain_result=True, *criteria ):
-        self.chain_result = chain_result
+    def setParameters( self, params, validators, chainResult=True ):
+        params.chainResult = chainResult
+        data.validators = list(validators)
 
-        criteria = list(criteria)
-        #for pos in range(len(criteria)):
-        #    if not isinstance(criteria[pos], Validator):
-        #        criteria[pos] = Match(criteria[pos])
-
-        self.__validators__ = criteria
-
-    def appendSubValidators( self, subValidators):
-        for validator in self.__validators__:
+    def appendSubValidators( self, data, subValidators):
+        for validator in data.validators:
             validator.appendSubValidators( subValidators )
             subValidators.append( validator )
 
@@ -160,7 +352,7 @@ class And( Validator ):
         for validator in self.__validators__:
             try:
                 result = validator.validate( context, value )
-                if self.chain_result:
+                if context.data.chain_result:
                     value = result
 
             except Invalid,e:
@@ -169,6 +361,8 @@ class And( Validator ):
                 raise e
 
         return result
+
+And = __And__()
 
 
 class Or( And ):
@@ -204,101 +398,5 @@ class Call( Validator ):
     def validate( self, context, value ):
         return self.__func__( context, value )
 
-class Tag( Validator ):
-
-    def __init__( self, tag, validator, enabled=True ):
-        self.validator = validator
-        self.tag = tag
-        self.enabled = enabled
-
-    def appendSubValidators( self, subValidators ):
-        self.validator.appendSubValidators( subValidators )
-        subValidators.append( self.validator )
-
-    def validate( self, context, value ):
-        return self.validator.validate( context, value )
-
-    def tag( self, tag ):
-        raise SyntaxError( "This validator (%s) is allready tagged" % self.validator )
 
 
-def __parseTaggedKeywords( **kwargs ):
-
-    tagKwargs = {}
-    validatorKwargs = {}
-
-    for (key,value) in kwargs:
-        tagPath = key.split('_',1)
-    
-        if len(tagPath)==2:
-            if tagPath[0] not in tagKwargs:
-                tagKwargs[tagPath[0]] = {}
-            tagKwargs[tagPath[0]][tagPath[1]] = value
-        else:
-            validatorKwargs[tagPath[0]] = value
-
-    return (tagKwargs, validatorKwargs )
-
-
-class TagContainer( Validator ):
-
-    def __init__( self, validator, tags )
-        self.validator  = validator
-        self.tags       = tags
-
-    def validate(self, context, value):
-        return self.validator.validate( context, valie )
-
-    def messages(self, **kwargs):
-        (tagKwargs,validatorKwargs) = __parseTaggedKeywords( **kwargs )
-
-        for (tag, kwargs) in tagKwargs:
-            if not tag in self.tags:
-                raise SyntaxError("No tagged validator named %s found" % tag)
-
-            self.tags[tag].messages( **kwargs )
-
-        self.validator.messages( ** validatorKwargs )
-
-
-class Tagger( Validator ):
-
-    def __init__( self, validator ):
-        self.validator = validator
-
-    def __call__( self, **kwargs ):
-
-        validator = copy.deepcopy(self.validator)
-
-        validators = [ validator ]
-        validator.appendSubValidators( validators )
-
-        taggedValidators = {}
-        for validator in validators:
-            if isinstance( validator, Tag ):
-                taggedValidators[validator.tag] = validator
-
-
-        (tagKwargs,validatorKwargs) = __parseTaggedKeywords( **kwargs )
-
-        for (tag, taggedKwargs) in tagKwargs:
-            if not tag in taggedValidators:
-                raise SyntaxError("No tagged validator named %s found" % tag)
-
-            taggedValidator = taggedValidators[ tag ]
-            for (key,arg) in taggedKwargs:
-                if hasattr(taggedValidators, key):
-                    setattr(taggedValidator, key, arg)
-
-        for (key, arg) in validatorKwargs:
-            if hasattr(validator,key):
-                setattr( validator, key, arg )
-
-        validator = TagContainer(validator, taggedValidators )
-        validator.messages( **self.__messages__ )
-
-    def validate( self, context, value ):
-        raise SyntaxError("A tagger cannot validate directly, please use MyTagger() first")
-
-    def tag(self, tag):
-        raise SyntaxError("A tagger cannot be tagged directly, please use MyTagger() first")

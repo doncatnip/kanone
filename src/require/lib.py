@@ -236,7 +236,6 @@ class Context( dict ):
         if self.parent is not None:
             self.parent.populate()
 
-        self.data = DataHolder()
         result = PASS
 
         if (self.validator is None):
@@ -306,13 +305,8 @@ class ValidatorBase(object):
     def validate( self, context, value ):
         if (value is MISSING):
             return self.on_missing( context )
-        elif (value is None):
+        elif (value is in [None,'',[],{}]):
             return self.on_blank( context )
         else:
             return self.on_value( context, value )
 
-    def messages( self, **messages ):
-        # copy class attribute to object
-        self.__messages__ = dict(self.__messages__)
-        self.__messages__.update(messages)
-        return self

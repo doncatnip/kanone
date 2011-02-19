@@ -14,14 +14,14 @@ class Missing( Validator ):
         ( fail='This field must be left out'
         )
 
-    def __init__( self, default = PASS ):
-        self.default = default
+    def prepare(self, default=PASS ):
+        self.data.default = default
 
     def on_value( self, context, value ):
-        raise Invalid(  )
+        raise Invalid( )
 
     def on_missing( self, context ):
-        return self.default
+        return self.data.default
 
 class Blank( Validator ):
 
@@ -80,24 +80,22 @@ class Match( Validator ):
     REGEX       = 'Match_REGEX'
     VALIDATOR   = 'Match_VALIDATOR'
 
-    __ignore_case__ = False
-
-    def __init__(self, required, ignore_case=False):
+    def prepare(self, required, ignoreCase=False):
         if not isinstance( required, ValidatorBase ):
             if callable(getattr( required, 'match', None )):
-                self.type = Match.REGEX
+                self.data.type = Match.REGEX
             else:
-                self.type = Match.RAW
+                self.data.type = Match.RAW
         else:
-            self.type = Match.VALIDATOR
+            self.data.type = Match.VALIDATOR
 
-        self.__ignore_case__ = ignore_case
-        self.required = required
+        self.data.ignoreCase__ = ignoreCase
+        self.data.required = required
 
-    def appendSubValidators( self, subValidators ):
-        if self.type == Match.VALIDATOR:
-            self.required.appendSubValidators( subValidators )
-            subValidators.append( self.required )
+    def appendSubValidators( self, context, subValidators ):
+        if self.data.type == Match.VALIDATOR:
+            self.data.required.appendSubValidators( subValidators )
+            subValidators.append( self.data.required )
 
     def on_value(self, context, value ):
 
@@ -138,7 +136,7 @@ class Len( Validator ):
     def __init__(self, min=0, max=None, returnLen=False):
         self.min = min
         self.max = max
-        self.returnResult = returnLen
+        self.returnLen = returnLen
 
     def on_value(self, context, value):
         try:
@@ -147,7 +145,7 @@ class Len( Validator ):
             raise Invalid('type',type=value.__class__.__name__)
 
         if result<self.min or (self.max is not None and result>self.max )
-            raise Invalid('fail',min=self.min, max=self.max)
+            raise Invalid('fail',min=self.min, max=self.max, len=self.len)
 
         if self.returnLen:
             return result

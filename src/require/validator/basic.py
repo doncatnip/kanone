@@ -1,13 +1,22 @@
-from .core import Validator
+from .core import ValidatorFactory
 from ..lib import messages
 
 import logging
 log = logging.getLogger(__name__)
 
-class TypeValidator( Validator ):
 
-    def __init__(self, convert = False):
-        self.convert = convert
+class TypeValidator( ValidatorFactory ):
+    converter = None
+
+    def setParameters( self, data, convert=False ):
+        data.convert = convert
+
+    @property
+    def convert( self ):
+        if self.converter is None:
+            self.converter = self.__class__( convert = True )
+
+        return self.converter
 
 
 class Dict( TypeValidator ):
@@ -17,11 +26,10 @@ class Dict( TypeValidator ):
         , convert="Could not convert %s(inputType)s to dict"
         )
 
-
     def on_value(self, context, value):
 
         if not isinstance(value, dict):
-            if  not self.convert:
+            if  not context.data.convert:
                 raise Invalid( 'type' )
             try:
                 value = dict(value)
@@ -32,10 +40,6 @@ class Dict( TypeValidator ):
             return self.on_blank( context )
 
         return value
-
-    @staticmethod
-    def convert():
-        return Dict( convert = True )
 
 
 class List( TypeValidator ):
@@ -50,7 +54,7 @@ class List( TypeValidator ):
             value = list(value)
 
         if not isinstance(value, list):
-            if not self.convert:
+            if not context.data.convert:
                 raise Invalid( 'type' )
 
             try:
@@ -62,10 +66,6 @@ class List( TypeValidator ):
             return self.on_blank( context )
 
         return value
-
-    @staticmethod
-    def convert():
-        return List( convert = True )
 
 
 class Boolean( TypeValidator):
@@ -81,10 +81,6 @@ class Boolean( TypeValidator):
                 return bool(value)
             raise Invalid( 'type' )
         return value
-
-    @staticmethod
-    def convert():
-        return Boolean( convert = True )
 
 
 class String( TypeValidator ):
@@ -105,10 +101,6 @@ class String( TypeValidator ):
                 value = unicode(value)
 
         return value
-
-    @staticmethod
-    def convert():
-        return Boolean( convert = True )
 
 
 class Integer( TypeValidator ):

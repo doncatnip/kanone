@@ -21,30 +21,30 @@ class Schema( Validator ):
     __validators__  = None
     __field_index__ = None
 
-    def __init__( self, *validators, **kwargs ):
+    def setParameters( self, params, *validators, **kwargs ):
 
         if validators:
             self.__fieldset__ = validators
 
-        self.allowExtraFields = kwargs.get('allowExtraFields',False)
-        self.returnList = kwargs.get('returnList',True)
-        self.populateFirst = kwargs.get('populateFirst',None)
+        params.allowExtraFields = kwargs.get('allowExtraFields',False)
+        params.returnList = kwargs.get('returnList',True)
+        params.populateFirst = kwargs.get('populateFirst',None)
 
-        self.__autopopulate__()
+        self.__autopopulate__( params )
 
     # autopopulate:
     # Search for Field validators - if its used as or by any sub
     # validator, we need to populate the context before validating it
     # otherwise there will be no validator/value set yet when the
     # accessed field comes after the one which uses the Field validator.
-    # We check this, because it saves performance if we only use it
-    # when it's needed ( as one should allways instantiate his Schemas
-    # only once per app ).
-    def __autopopulate__(self):
-        if self.populateFirst is None:
-            self.populateFirst = False
+    # We check this, because it saves some performance if we only use it
+    # when it's needed - which may sum up on complex schmas with a large
+    # data input.
+    def __autopopulate__(self, params):
+        if params.populateFirst is None:
+            params.populateFirst = False
             subValidators = []
-            self.appendSubValidators( subValidators )
+            self.appendSubValidators( params, subValidators )
 
             for validator in subValidators:
                 if isinstance(validator, FieldValidator ):
@@ -52,7 +52,7 @@ class Schema( Validator ):
                     break
 
     # overridden (Validator)
-    def appendSubValidators( self, subValidators ):
+    def appendSubValidators( self, params, subValidators ):
         self.field_index_get()
         for (key, validator) in self.__validators__:
             validator.appendSubValidators( subValidators )
@@ -66,15 +66,13 @@ class Schema( Validator ):
 
         errors = []
 
-        # we could also just fetch dict.values() later, but it would
-        # just eat performance where it could be avoided
         if not self.returnList:
             result = {}
         else:
             result = []
 
         # create new child contexts, set values/validators and validate
-        # ( if possible) while converting in one go to save performance
+        # ( if possible ) while converting in one go 
         if isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set):
             valuelist = value
             value = {}
@@ -158,7 +156,6 @@ class Schema( Validator ):
         return self.__validators__[key]
 
 
-
 class ForEach( Schema ):
 
     messages\
@@ -236,9 +233,6 @@ class ForEach( Schema ):
 
         if errors:
             raise Invalid(errors=errors)
-
-        if not returnDict:
-            return result.values()
 
         return result
 

@@ -18,163 +18,127 @@ def resolve_domain( domain ):
         return False
     return True
 
-
-class Domain( String ):
+"""
+class DomainLabelValidator( Validator ):
 
     messages\
         ( noHyphen="Domain cannot contain a hyphen at pos 2-3"
-        , tooLong="Domain part %(domainPart)s is too long"
-        , noSubdomains="No subdomains allowed"
-        , maxSubdomains="Maximum allowed subdomains: %(maxSubdomains)s"
-        , minSubdomains="Invalid domain name format ( try my.domain.com )"
-        , invalid="Domain part %(domainPart)s contains invalid characters"
-        , resolve="Domain name could not be resolved"
-        , restrictTLD="TLD %(tld)s is not allowed"
+        , tooLong="Domain part is too long"
+        , invalid="Domain part contains invalid characters"
         )
 
     re_domain = re.compile ( r'^(xn--)?([a-z0-9]+([-a-z0-9]+)*)$' ,re.IGNORECASE )
 
-    def __init__( self, resolve=False, restrictTLD=None, minSubdomains=1, maxSubdomains=None,  strip=True, lower=True, update=False, strict=False):
-        if maxSubdomains==0:
-            if restrictTLD is not None:
-                raise SyntaxError("Can not restrict top level domains when not allowing any subdomains")
-            if resolve:
-                raise SyntaxError("Cant resolve a single domain name ( maxSubdomains is set to 0 )")
-
-        String.__init__(self, strip=strip, lower=lower, update=update, strict=strict )
-        if minSubdomains>maxSubdomains:
-            minSubdomains = maxSubdomains
-
-        self.minSubdomains = minSubdomains
-        self.maxSubdomains = maxSubdomains
-        self.resolve = resolve
+    def __init__( self, convertToPunicode=True ):
+        self.convertToPunicode = convertToPunicode
 
     def on_value( self, context, value ):
-        value = String.on_value( self, context, value)
 
-        if self.strip:
-            domain = [ part.strip() for part in value.split('.') ]
+        if value[2:4] == '--':
+            if not value.startswith('xn'):
+                raise self.invalid('noHyphen')
 
-        if self.update:
-            context['value'] = '.'.join(domain)
+        else:
+            puny = value.encode('punycode')
 
-        if self.maxSubdomains is not None:
-            if len(domain)>(self.maxSubdomains+1):
-                if self.maxSubdomains == 0:
-                    raise Invalid("noSubdomains")
-                else:
-                    raise self.invalid("maxSubdomains",maxSubdomains=self.maxSubdomains)
+            if not puny.endswith('-'):
+                punydomain='xn--'+puny
+            else:
+                punydomain=puny
 
-        if len(domain)<self.minSubdomains:
-            raise self.invalid('minSubdomains')
+        if len(punydomain)>63:
+            raise Invalid('tooLong')
 
-        if self.restrictTLD is not None:
-            if not domain[-1] in self.restrictTLD:
-                raise self.invalid('restrictTLD', tld=domain[-1])
+        if not self.re_domain.match( next ):
+            raise Invalid('invalid')
 
-        punydomain=''
+        if self.convertToPunicode:
+            return punydomain
+        else:
+            return value
+"""
+CommonDomainPreValidaton\
+    = String.convert().tag('string')
+    & EliminateWhiteSpace().tag('eliminateWhiteSpace')
+    & Lower().tag('toLower')
+    & Update().tag('update')
+    & (~Blank()).tag('notBlank')
 
-        for part in domain:
-
-            next = None
-
-            if part[2:4] == '--':
-                if not part.startswith('xn'):
-                    raise self.invalid('noHyphen')
-
-                next = part
-
-            if next is None:
-                puny = part.encode('punycode')
-
-                if not puny.endswith('-'):
-                    next='xn--'+puny
-                else:
-                    next = part
-
-            if len(next)>63:
-                raise self.invalid('tooLong', domainPart=part)
-
-            if not self.re_domain.match( next ):
-                raise self.invalid('invalid', domainPart=part)
-
-            if punydomain:
-                punydomain += '.'
-
-            punydomain += next
-
-        if self.resolve and not resolve_domain( punydomain ):
-            raise self.invalid('resolve')
-
-        return punydomain
-
-class Email( String ):
-
-    messages\
-        ( format="Invalid email format ( try my.email@address.com )"
-        , invalid=u"The part before @ (%(localPart)s) contains invalid symbols"
-        , domain_noHyphen="Domain cannot contain a hyphen at pos 2-3"
-        , domain_tooLong="Domain part %(domainPart)s is too long"
-        , domain_invalid="Domain part %(domainPart)s contains invalid characters"
-        , domain_resolve="Domain name could not be resolved"
-        , domain_restrictTLD="TLD %(tld)s is not allowed"
-        )
-
-    mail_re = r'([^@]+)@(.+))$'
-
-    def __init__( self, restrictTLD=None, resolve=False, strip=True, lower=True, update=False, strict=False ):
-        String.__init__(self, strip=strip, lower=lower, update=update, strict=strict )
-        self.domainValidator = Domain\
-            ( restrictTLD=restrictTLD
-            , resolve=resolve
-            , strip=strip
-            , lower=lower
-            , strict=strict
-            , update=update
-            )
-
-    def on_value( self, context, value):
-        value = String.on_value( self, context, value )
-
-        mail = re.search(self.mail_re,value)
-
-        if not mail or len(mail.groups()) != 2:
-            raise self.invalid( 'format' )
-
-        localPart = mail.group(1)
-        if self.strip:
-            localPart = localPart.strip()
-
-        domainContext = self.domainValidator( mail.group(2) )
-        if self.update:
-            context['value'] = u"%s@%s" % (domainContext.value, localPart )
-
-        try:
-            localPart = localPart.encode('ascii')
-        except UnicodeEncodeError,e:
-
-        try:
-            domain = domainContext.result
-        except Invalid,e:
-            raise self.invalid( 'domain_'+e.type.split('.')[-1], **e.extra )
-
-        return ("%s@%s" % (localPart, domain))
+DomainLabel = Compose\
+    ( CommonDomainPreValidaton().tag('prevalidation')
+    & cache.Save(result='preEncode').tag('returnNonPuny')
+    & ( Match(re'^xn--') | Encode('punycode') ).tag('punyCode')
+    & (~Match(re'^??--')).tag('noHyphen')
+    & Len(max=63).tag('tooLong')
+    & (~Match(re'^[a-z0-9]+([-a-z0-9]+)*$')).tag('invalidSymbols')
+    & cache.Restore(result='preEncode').tag('returnNonPuny')
+    ).paramAlias\
+        ( convertToString='string_convert'
+        , convertToPunicode='punyCode_enabled'
+        , updateValue='update_enabled'
+        , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
+        , toLower='toLower_enabled'
+        , returnNonPuny='returnNonPuny_enabled'
+    ).messageAlias\
+        ( type='string_type'
+        , noHyphen='noHyphen_fail'
+        , tooLong='tooLong_fail'
+        , invalidSymbols='invalidSymbols_fail'
+        , blank=("notBlank_fail","string_blank")
+    )
 
 
-DomainName = Tagger\
-    ( String( lower=True, eliminateWhiteSpace=True
 
-Domain = Tagger\
-    ( String().alter( lower=True, eliminateWhiteSpace=True, update=True ).tag('input')
-    & Split('.').tag('format')
-    & Len().tag('numSubdomains')
+
+Domain = Compose\
+    ( commonDomainPreValidaton.tag('prevalidation')
+    & Split(separator='.')
+    & Len(min=2).tag('numSubdomains')
     & ForEach\
-        ( DomainNameValidator().tag('subdomain')
-        , onLast=In().tag('restrictTLD')
+        ( DomainLabel\
+            ( prevalidation_enabled=False
+            ).tag('domainLabel')
+        , onLast=In().tag('restrictTLD',False)
         )
     & Join('.')
-    & DomainLookup(enabled=False).tag('resolve')
+    & DomainLookup().tag('resolve',False)
     )
+
+EmailLocalPart = Tagger\
+    ( String.( toLowerCase=True, eliminateWhiteSpace=True, updateValue=True ).tag('input')
+    & EmailLocalPartValidator().tag('format')
+    )
+
+
+class EmailSchema( Schema ):
+
+    returnList = True
+
+    pre_valiate\
+        ( String.convert().tag('string')
+        , EliminateWhiteSpace().tag('eliminateWhiteSpace')
+        , Update().tag('updateInput')
+        , Split('@',1).tag('format')
+        )
+
+    fieldset\
+        ( 'localPart',  (~Blank()).tag('format') & EmailLocalPart().tag('localPart')
+        , 'domainPart', (~Blank()).tag('format') & Domain().tag('domainPart')
+        )
+
+    post_validate\
+        ( Join('@')
+        )
+
+Email = Tagger( EmailSchema ).messages\
+        ( blank = 'Please enter an email address'
+        , format_fail = 'Invalid email format ( try my.email@address.com )'
+        , localPart_invalid = u"The part before @ (%(value)s) contains invalid symbols"
+        , domainPart_restrictTLD="Invalid top level domain %(tld)s"
+        , domainPart_noHyphen="Domain cannot contain a hyphen at pos 2-3"
+        , domainPart_tooLong="Domain part %(subdomain)s is too long"
+        , domainPart_invalid="Domain part %(subdomain)s contains invalid characters"
+        )
 
 
 
@@ -192,42 +156,6 @@ class EmailLocalPartValidator( Validator ):
         return localPart
 
 
-EmailLocalPart = Tagger\
-    ( String.( toLowerCase=True, eliminateWhiteSpace=True, updateValue=True ).tag('input')
-    & EmailLocalPartValidator().tag('format')
-    )
-
-
-class EmailSchema( Schema ):
-
-    returnList = True
-
-    pre_valiate\
-        ( String.convert().tag('string')
-        , Lower().tag('lower')
-        , EliminateWhiteSpace().tag('eliminateWhiteSpace')
-        , Update().tag('updateInput')
-        , Split('@',1).tag('format')
-        )
-
-    fieldset\
-        ( 'localPart',  (~Blank()).tag('format') & EmailLocalPartValidator().tag('localPart')
-        , 'domainPart', (~Blank()).tag('format') & Domain( input_enabled=False ).tag('domainPart')
-        )
-
-    post_validate\
-        ( Join('@')
-        )
-
-Email = Tagger( EmailSchema ).messages\
-        ( blank = 'Please enter an email address'
-        , format_fail = 'Invalid email format ( try my.email@address.com )'
-        , localPart_invalid = u"The part before @ (%(value)s) contains invalid symbols"
-        , domainPart_restrictTLD="Invalid top level domain %(tld)s"
-        , domainPart_noHyphen="Domain cannot contain a hyphen at pos 2-3"
-        , domainPart_tooLong="Domain part %(subdomain)s is too long"
-        , domainPart_invalid="Domain part %(subdomain)s contains invalid characters"
-        )
 
 
 class NestedPost( Dict ):
