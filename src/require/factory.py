@@ -1,23 +1,11 @@
 import inspect
 
-def __setHook__(hook=None):
-    def setHook(func):
-        func.__parameterize__ = True
-        func.__parameterizeHook__ = hook
-        return func
-    return setHook
-
-def parameterize(func):
-    func.__parameterize__ = True
-    return func
-
-parameterize.hook = __setHook__
-
 
 class Parameterized( dict ):
     __obj__ = None
     __kwargs__ = None
     __isroot__ = False
+    __parent__ = {}
 
     def __init__( self, objOrParent, args=(), kwargs=None ):
         if kwargs is None:
@@ -28,8 +16,8 @@ class Parameterized( dict ):
             newkwargs.update(kwargs)
             kwargs = newkwargs
             obj = objOrParent.__obj__
+            self.__parent__ = objOrParent
         else:
-            self.__isroot__ = True
             obj = objOrParent
 
         self.__obj__ = obj
@@ -37,13 +25,12 @@ class Parameterized( dict ):
         for (m,hook) in obj.__parameterizedMethods__:
             setattr( self, m.__name__, Parameterized.__parameterize__( self, m, hook ) )
 
-        if hasattr( obj, 'setParameters' ):
-
-            if not hasattr( obj.setParameters.im_func, '__spec__'):
-                spec = inspect.getargspec( obj.setParameters )
-                setattr( obj.setParameters.im_func,'__spec__',spec )
+        if args or kwargs:
+            if not hasattr( obj.__init__.im_func, '__spec__'):
+                spec = inspect.getargspec( obj.__init__ )
+                setattr( obj.__init__.im_func,'__spec__',spec )
             else:
-                spec = obj.setParameters.__spec__
+                spec = obj.__init__.__spec__
 
             realargs = list(args)
             numSpecArgs = len(spec.args )
@@ -53,10 +40,7 @@ class Parameterized( dict ):
                     kwargs[ spec.args[ argpos-3 ] ] = args[ argpos ]
                     del realargs[0]
 
-            obj.setParameters( self, *realargs, **kwargs )
-
-        elif args or kwargs:
-            raise SyntaxError( "%s takes no arguments" % self.__obj__.__name__ )
+            obj.__init__( self, *realargs, **kwargs )
 
         self.__kwargs__ = kwargs
 
@@ -82,10 +66,12 @@ class Parameterized( dict ):
             dict.__setattr__( self, key, value )
 
     def __getattr__(self,key):
-        try:
+        if key in self:
             return self[key]
-        except KeyError,e:
+        if not parent:
             raise AttributeError('Parameter %s not found' % key )
+        else:
+            return getattr(parent,key)
 
     def __and__(self,other):
         return self.__dict__['__and__'](other)
@@ -97,33 +83,49 @@ class Parameterized( dict ):
         return Parameterized( self.__obj__, args=args, kwargs=kwargs )
 
 
-class Parameterizable( object ):
+class Parameterize( object ):
+
+    excludeMethods = ['hook','__new__']
 
     def __new__(klass, *args, **kwargs):
-        klass.__prepare__()
-
         members = inspect.getmembers( klass )
         methods = []
 
         for (name,m) in members:
-            if hasattr(m,'im_func')\
-            and m.im_func.func_dict.get('__parameterize__',False):
-                hook = m.im_func.func_dict.get\
-                    ( '__parameterizeHook__'
-                    , None
-                    )
-                if hook is not None:
-                    hook = hook.__get__(self)
+            if name in klass.excludeMethods:
+                continue
 
-                methods.append\
-                    (   ( m
-                        , hook
+
+            if hasattr(m,'im_func'):
+                m = m.__get__(klass)
+
+                if name is not '__prepare__':
+                    hook = m.im_func.func_dict.get\
+                        ( '__parameterizeHook__'
+                        , None
                         )
-                    )
+                    if hook is not None:
+                        hook = hook.__get__(klass)
+
+                    methods.append\
+                        (   ( m
+                            , hook
+                            )
+                        )
+
+                setattr(klass,name,m)
 
         klass.__parameterizedMethods__ = methods
+        klass.__prepare__()
 
         return Parameterized( klass, args=args, kwargs=kwargs )
+
+    @staticmethod
+    def hook(hook):
+        def setHook(func):
+            func.__parameterizeHook__ = hook
+            return func
+        return setHook
 
 
 class Factory:
@@ -142,23 +144,20 @@ class Factory:
             obj = Factory._singletons[ self.klass ]
 
             if isinstance(obj, Parameterized):
-                obj = obj.new( *args, **kwargs)
+                obj = obj( *args, **kwargs)
 
             return obj
 
 
 
 
-class Validator( Parameterizable ):
+class Validator( Parameterize ):
 
-    @classmethod
     def __prepare__( klass ):
-        klass.validate = Validator.__wrapValidate__( klass.validate )
+        klass.validate = klass.__wrapValidate__( klass.validate )
 
-    @classmethod
     def __wrapValidate__( klass,  func ):
-        @classmethod
-        @parameterize.hook(Validator.prepareParams)
+        @Parameterize.hook(Validator.prepareParams)
         def validate( *args, **kwargs ):
             try:
                 return func( *args, **kwargs)
@@ -176,17 +175,14 @@ class Validator( Parameterizable ):
 @Factory
 class SomeValidator( Validator ):
 
-    @classmethod
-    def setParameters( klass, params, param1, param2, param3=False ):
+    def __init__( klass, params, param1, param2, param3=False ):
         params.param1 = param1
         params.param2 = param2
         params.param3 = param3
 
-    @classmethod
     def validate( klass, params, context, value ):
+        print params
         return "42!"
 
-    @classmethod
-    @parameterize
     def __and__( klass, params, other ):
- 
+        print "and !"
