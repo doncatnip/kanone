@@ -8,32 +8,54 @@ log = logging.getLogger(__name__)
 
 #### Basic stuff
 
-class Parameters( dict ):
+class Parameterize( dict ):
+
+    def __init__( self, validator, parent=None, args=None, kwargs=None ):
+        dict.__init__( self )
+
+        if kwargs is None:
+            kwargs = {}
+        if args is None:
+            args = ()
+
+        self.args = args
+        self.kwargs = kwargs
+        self.validator = validator
+
+        self.appendSubValidators = self.validator.appendSubValidators
+
+        if hasattr( self.validator, 'messages' ):
+            self.messages = self.validator.messages
+
+        if (hasattr(self.validator,'setParameters')):
+            self.params = Parameters()
+            self.validator.setParameters( params, *args, **kwargs )
+            self.params.update( validator.params )
+        else:
+            self.params = validator.params
+
+        return self
+
     def __setattr__(self,key, value):
-        self[key] = value
+        if not hasattr(self,key):
+            self[key] = value
+        else:
+            
     def __getattr__(self,key):
         try:
             return self[key]
         except KeyError,e:
             raise AttributeError('Parameter %s not found' % key )
 
-class BaseValidator( object ):
+    def __call__( self, *args, **kwargs ):
+        if not args and not kwargs:
+            return self
 
-    def __preinit__( klass, *args, **kwargs):
-        pass
+        return self.__class__( self.validator, args, kwargs )
 
-    def __new__( klass, *args, **kwargs ):
-        self = klass.__preinit__( *args, **kwargs)
-
-        pre_validators = getattr( klass, '__pre_validate__', [] )
-        post_validators = getattr( klass, '__post_validate__', [] )
-
-        if pre_validators or post_validators:
-            if not isinstance( self, And ):
-                self = And ( *(pre_validators + [ self ] + post_validators) )
-            else:
-                self.__validators__ = pre_validators + self.__validators__ + post_validators;
-
+    def messages( self, **messages ):
+        self.params.messages = dict(self.messages)
+        self.params.messages.update( messages )
         return self
 
     def __and__( self, other ):
@@ -57,6 +79,27 @@ class BaseValidator( object ):
 
     def __invert__( self ):
         return Not( self )
+
+
+
+class ValidatorBase( object ):
+
+    def __preinit__( klass, *args, **kwargs):
+        pass
+
+    def __new__( klass, *args, **kwargs ):
+        self = klass.__preinit__( *args, **kwargs)
+
+        pre_validators = getattr( klass, '__pre_validate__', [] )
+        post_validators = getattr( klass, '__post_validate__', [] )
+
+        if pre_validators or post_validators:
+            if not isinstance( self, And ):
+                self = And ( *(pre_validators + [ self ] + post_validators) )
+            else:
+                self.__validators__ = pre_validators + self.__validators__ + post_validators;
+
+        return self
 
 
 class Validator( ValidatorBase ):
@@ -136,47 +179,6 @@ class Validator( ValidatorBase ):
         raise Invalid( 'blank' )
 
 
-
-class Parameterize( Validator ):
-
-    @classmethod
-    def __preinit__( klass, validator, args=None, kwargs=None ):
-        self = object.__new__( klass )
-
-        if kwargs is None:
-            kwargs = {}
-        if args is None:
-            args = ()
-
-        self.args = args
-        self.kwargs = kwargs
-        self.validator = validator
-
-
-        self.appendSubValidators = self.validator.appendSubValidators
-        self.validate = self.validator.validate
-        if hasattr( self.validator, 'messages' ):
-            self.messages = self.validator.messages
-
-        if (hasattr(self.validator,'setParameters')):
-            self.params = Parameters()
-            self.validator.setParameters( params, *args, **kwargs )
-            self.params.update( validator.params )
-        else:
-            self.params = validator.params
-
-        return self
-
-    def __call__( self, *args, **kwargs ):
-        if not args and not kwargs:
-            return self
-
-        return self.__class__( self.validator, args, kwargs )
-
-    def messages( self, **messages ):
-        self.params.messages = dict(self.messages)
-        self.params.messages.update( messages )
-        return self
 
 
 
@@ -304,13 +306,13 @@ class Compose( object ):
 #### Validators
 
 
-# is an 'Immutable' ( allways same instance )
+# is an 'Immutable'
 class __Pass__( Validator ):
 
     def validate( self, context, value ):
         return PASS
 
-Pass = Pass()
+Pass = __Pass__()
 
 
 class Not( ValidatorFactory ):
