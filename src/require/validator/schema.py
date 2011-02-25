@@ -1,8 +1,8 @@
 from ..lib import MISSING, messages, inherit
 from ..error import Invalid
 
-from .core import PASS, ValidatorBase, Validator
-from .check import Match
+from .core import ValidatorBase, Validator
+from .check import PASS, Match
 
 import re
 
@@ -30,8 +30,8 @@ class Schema( Validator ):
         , type='Invalid input type (must be dict, list or tuple)'
         )
 
-    def setArguments( *_fieldset ):
-        assert (_fieldset%2==0)
+    def setArguments( self, *_fieldset ):
+        assert len(_fieldset)%2==0
         (self.validators,self.index,self.keyIndexRelation)\
             = self.getValidators( _fieldset or self.__fieldset__ )
         if not self.validators:
@@ -109,7 +109,7 @@ class Schema( Validator ):
 
     @classmethod
     def getValidators( klass, _fieldset  ):
-        if not fieldSet:
+        if not _fieldset:
             return None
 
         validators = {}

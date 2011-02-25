@@ -4,7 +4,7 @@ from ..lib import MISSING, PASS
 class CacheBase( ValidatorBase ):
 
     def __init__( self, result=None, value=None ):
-        if not (result and value):
+        if not (result or value):
             raise SyntaxError("You need to specify at least either result='location' or value='location'")
 
     def getCache( self ):

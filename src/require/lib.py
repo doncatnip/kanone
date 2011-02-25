@@ -3,7 +3,7 @@ import sys
 
 from .error import  Invalid
 
-import copy, logging
+import copy, logging, inspect
 log = logging.getLogger(__name__)
 
 
@@ -346,7 +346,7 @@ class Parameterized:
             newkwargs.update(kwargs)
             kwargs = newkwargs
 
-            for key in self.__attributes__:
+            for key in self.__inherit__:
                 setattr(self, key, getattr(parent, key))
 
         for key in self.__getParameterNames__():
@@ -361,7 +361,10 @@ class Parameterized:
 
         if kwargs or parent is None:
             if hasattr( self, 'setParameters' ):
-                self.setParameters( **kwargs )
+                try:
+                    self.setParameters( **kwargs )
+                except TypeError, e:
+                    raise TypeError(self.__class__.__name__+': '+e[0])
             elif kwargs:
                 raise SyntaxError('%s takes no parameters' % self.__class__.__name__)
 

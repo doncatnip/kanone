@@ -1,4 +1,4 @@
-from ..lib import messages, MISSING, Parameterized
+from ..lib import messages, MISSING, Parameterized, inherit
 from ..error import Invalid
 
 import logging, copy
@@ -27,6 +27,9 @@ class ValidatorBase:
 
     def __invert__( self ):
         return Not( self )
+
+    def tag( self, tagName, enabled=True ):
+        return Tag( self, tagName, enabled )
 
 
 class Validator( Parameterized, ValidatorBase ):
@@ -72,8 +75,6 @@ class Validator( Parameterized, ValidatorBase ):
 
             raise e
 
-    def tag( self, tagName, enabled=True ):
-        return Tag( self, tagName, enabled )
 
     def messages( self, **messages):
         self.__messages__ = dict( self.__messages__ )
@@ -103,7 +104,7 @@ class Tag( ValidatorBase ):
     _id = 0
 
     def __init__( self, validator, tagName, enabled=True):
-        if not isinstance( validator, Tag ):
+        if isinstance( validator, Tag ):
             raise SyntaxError('%s is not taggable' % validator.__class__.__name__ )
 
         self.validator = validator
@@ -125,7 +126,7 @@ class Tag( ValidatorBase ):
         return value
 
 
-def __setParsedKeywordArg( tagKwargs, key, value ):
+def _setParsedKeywordArg( tagKwargs, key, value ):
     tagPath = key.split('_',1)
     
     if len(tagPath)==2:
@@ -134,22 +135,22 @@ def __setParsedKeywordArg( tagKwargs, key, value ):
         tagKwargs[tagPath[0]][tagPath[1]] = value
 
 
-def __parseTaggedKeywords( kwargs, alias ):
+def _parseTaggedKeywords( kwargs, alias ):
 
     tagKwargs = {}
 
-    for (key,value) in kwargs:
+    for (key,value) in kwargs.iteritems():
         if key.startswith('_'):
             continue
 
         if alias and (key in alias):
-            if alias[key] is isinstance( tuple ):
+            if isinstance( alias[key], tuple ):
                 for realKey in alias[key]:
-                    __setParsedKeywordArg( tagKwargs, realKey, value )
+                    _setParsedKeywordArg( tagKwargs, realKey, value )
             elif hasattr( alias[key], '__call__' ):
                 realKwargs = alias[key]( key, value )
                 for (realKey, realValue) in realKwargs:
-                    __setParsedKeywordArg( tagKwargs, realKey, realValue )
+                    _setParsedKeywordArg( tagKwargs, realKey, realValue )
             else:
                 _setParsedKeywordArg( tagKwargs, alias[key], value )
             continue
@@ -194,14 +195,14 @@ class Compose( Validator ):
         for validator in subValidators:
             if isinstance( validator, Tag ):
                 if not validator.tagName in self.tags:
-                    self.tags[tagName] = []
+                    self.tags[validator.tagName] = []
                 self.tags[validator.tagName].append(validator)
 
         if not self.tags:
             raise SyntaxError('No tags found.')
 
     def setParameters( self, **kwargs):
-        taggedKwargs = __parseTaggedKeywords( kwargs, self.paramAlias )
+        taggedKwargs = _parseTaggedKeywords( kwargs, self.paramAlias )
 
         self.taggedValidators = {}
         notFound = []
@@ -209,7 +210,7 @@ class Compose( Validator ):
         if not self.__isRoot__:
             self.tags = dict( self.tags )
 
-        for (tagName, args) in taggedKwargs:
+        for (tagName, args) in taggedKwargs.iteritems():
             if not tagName in self.tags:
                 notFound.append( tagName )
             else:
@@ -220,7 +221,7 @@ class Compose( Validator ):
                         and tag.validator( **args )\
                         or False
 
-                    self.taggedValidators[ tag.tagId ] = validaor
+                    self.taggedValidators[ tag.tagId ] = validator
 
         if notFound:
             raise SyntaxError('Tags %s not found' % str(notFound))
@@ -238,14 +239,14 @@ class Compose( Validator ):
             del contex.root.taggedValidators
 
     def messages( self, **kwargs ):
-        taggedKwargs = __parseTaggedKeywords( kwags, self.messageAlias )
+        taggedKwargs = _parseTaggedKeywords( kwargs, self.messageAlias )
 
-        for (tagName,args) in taggedKwargs:
+        for (tagName,args) in taggedKwargs.iteritems():
             if tagName in self.tags:
                 for tag in self.tags[tagName]:
                     taggedValidator = tag.validator
                     if not tag.tagId in self.taggedValidators:
-                        self.taggedValidators[tagId] = taggedValidator()
+                        self.taggedValidators[tag.tagId] = taggedValidator()
                     taggedValidator.messages( **args )
 
         return self
@@ -300,9 +301,9 @@ class And( Validator ):
         ( 'validators'
         )
 
-    def setArguments( *validators ):
-        assert len(validators>=2)
-        self.validators = validators
+    def setArguments( self, *validators ):
+        assert len(validators)>=2
+        self.validators = list(validators)
 
     def setParameters( self, chainResult=True ):
         self.chainResult = chainResult
@@ -337,8 +338,8 @@ class Or( Validator ):
         ( 'validators'
         )
 
-    def setArguments( *validators ):
-        assert len(validators>=2)
+    def setArguments( self, *validators ):
+        assert len(validators)>=2
         self.validators = validators
 
     def appendSubValidators( self, subValidators):

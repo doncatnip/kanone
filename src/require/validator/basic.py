@@ -1,5 +1,5 @@
 from .core import Validator
-from ..lib import messages, Cached
+from ..lib import messages
 
 import logging
 log = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ class TypeValidator( Validator ):
     @classmethod
     def convert( klass ):
         if not klass.converter:
-            klass.converter = self.__class__( convert = True )
+            klass.converter = klass( convert = True )
         return klass.converter
 
 

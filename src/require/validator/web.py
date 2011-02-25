@@ -1,14 +1,13 @@
 import re
 
-from ..lib import messages
+from ..lib import messages, pre_validate, post_validate, fieldset
 
 from .core import ValidatorBase, Validator, Compose
 from .basic import String, Dict
 from .alter import Encode, Lower, EliminateWhiteSpace, Split, Join, Update
-from .check import Match, Blank, In
-from .schema import Schema, ForEach
-
-from . import cache
+from .check import Match, Blank, In, Len
+from .schema import Schema, ForEach, Field
+import cache
 
 class ResolveDomain( Validator ):
 
@@ -41,10 +40,10 @@ DomainLabel = Compose\
     ( CommonDomainPreValidaton.tag('prevalidation')
     & (~Blank()).tag('notBlank')
     & cache.Save(result='preEncode').tag('returnNonPuny', False )
-    & ( Match(re.compile('^xn--')) | Encode('punycode') ).tag('punyCode')
-    & (~Match(re.compile('^??--'))).tag('noHyphen')
+    & ( Match(re.compile(r'^xn--')) | Encode('punycode') ).tag('punyCode')
+    & (~Match(re.compile(r'^..--'))).tag('noHyphen')
     & Len(max=63).tag('tooLong')
-    & Match(re.compile('^[a-z0-9]+([-a-z0-9]+)*$')).tag('validSymbols')
+    & Match(re.compile(r'^[a-z0-9]+([-a-z0-9]+)*$')).tag('validSymbols')
     & cache.Restore(result='preEncode').tag('returnNonPuny', False)
     ).paramAlias\
         ( convertToString='string_convert'
@@ -80,7 +79,7 @@ def __restrictToTLDSetter( alias, param ):
             }
 
 Domain = Compose\
-    ( commonDomainPreValidaton.tag('prevalidation')
+    ( CommonDomainPreValidaton.tag('prevalidation')
     & Split('.').tag('split')
     & Len(min=2).tag('numSubdomains')
     & ForEach\
@@ -88,7 +87,7 @@ Domain = Compose\
             ( prevalidation_enabled=False
             ).tag('domainLabel')
         )
-    & Field( '.(-1)', In().tag('restrictToTLD') ).tag('restrictToTLDValidator')
+    & Field( '.(-1)', In([]).tag('restrictToTLD') ).tag('restrictToTLDValidator')
     & Join('.')
     & ResolveDomain().tag('resolve',False)
     ).paramAlias\
@@ -120,12 +119,12 @@ EmailLocalPart = Compose\
         ( convertToString='string_convert'
         , updateValue='update_enabled'
         , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
-    ).messagesAlias\
+    ).messageAlias\
         ( blank=('string_blank','validSymbols_blank')
         , missing='string_missing'
         , type='string_type'
         , invalidSymbols='validSymbols_fail'
-    ).massages\
+    ).messages\
         ( blank='Please enter a domain name'
         , invalidSymbols='Localpart contains invalid symbols'
         )
@@ -135,7 +134,7 @@ class EmailSchema( Schema ):
 
     returnList = True
 
-    pre_valiate\
+    pre_validate\
         ( String.convert().tag('string')
         , EliminateWhiteSpace().tag('eliminateWhiteSpace')
         , Update().tag('update')
@@ -201,6 +200,6 @@ class NestedPostConverter( ValidatorBase ):
 NestedPost = Compose\
     ( Dict().tag('type')
     & NestedPostConverter()
-    ).messagesAlias\
+    ).messageAlias\
         ( type='type_fail'
         )

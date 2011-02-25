@@ -1,7 +1,7 @@
-from ..lib import messages, MISSING, Cached, ValidatorBase
+from ..lib import messages, MISSING
 from ..error import Invalid
 
-from .core import Validator
+from .core import Validator, ValidatorBase
 
 import re
 
