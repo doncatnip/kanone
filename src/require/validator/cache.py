@@ -6,38 +6,42 @@ class CacheBase( ValidatorBase ):
     def __init__( self, result=None, value=None ):
         if not (result or value):
             raise SyntaxError("You need to specify at least either result='location' or value='location'")
+        self.result = result
+        self.value = value
 
-    def getCache( self ):
+    def getCache( self, context ):
         cache = getattr( context.root, 'cache', None)
 
         if cache is None:
             cache = context.root.cache = {}
+            cache['result'] = {}
+            cache['value'] = {}
 
         return cache
 
 class Save( CacheBase ):
 
-    def validate( contex, value ):
+    def validate( self, context, value ):
 
-        cache = self.getCache()
-        if result:
-            cache['result'][result] = value
-        if value:
-            cache['value'][value] = context.get('value',context.__value__)
+        cache = self.getCache( context )
+        if self.result:
+            cache['result'][self.result] = value
+        if self.value:
+            cache['value'][self.value] = context.get('value',context.__value__)
 
-        return PASS
+        return value
 
 
 class Restore( CacheBase ):
 
-    def validate( contex, value ):
-        cache = self.getCache()
+    def validate( self, context, value ):
+        cache = self.getCache( context )
 
-        if result:
-            return cache['result'].get(result,PASS)
-        if value:
-            context['value'] = cache['value'].get('value',context.__value__)
+        if self.result:
+            return cache['result'].get(self.result,PASS)
+        if self.value:
+            context['value'] = cache['value'].get(self.value,context.__value__)
 
-        return PASS
+        return value
 
 

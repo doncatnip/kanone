@@ -227,7 +227,8 @@ class Compose( Validator ):
 
                 for tag in self.tags[ tagName ]:
                     validator = enabled\
-                        and tag.validator( **args )\
+                        and ( args and tag.validator( **args )\
+                              or tag.validator )\
                         or False
 
                     self.taggedValidators[ tag.tagId ] = validator
