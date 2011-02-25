@@ -1,4 +1,4 @@
-from ..lib import messages, MISSING, PASS, ValidatorBase
+from ..lib import messages, MISSING, Cached, ValidatorBase
 from ..error import Invalid
 
 from .core import Validator
@@ -8,20 +8,23 @@ import re
 import logging
 log = logging.getLogger(__name__)
 
+class PASS:
+    pass
+
 class Missing( Validator ):
 
     messages\
         ( fail='This field must be left out'
         )
 
-    def prepare(self, default=PASS ):
-        self.data.default = default
+    def setParameters(self, default=PASS ):
+        self.default = default
 
     def on_value( self, context, value ):
         raise Invalid( )
 
     def on_missing( self, context ):
-        return self.data.default
+        return (self.default is PASS) and MISSING or self.default
 
 class Blank( Validator ):
 
@@ -29,7 +32,7 @@ class Blank( Validator ):
         ( fail='This field must be blank'
         )
 
-    def __init__( self, default = PASS ):
+    def setParameters( self, default = PASS ):
         self.default = default
         self.check_container = \
             isinstance( default, dict )\
@@ -60,7 +63,7 @@ class Blank( Validator ):
         raise Invalid( )
 
     def on_blank( self, context ):
-        return self.default
+        return (self.default is PASS) and None or self.default
 
 
 class Empty( Blank, Missing ):
@@ -80,17 +83,17 @@ class Match( Validator ):
     REGEX       = 'Match_REGEX'
     VALIDATOR   = 'Match_VALIDATOR'
 
-    def prepare(self, required, ignoreCase=False):
+    def setParameters(self, required, ignoreCase=False):
         if not isinstance( required, ValidatorBase ):
             if callable(getattr( required, 'match', None )):
-                self.data.type = Match.REGEX
+                self.type = Match.REGEX
             else:
-                self.data.type = Match.RAW
+                self.type = Match.RAW
         else:
-            self.data.type = Match.VALIDATOR
+            self.type = Match.VALIDATOR
 
-        self.data.ignoreCase__ = ignoreCase
-        self.data.required = required
+        self.ignoreCase__ = ignoreCase
+        self.required = required
 
     def appendSubValidators( self, context, subValidators ):
         if self.data.type == Match.VALIDATOR:
@@ -102,23 +105,24 @@ class Match( Validator ):
         if self.type is Match.REGEX:
             if not self.pattern.match(value):
                 raise Invalid( type=self.type, criteria=required.pattern)
-            return PASS
+            return value
         elif self.type is Match.RAW:
             compare = self.required
         elif self.type is Match.VALIDATOR:
             try:
                 compare = self.required.validate( context, value )
             except Invalid,e:
-                return PASS
+                return value
 
+        val = value
         if self.__ignore_case__:
             compare = str(compare).lower()
-            value = str(value).lower()
+            val = str(value).lower()
 
-        if value <> compare:
-            raise Invalid(  type=self.type, critaria=compare )
+        if val <> compare:
+            raise Invalid( type=self.type, critaria=compare )
 
-        return PASS
+        return value
 
     def on_missing(self, context):
         if self.type is Match.VALIDATOR:
@@ -133,7 +137,7 @@ class Len( Validator ):
         , fail="Value must be between %(min)s and %(max)s in length"
         )
 
-    def __init__(self, min=0, max=None, returnLen=False):
+    def setParameters(self, min=0, max=None, returnLen=False):
         self.min = min
         self.max = max
         self.returnLen = returnLen
@@ -144,13 +148,13 @@ class Len( Validator ):
         except Exception,e:
             raise Invalid('type',type=value.__class__.__name__)
 
-        if result<self.min or (self.max is not None and result>self.max )
+        if result<self.min or (self.max is not None and result>self.max ):
             raise Invalid('fail',min=self.min, max=self.max, len=self.len)
 
         if self.returnLen:
             return result
         else:
-            return PASS
+            return value
 
 
 class In( Validator ):
@@ -158,12 +162,12 @@ class In( Validator ):
         ( fail="Value must be one of %(required)s"
         )
 
-    def __init__( self, required=[] ):
-        self.required = reqiered
+    def setParameters( self, required ):
+        self.required = required
 
     def on_value(self, context, value):
         if not value in selt.required:
             raise Invalid('fail')
 
-        return PASS
+        return value
 

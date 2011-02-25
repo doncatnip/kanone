@@ -1,7 +1,7 @@
-from ..lib import MISSING, PASS, messages, ValidatorBase
+from ..lib import MISSING, messages, inherit
 from ..error import Invalid
 
-from .core import Validator
+from .core import PASS, ValidatorBase, Validator
 from .check import Match
 
 import re
@@ -9,8 +9,20 @@ import re
 import logging
 log = logging.getLogger(__name__)
 
+class SchemaData:
+
+    def __init__(self, validationFunc, indexFunc=None):
+        self.validationFunc = validationFunc
+        self.indexFunc = indexFunc
+        self.values = None
 
 class Schema( Validator ):
+
+    inherit\
+        ( 'validators'
+        , 'keyIndexRelation'
+        , 'index'
+        )
 
     messages\
         ( fail='Validation failed (errors: %(errors)s )'
@@ -18,151 +30,109 @@ class Schema( Validator ):
         , type='Invalid input type (must be dict, list or tuple)'
         )
 
-    __validators__  = None
-    __field_index__ = None
+    def setArguments( *_fieldset ):
+        assert (_fieldset%2==0)
+        (self.validators,self.index,self.keyIndexRelation)\
+            = self.getValidators( _fieldset or self.__fieldset__ )
+        if not self.validators:
+            raise SyntaxError('No fieldset given')
 
-    def setParameters( self, params, *validators, **kwargs ):
+    def setParameters( self, allowExtraFields=False, returnList=False ):
+        self.allowExtraFields = allowExtraFields
+        self.returnList = returnList
 
-        if validators:
-            self.__fieldset__ = validators
-
-        params.allowExtraFields = kwargs.get('allowExtraFields',False)
-        params.returnList = kwargs.get('returnList',True)
-        params.populateFirst = kwargs.get('populateFirst',None)
-
-        self.__autopopulate__( params )
-
-    # autopopulate:
-    # Search for Field validators - if its used as or by any sub
-    # validator, we need to populate the context before validating it
-    # otherwise there will be no validator/value set yet when the
-    # accessed field comes after the one which uses the Field validator.
-    # We check this, because it saves some performance if we only use it
-    # when it's needed - which may sum up on complex schmas with a large
-    # data input.
-    def __autopopulate__(self, params):
-        if params.populateFirst is None:
-            params.populateFirst = False
-            subValidators = []
-            self.appendSubValidators( params, subValidators )
-
-            for validator in subValidators:
-                if isinstance(validator, FieldValidator ):
-                    self.populateFirst = True
-                    break
-
-    # overridden (Validator)
-    def appendSubValidators( self, params, subValidators ):
-        self.field_index_get()
-        for (key, validator) in self.__validators__:
+    def appendSubValidators( self, subValidators ):
+        for validator in self.validators.values():
             validator.appendSubValidators( subValidators )
             subValidators.append(validator)
 
-    # overridden (Validator)
-    def on_value( self, context, value ):
-        extraFields = []
+    def validateField( self, context, schemaData ):
+        try:
+            context.validator = self.validators[ context.key ]
+        except KeyError:
+            raise SyntaxError("No validator set for %s" % context.path)
 
-        field_index = list(self.field_index_get( context ))
+        key = schemaData.isList\
+            and self.keyIndexRelation[ key ] or context.key
+
+        context.value = schemaData.values.get\
+            ( key
+            , MISSING
+            )
+
+        return context.validator.validate( context, context.value )
+
+    def getKeyByIndex( self, index, schemaData ):
+        return self.index[ index ]
+
+    def on_value( self, context, value ):
+        data = SchemaData( validateField, getKeyByIndex )
+        data.isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
+        if not data.isList and not isinstance( value, dict ):
+            raise Invalid('type')
+
+        if not self.allowExtraFields:
+            extraFields = data.isList\
+                and len(value) or value.keys()
 
         errors = []
 
-        if not self.returnList:
-            result = {}
-        else:
-            result = []
+        data.values = value
+        context.setSchemaData( data )
+        result = {}
 
-        # create new child contexts, set values/validators and validate
-        # ( if possible ) while converting in one go 
-        if isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set):
-            valuelist = value
-            value = {}
+        for pos in range(len(self.index)):
+            key = self.index[pos]
+            try:
+                result[ key ] = context( pos ).result
+            except Invalid,e:
+                errors.append( e )
+            if not self.allowExtraFields:
+                if data.isList:
+                    extraFields-=1
+                else:
+                    del extraFields[ key ]
 
-            for pos in range(len(valuelist)):
-                try:
-                    key = field_index[pos]
-                except IndexError, e:
-                    if not self.allowExtraFields:
-                        extraFields.append( key )
-                elif not extraFields:
-                    contextChild = self.__newContext__( context, key, valuelist[pos] )
-                    del field_index[pos]
-                    if not self.populateFirst:
-                        self.__validateField__( contextChild, result, errors )
+        context.resetSchemaData()
 
-        elif isinstance( value, dict ):
-            for (key,val) in value:
-                if not key in field_index:
-                    if not self.allowExtraFields:
-                        extraFields.append( key )
-                elif not extraFields:
-                    contextChild = self.__newContext__( context, key, val )
-                    del field_index[field_index.index(key)]
-                    if not self.populateFirst:
-                        self.__validateField__( contextChild, result, errors )
-        else:
-            raise Invalid( 'type' )
-
-        # maybe TODO: should we delete all created childs if there was an error ?
         if extraFields:
-            raise Invalid( 'extraFields',extraFields=extraFields)
-
-        # fill missing fields
-        for key in field_index:
-            contextChild = self.__newContext__( context, key, MISSING )
-            if not self.populateFirst:
-                self.__validateField__( contextChild, result, errors )
-
-        if self.populateFirst:
-            # validate all fields
-            for key in self.__field_index__:
-                self.__validateField__( context.childs[ key ], result, errors )
+            raise Invalid('extraFields',extraFields=extraFields)
 
         if errors:
-            raise Invalid( errors=errors)
+            raise Invalid(errors = errors )
+
+        if self.returnList:
+            return result.values()
 
         return result
 
-    def __newContext__( self, context, key, value ):
-        return context(value,self.validator_get( context, key ))
 
-    def __validateField__( self, context, result, errors):
-        try:
-            result = context.result
-        except Invalid,e:
-            errors.append(e)
-        if not self.returnList:
-            result[key] = result
-        else:
-            result.append( result )
+    @classmethod
+    def getValidators( klass, _fieldset  ):
+        if not fieldSet:
+            return None
 
-    def field_index_get( self, context ):
-        if self.__field_index__ is none:
-            if not hasattr(self, '__fieldset__'):
-                raise SyntaxError('No fields defined in this schema: %s' % self.__class__.__name__)
+        validators = {}
+        keyIndexRelation = {}
+        index = []
 
-            self.__validators__ = {}
-            self.__field_index__ = []
-            for (name,validator) in self.__fieldset__:
-                self.__validators__[name] = validator
-                self.__field_index__.append(name)
+        pos = 0
+        for (name,validator) in _fieldset:
+            validators[name] = validator
+            keyIndexRelation[ name ] = pos
+            index.append( name )
+            pos += 1
 
-        return self.__field_index__
-
-    def validator_get( self, context, key ):
-        field_index = self.field_index_get( context )
-
-        if key not in self.__validators__:
-            raise AttributeError("No Validator for field '%s' set" % context.path)
-        return self.__validators__[key]
+        return (validators,index,keyIndexRelation)
 
 
-class ForEach( Schema ):
+class ForEach( Validator ):
 
     messages\
         ( numericKeys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
         )
 
-    def __init__( self, criteria, onFirst=criteriaOnFirst, onLast=criteriaOnLast, numericKeys=True, returnList=True, populateFirst=None):
+    def setParameters( self, criteria, numericKeys=True, returnList=True ):
 
         if not isinstance( criteria, ValidatorBase ):
             criteria = Match( criteria )
@@ -170,81 +140,77 @@ class ForEach( Schema ):
         self.returnList = returnList
         self.numericKeys = numericKeys
         self.validator = criteria
-        self.populateFirst = populateFirst
-        self.__autopopulate__()
 
     def appendSubValidators( self, subValidators ):
         self.validator.appendSubValidators( subValidators )
         subValidators.append( self.validator )
 
+    def validateItem( self, context, schemaData ):
+        key = schemaData.isList\
+            and int(context.key) or context.key
+
+        context.value = schemaData.values[ key ]
+        context.validator = self.validator
+
+        return context.validator.validate( context, context.value )
+
+    def getKeyByIndex( self, index, schemaData ):
+        return str( index )
+
     def on_value( self, context, value ):
-        typeError = False
 
-        if self.returnList:
-            result = []
-        else:
-            result = {}
+        data = SchemaData( self.validateItem )
+        data.isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
 
+        if not data.isList:
+            if not isinstance(data, dict ):
+                raise Invalid( 'type' )
+
+        result = {}
         errors = []
 
-        keyErrors = []
+        data.values = value
+        context.setSchemaData( data )
 
-        keys = []
+        if self.isList or self.numericKeys:
+            data.indexFunc = self.getKeyByIndex
 
-        if isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set):
-            for pos in range(len(value)):
-                pos = str(pos)
-                contextChild = self.__newContext__( context, pos, value[pos] )
-                if not self.populateFirst:
-                    self.__validateField__( contextChild, result, errors )
+            for pos in range( len( value ) ):
+                resultKey = str(pos)
+                if not self.isList:
+                    contextKey = value.get(resultKey,None) and pos
+                    if contextKey is None:
+                        context.resetSchemaData()
+                        raise Invalid('numericKeys',keys=data.keys())
                 else:
-                    keys.append( pos )
+                    contextKey = pos
 
-        elif isinstance( value, dict):
-            pos=0
-            for (key, val) in value:
-                if self.numericKeys:
-                    try:
-                        key = int(key)
-                    except ValueError,e:
-                        keyErrors.append(key)
-                        continue
-                    else:
-                        if key != pos:
-                            keyErrors.append(key)
-                            continue
-                    finally:
-                        pos+=1
-
-                contextChild = self.__newContext__( context, key, val)
-                if not self.populateFirst:
-                    self.__validateField__( contextChild, result, errors )
-                else:
-                    keys.append( key )
+                try:
+                    result[ resultKey ] = context( contextKey ).result
+                except Invalid, e:
+                    errors.append( e )
         else:
-            raise Invalid('type')
+            for key in value.keys():
+                try:
+                    result[ key ] = context( key ).result
+                except Invalid, e:
+                    errors.append( e )
 
-        if keyErrors:
-            raise Invalid('numericKeys', keys=keyErrors)
-
-        if self.populateFirst:
-            for key in keys:
-                self.__validateField__( context.childs[ key ], result, errors )
+        context.resetSchemaData()
 
         if errors:
             raise Invalid(errors=errors)
 
-        return result
+        if self.returnList:
+            return result.values()
 
-    # overridden (Schema)
-    def validator_get( self, context, key):
-        return self.validator
+        return result
 
 
 class FieldValidator( Validator ):
 
-    def __init__(self):
-        raise SyntaxError( "FieldValidator cannot be used directly"
+    def setParameters(self):
+        raise SyntaxError( "FieldValidator cannot be used directly" )
 
     def getField( self, context, path):
         pathSplit = path.split('.')
@@ -258,18 +224,13 @@ class FieldValidator( Validator ):
                 fieldcontext = fieldcontext.parent
                 del pathSplit[0]
 
-        if fieldcontext is self:
-            selfReference = True
+        for part in pathSplit:
+            if part.startswith('(') and part.endswith(')'):
+                part = int(part[1:-1])
+            fieldcontext = fieldcontext( part )
 
-        if not selfReference:
-            for part in pathSplit:
-                if (fieldcontext.parent is self.parent) and (part == self.key):
-                    selfReference = True
-                    break
-                fieldcontext = fieldcontext( part )
-
-        if selfReference:
-            raise SyntaxError( "Cannot reference myself. Nice try, though :)"
+        if fieldcontext is context:
+            raise SyntaxError( "Cannot reference myself. Nice try, though :)" )
 
         return fieldcontext
 
@@ -280,7 +241,7 @@ class Field( FieldValidator ):
         ( noResult='Field %(path)s has no result'
         )
 
-    def __init__(self, path, criteria=None, useResult=False, copy=False):
+    def setParameters(self, path, criteria=None, useResult=False, copy=False):
         self.path = path
         self.copy = copy
 
@@ -302,18 +263,20 @@ class Field( FieldValidator ):
         result = MISSING
 
         if self.validator is not None:
-            if useResult:
-                value = fieldcontext.value
+            targetValue = PASS
+
+            if not useResult:
+                targetValue = fieldcontext.value
             else:
                 try:
-                    value = fieldcontext.result
+                    targetValue = fieldcontext.result
                 except Invalid,e:
-                    value = PASS
+                    targetValue = PASS
 
-            if value is not PASS:
-                result = self.validator.validate( fieldcontext, value )
+            if targetValue is not PASS:
+                result = self.validator.validate( fieldcontext, targetValue )
 
         if self.copy:
             return result
 
-        return PASS
+        return value

@@ -2,112 +2,133 @@ import re
 
 from ..lib import messages
 
+from .core import ValidatorBase, Validator, Compose
 from .basic import String, Dict
-from .alter import Lower, EliminateWhiteSpace, Split, Join, Update
+from .alter import Encode, Lower, EliminateWhiteSpace, Split, Join, Update
+from .check import Match, Blank, In
+from .schema import Schema, ForEach
 
-def resolve_domain( domain ):
+from . import cache
 
-    import DNS
-
-    a=DNS.DnsRequest(domain, qtype='mx').req().answers
-    if not a:
-        a=DNS.DnsRequest(domain, qtype='a').req().answers
-
-    dnsdomains=[x['data'] for x in a]
-    if not dnsdomains:
-        return False
-    return True
-
-"""
-class DomainLabelValidator( Validator ):
+class ResolveDomain( Validator ):
 
     messages\
-        ( noHyphen="Domain cannot contain a hyphen at pos 2-3"
-        , tooLong="Domain part is too long"
-        , invalid="Domain part contains invalid characters"
+        ( fail='Domain not found'
         )
 
-    re_domain = re.compile ( r'^(xn--)?([a-z0-9]+([-a-z0-9]+)*)$' ,re.IGNORECASE )
-
-    def __init__( self, convertToPunicode=True ):
-        self.convertToPunicode = convertToPunicode
-
     def on_value( self, context, value ):
+        import DNS
 
-        if value[2:4] == '--':
-            if not value.startswith('xn'):
-                raise self.invalid('noHyphen')
+        a=DNS.DnsRequest(value, qtype='mx').req().answers
+        if not a:
+            a=DNS.DnsRequest(value, qtype='a').req().answers
 
-        else:
-            puny = value.encode('punycode')
+        dnsdomains=[x['data'] for x in a]
+        if not dnsdomains:
+            raise Invalid()
 
-            if not puny.endswith('-'):
-                punydomain='xn--'+puny
-            else:
-                punydomain=puny
+        return value
 
-        if len(punydomain)>63:
-            raise Invalid('tooLong')
 
-        if not self.re_domain.match( next ):
-            raise Invalid('invalid')
-
-        if self.convertToPunicode:
-            return punydomain
-        else:
-            return value
-"""
 CommonDomainPreValidaton\
-    = String.convert().tag('string')
-    & EliminateWhiteSpace().tag('eliminateWhiteSpace')
-    & Lower().tag('toLower')
+    = String.convert().tag('string')\
+    & EliminateWhiteSpace().tag('eliminateWhiteSpace')\
+    & Lower().tag('toLower')\
     & Update().tag('update')
-    & (~Blank()).tag('notBlank')
+
 
 DomainLabel = Compose\
-    ( CommonDomainPreValidaton().tag('prevalidation')
-    & cache.Save(result='preEncode').tag('returnNonPuny')
-    & ( Match(re'^xn--') | Encode('punycode') ).tag('punyCode')
-    & (~Match(re'^??--')).tag('noHyphen')
+    ( CommonDomainPreValidaton.tag('prevalidation')
+    & (~Blank()).tag('notBlank')
+    & cache.Save(result='preEncode').tag('returnNonPuny', False )
+    & ( Match(re.compile('^xn--')) | Encode('punycode') ).tag('punyCode')
+    & (~Match(re.compile('^??--'))).tag('noHyphen')
     & Len(max=63).tag('tooLong')
-    & (~Match(re'^[a-z0-9]+([-a-z0-9]+)*$')).tag('invalidSymbols')
-    & cache.Restore(result='preEncode').tag('returnNonPuny')
+    & Match(re.compile('^[a-z0-9]+([-a-z0-9]+)*$')).tag('validSymbols')
+    & cache.Restore(result='preEncode').tag('returnNonPuny', False)
     ).paramAlias\
         ( convertToString='string_convert'
-        , convertToPunicode='punyCode_enabled'
         , updateValue='update_enabled'
         , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
         , toLower='toLower_enabled'
+        , convertToPunicode='punyCode_enabled'
         , returnNonPuny='returnNonPuny_enabled'
     ).messageAlias\
         ( type='string_type'
         , noHyphen='noHyphen_fail'
         , tooLong='tooLong_fail'
-        , invalidSymbols='invalidSymbols_fail'
+        , invalidSymbols='validSymbols_fail'
         , blank=("notBlank_fail","string_blank")
-    )
+        , missing="string_missing"
+    ).messages\
+        ( blank='Please provide a value'
+        , noHyphen='Domain cannot contain a hyphen at the 2nd and 3rd position'
+        , tooLong='A domain can have max s(max)% characters'
+        , invalidSymbols='The domain name contains invalid symbols'
+        )
 
 
-
+def __restrictToTLDSetter( alias, param ):
+    if isinstance( param, dict ):
+        return\
+            { 'restrictToTLDValidator_enabled':True
+            , 'restrictToTLD_required': param
+            }
+    else:
+        return\
+            { 'restrictToTLDValidator_enabled': False
+            }
 
 Domain = Compose\
     ( commonDomainPreValidaton.tag('prevalidation')
-    & Split(separator='.')
+    & Split('.').tag('split')
     & Len(min=2).tag('numSubdomains')
     & ForEach\
-        ( DomainLabel\
+        ( ~(Blank()).tag('format') & DomainLabel\
             ( prevalidation_enabled=False
             ).tag('domainLabel')
-        , onLast=In().tag('restrictTLD',False)
         )
+    & Field( '.(-1)', In().tag('restrictToTLD') ).tag('restrictToTLDValidator')
     & Join('.')
-    & DomainLookup().tag('resolve',False)
-    )
+    & ResolveDomain().tag('resolve',False)
+    ).paramAlias\
+        ( convertToString='string_convert'
+        , updateValue='update_enabled'
+        , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
+        , toLower='toLower_enabled'
+        , restrictToTLD= __restrictToTLDSetter
+    ).messageAlias\
+        ( blank=('string_blank','split_blank')
+        , missing='string_missing'
+        , type='string_type'
+        , format = ('format_fail','numSubdomains_fail')
+        , restrictToTLD= 'restrictToTLD_fail'
+        , invalidSymbols='domainLabel_invalidSymbols'
+    ).messages\
+        ( blank="Please provide a value"
+        , format='Invalid domain name format, try my.domain.com'
+        , restrictToTLD= 'TLD not allowed. Allowed TLDs are %(required)s'
+        )
 
-EmailLocalPart = Tagger\
-    ( String.( toLowerCase=True, eliminateWhiteSpace=True, updateValue=True ).tag('input')
-    & EmailLocalPartValidator().tag('format')
-    )
+
+EmailLocalPart = Compose\
+    ( ( String.convert().tag('string')
+    & EliminateWhiteSpace().tag('eliminateWhiteSpace') ).tag('prevalidation')
+    & Encode('ascii').tag('validSymbols')
+    & Update().tag('update')
+    ).paramAlias\
+        ( convertToString='string_convert'
+        , updateValue='update_enabled'
+        , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
+    ).messagesAlias\
+        ( blank=('string_blank','validSymbols_blank')
+        , missing='string_missing'
+        , type='string_type'
+        , invalidSymbols='validSymbols_fail'
+    ).massages\
+        ( blank='Please enter a domain name'
+        , invalidSymbols='Localpart contains invalid symbols'
+        )
 
 
 class EmailSchema( Schema ):
@@ -117,51 +138,47 @@ class EmailSchema( Schema ):
     pre_valiate\
         ( String.convert().tag('string')
         , EliminateWhiteSpace().tag('eliminateWhiteSpace')
-        , Update().tag('updateInput')
-        , Split('@',1).tag('format')
+        , Update().tag('update')
+        , Split('@',1).tag('split')
         )
 
     fieldset\
-        ( 'localPart',  (~Blank()).tag('format') & EmailLocalPart().tag('localPart')
-        , 'domainPart', (~Blank()).tag('format') & Domain().tag('domainPart')
+        ( 'localPart'
+            , (~Blank()).tag('format')
+            & EmailLocalPart( prevalidation_enabled=False ).tag('localPart')
+        , 'domainPart'
+            , Lower() & (~Blank()).tag('format')
+            & Domain( prevalidation_enabled=False ).tag('domainPart')
         )
 
     post_validate\
         ( Join('@')
         )
 
-Email = Tagger( EmailSchema ).messages\
-        ( blank = 'Please enter an email address'
-        , format_fail = 'Invalid email format ( try my.email@address.com )'
-        , localPart_invalid = u"The part before @ (%(value)s) contains invalid symbols"
-        , domainPart_restrictTLD="Invalid top level domain %(tld)s"
-        , domainPart_noHyphen="Domain cannot contain a hyphen at pos 2-3"
-        , domainPart_tooLong="Domain part %(subdomain)s is too long"
-        , domainPart_invalid="Domain part %(subdomain)s contains invalid characters"
-        )
+Email = Compose\
+        ( EmailSchema()
+        ).paramAlias\
+            ( eliminateWhiteSpace = 'eliminateWhiteSpace_enabled'
+            , updateValue = 'update_enabled'
+        ).messageAlias\
+            ( blank = ('string_blank','split_blank' )
+            , missing = 'string_missing'
+        ).messages\
+            ( blank = 'Please enter an email address'
+            , format_fail = 'Invalid email format ( try my.email@address.com )'
+            , localPart_invalidSymbols = u"The part before @ (%(value)s) contains invalid symbols"
+            , domainPart_restrictTLD="Invalid top level domain %(value)s, allowed TLD are %(required)"
+            , domainPart_noHyphen="Domain cannot contain a hyphen at position 2-3"
+            , domainPart_tooLong="Domain part %(value)s is too long (max %(max)s characters)"
+            , domainPart_format="Invalid domain name format (%(value)s)"
+            , domainPart_invalidSymbols="Domain part %(value)s contains invalid characters"
+            )
 
 
 
-class EmailLocalPartValidator( Validator ):
+class NestedPostConverter( ValidatorBase ):
 
-    messages\
-        ( invalid=u"Local part contains invalid symbols"
-        )
-
-    def on_value( self, context, value):
-        try:
-            localPart = localPart.encode('ascii')
-        except UnicodeEncodeError,e:
-            raise self.invalid( 'invalid' )
-        return localPart
-
-
-
-
-class NestedPost( Dict ):
-
-    def on_value( self, context, value ):
-        value = Dict.on_value( self, context, value )
+    def validate( self, context, value ):
         resultset = {}
 
         for (key, val) in value.iteritems():
@@ -180,3 +197,10 @@ class NestedPost( Dict ):
 
         return resultset
 
+
+NestedPost = Compose\
+    ( Dict().tag('type')
+    & NestedPostConverter()
+    ).messagesAlias\
+        ( type='type_fail'
+        )

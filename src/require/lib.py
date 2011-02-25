@@ -1,8 +1,5 @@
 from zope.interface.advice import addClassAdvisor
-from UserDict import UserDict
 import sys
-
-from pulp import Pulp
 
 from .error import  Invalid
 
@@ -120,22 +117,16 @@ def fieldset(*fields):
 def messages(**fields):
     _advice('messages', _merge_dict, fields )
 
+def inherit(*keys):
+    _advice('inherit', _append_list, keys)
+
 
 def defaultErrorFormatter( context, error ):
     return error.msg % (error.extra)
 
 
-class DataHolder( object ):
-    def __init__(self):
-        __data__ = {}
-
-    def __call__(self, validator):
-        if not validator in self.__data__:
-            self.__data__[ validator ] = Pulp()
-        return self.__data__[ validator ]
 
 class Context( dict ):
-
     __value__ = MISSING
     __error__ = MISSING
     __result__ = MISSING
@@ -147,7 +138,6 @@ class Context( dict ):
 
     isValidated = False
     isPopulated = False
-    isPopulating = False
 
     def __init__(self, value=MISSING, validator=None, key='', parent=None):
         if parent is not None:
@@ -160,6 +150,7 @@ class Context( dict ):
                 self['path'] = key
         else:
             self.root = self
+            self.errorlist = []
             self.errorFormatter = defaultErrorFormatter
 
         self.validator = validator
@@ -207,6 +198,25 @@ class Context( dict ):
         self.__validator__ = value
         self.clear()
 
+    def getKeyByIndex( self, index ):
+        if not index in self.indexKeyRelation:
+            schemaData = getattr(self,'currentSchemaData',None)
+        if schemaData and schemaData.indexFunc:
+            self.indexKeyRelation[ index ] = schemaData.indexFunc( index, schemaData )
+        else:
+            raise SyntaxError('This context has no childs supporting indexing')
+
+        return self.indexKeyRelation[ index ]
+
+    def setSchemaData( self, data ):
+        self.indexKeyRelation = {}
+        self.currentSchemaData = data
+        self.isPopulated = True
+
+    def resetSchemaData( self ):
+        del self.currentSchemaData
+        self.isPopulated = False
+
     def clear( self ):
         if not(self.isPopulated or self.isValidated):
             return
@@ -228,7 +238,7 @@ class Context( dict ):
             self['value'] = self.__value__
 
     def populate(self ):
-        if self.isPopulated or self.isPopulating:
+        if self.isPopulated:
             if 'value' in self:
                 return self['value']
             return self.__value__
@@ -236,24 +246,29 @@ class Context( dict ):
         if self.parent is not None:
             self.parent.populate()
 
-        result = PASS
+        if self.parent:
+            schemaData = getattr(self.parent,'currentSchemaData',None)
 
-        if (self.validator is None):
+        if (self.validator is None) and not schemaData:
             raise AttributeError("No validator set for context '%s'" % self.path )
 
-        self.isPopulating = True
-
+        result = PASS
         try:
-            result = self.validator.validate( self, self.__value__)
+            if schemaData:
+                result = schemaData.validationFunc( self, schemaData )
+            else:
+                result = self.validator.validate( self, self.__value__)
         except Invalid,e:
             self.__error__ = e
-        else:
+        except ValidationDone,e:
+            result = e.result
+
+        if not self.__error__:
             if result is not PASS:
                 self.__result__ = result
             else:
                 self.__result__ = self.__value__
 
-        self.isPopulating = False
         self.isPopulated = True
 
         return self['value']
@@ -268,6 +283,7 @@ class Context( dict ):
             if self.__result__ is not MISSING:
                 self['result'] = self.__result__
             elif self.__error__ is not MISSING:
+                self.errorlist.append( self.path )
                 self['error'] = self.__error__
 
             self.isValidated = True
@@ -278,11 +294,17 @@ class Context( dict ):
         raise self.__error__
 
     def __call__( self, path ):
+        if path.__class__ is int:
+            if path < 0:
+                path = len( self.childs )-path
+
+            return self( self.getKeyByIndex( path ) )
+
         path = path.split('.',1)
 
         try:
             child = self.childs[path[0]]
-        except KeyError,e:
+        except KeyError:
             child = self.childs[path[0]] = Context( key=path[0], parent=self )
 
         if(len(path)==1):
@@ -293,20 +315,94 @@ class Context( dict ):
         return child(path)
 
 
-class ValidatorBase(object):
+# Some kind of 'clonable' object -
+# we reinitialize child objects with inherited kwargs merged with new ones.
+# This allows us to alter just a few specific parameters in child objects.
+# without the need for implementors of validators to provide setters or too
+# much specification for their attributes or how they are provided.
+# * the setParameters function will be inspected, so that it will use
+#   named parameters as kwargs, regardless if they are provided as *args
+#   ( you cannot use *varargs in setParameters )
+# * you can also define a setArguments function, which will be called before
+#   setParameters, using the provided *varargs. keywords defined in
+#   setParameters will not be moved from *args to **kwargs when setArguments
+#   is defined. You can use it for attributes you only want to initialize
+#   once. It also allows you to 'name' *varargs in the function definition.
+# * __inherit__ specifies what attributes should be copied to child instances.
+class Parameterized:
+    __kwargs__ = {}
+    __inherit__ = [ ]
+    __isRoot__ = True
 
-    messages\
-        ( fail='Validation failed'
-        )
+    def __init__( self, *args, **kwargs ):
+        parent = kwargs.pop( '_parent', None )
 
-    def appendSubValidators( self, subValidators )
-        pass
+        if not hasattr( self, 'setArguments') and args:
+            ( args, kwargs ) = self.__realargs__( args, kwargs )
 
-    def validate( self, context, value ):
-        if (value is MISSING):
-            return self.on_missing( context )
-        elif (value is in [None,'',[],{}]):
-            return self.on_blank( context )
-        else:
-            return self.on_value( context, value )
+        if parent is not None:
+            self.__isRoot__ = False
+            newkwargs = dict(parent.__kwargs__ )
+            newkwargs.update(kwargs)
+            kwargs = newkwargs
+
+            for key in self.__attributes__:
+                setattr(self, key, getattr(parent, key))
+
+        for key in self.__getParameterNames__():
+            if not key in kwargs and hasattr(self.__class__,key):
+                kwargs[key] = getattr(self.__class__, key)
+
+        if args or parent is None:
+            if hasattr( self, 'setArguments' ):
+                self.setArguments( *args )
+            elif args:
+                raise SyntaxError('%s takes no further arguments' % self.__class__.__name__)
+
+        if kwargs or parent is None:
+            if hasattr( self, 'setParameters' ):
+                self.setParameters( **kwargs )
+            elif kwargs:
+                raise SyntaxError('%s takes no parameters' % self.__class__.__name__)
+
+        self.__kwargs__ = kwargs
+
+    def __call__( self, *args, **kwargs):
+        kwargs['_parent'] = self
+        return self.__class__( *args, **kwargs )
+
+
+    @classmethod
+    def __getParameterNames__( klass ):
+        if not hasattr( klass, '__parameterNames__'):
+            if not hasattr( klass, 'setParameters'):
+                names = ()
+            else:
+                spec = inspect.getargspec( klass.setParameters )
+                if spec.varargs:
+                    raise SyntaxError('Cannot use *varargs in setParameters, please use %s.setArguments' % klass.__name__)
+                names = spec.args[1:]
+            setattr\
+                ( klass,'__parameterNames__'
+                , names
+                )
+        return klass.__parameterNames__
+
+
+    @classmethod
+    def __realargs__( klass, args, kwargs ):
+
+        names = klass.__getParameterNames__()
+
+        realargs = list(args)
+
+        for argpos in range(min(len( names ), len(args))):
+            if names[ argpos ] in kwargs:
+                raise SyntaxError('multiple kw args: %s' % names[ argpos ])
+            kwargs[ names[ argpos ] ] = args[argpos]
+            del realargs[0]
+
+        return (realargs,kwargs)
+
+
 

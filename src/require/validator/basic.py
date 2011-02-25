@@ -1,22 +1,20 @@
-from .core import ValidatorFactory
-from ..lib import messages
+from .core import Validator
+from ..lib import messages, Cached
 
 import logging
 log = logging.getLogger(__name__)
 
-
-class TypeValidator( ValidatorFactory ):
+class TypeValidator( Validator ):
     converter = None
 
-    def setParameters( self, data, convert=False ):
-        data.convert = convert
+    def setParameters( self, convert=False ):
+        self.convert = convert
 
-    @property
-    def convert( self ):
-        if self.converter is None:
-            self.converter = self.__class__( convert = True )
-
-        return self.converter
+    @classmethod
+    def convert( klass ):
+        if not klass.converter:
+            klass.converter = self.__class__( convert = True )
+        return klass.converter
 
 
 class Dict( TypeValidator ):
@@ -29,7 +27,7 @@ class Dict( TypeValidator ):
     def on_value(self, context, value):
 
         if not isinstance(value, dict):
-            if  not context.data.convert:
+            if  not self.convert:
                 raise Invalid( 'type' )
             try:
                 value = dict(value)
@@ -54,7 +52,7 @@ class List( TypeValidator ):
             value = list(value)
 
         if not isinstance(value, list):
-            if not context.data.convert:
+            if not self.convert:
                 raise Invalid( 'type' )
 
             try:
@@ -74,9 +72,12 @@ class Boolean( TypeValidator):
         ( type="Invalid type, must be a bool"
         )
 
-
     def on_value(self, context, value):
-        if not (isinstance( value, bool ) or isinstance(value, int )):
+        if isinstance(value, int )\
+        and not(value<0 or value>1):
+            value = bool(value)
+
+        if not (isinstance( value, bool )):
             if self.convert:
                 return bool(value)
             raise Invalid( 'type' )
@@ -106,7 +107,7 @@ class String( TypeValidator ):
 class Integer( TypeValidator ):
 
     messages\
-        ( type="Invalid type, must be an integer"
+        ( type="Invalid type, must be a integer"
         , convert="Could not convert %(inputType)s to integer"
         )
 
@@ -121,14 +122,11 @@ class Integer( TypeValidator ):
 
         return value
 
-    @staticmethod
-    def convert():
-        return Integer( convert = True )
 
-
-class Float( Integer ):
+class Float( TypeValidator ):
     messages\
-        ( type="Invalid type, must be an integer"
+        ( type="Invalid type, must be a floating point number"
+        , convert="Could not convert %(inputType)s to a floating point number"
         )
 
     def on_value(self, context, value):
@@ -141,7 +139,3 @@ class Float( Integer ):
                 raise Invalid( 'convert',inputType=value.__class__.__name__ )
 
         return value
-
-    @staticmethod
-    def convert():
-        return Float( convert = True )
