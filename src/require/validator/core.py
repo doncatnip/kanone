@@ -128,6 +128,7 @@ class Tag( ValidatorBase ):
             validator = tags.get(self.tagId,False)
         else:
             validator = self.enabled and self.validator
+
         if validator is not False:
             return validator.validate( context, value )
         return value
@@ -186,6 +187,7 @@ class Compose( Validator ):
         ( 'paramAlias'
         , 'messageAlias'
         , 'tags'
+        , 'taggedValidators'
         , 'validator'
         )
 
@@ -196,6 +198,7 @@ class Compose( Validator ):
 
     def setArguments( self, validator ):
         self.validator = validator
+        self.taggedValidators = {}
         self.tags = {}
 
         subValidators = [ self.validator ]
@@ -213,11 +216,10 @@ class Compose( Validator ):
     def setParameters( self, **kwargs):
         taggedKwargs = _parseTaggedKeywords( kwargs, self.paramAlias )
 
-        self.taggedValidators = {}
         notFound = []
 
         if not self.__isRoot__:
-            self.tags = dict( self.tags )
+            self.taggedValidators = dict( self.taggedValidators )
 
         for (tagName, args) in taggedKwargs.iteritems():
             if not tagName in self.tags:

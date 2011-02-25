@@ -69,7 +69,7 @@ DomainLabel = Compose\
         , missing="string_missing"
     ).messages\
         ( blank='Please provide a value'
-        , tooLong='A domain can have max s(max)% characters'
+        , tooLong='A domain can have max %(max)i characters'
         , invalidSymbols='The domain name contains invalid symbols'
         )
 
@@ -114,6 +114,7 @@ Domain = Compose\
         ( blank="Please provide a value"
         , format='Invalid domain name format, try my.domain.com'
         , restrictToTLD= 'TLD not allowed. Allowed TLDs are %(required)s'
+        , tooLong="A domain label cannot exceed %(max)i characters"
         )
 
 

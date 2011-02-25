@@ -137,7 +137,7 @@ class Len( Validator ):
         , fail="Value must be between %(min)i and %(max)i in length"
         )
 
-    def setParameters(self, min=0, max=None, returnLen=False):
+    def setParameters(self, min=1, max=None, returnLen=False):
         self.min = min
         self.max = max
         self.returnLen = returnLen
@@ -148,7 +148,7 @@ class Len( Validator ):
         except Exception,e:
             raise Invalid('type',type=value.__class__.__name__)
 
-        if result<self.min or (self.max is not None and result>self.max ):
+        if result<self.min or (self.max is not None and (result>self.max )):
             raise Invalid('fail',min=self.min, max=self.max, len=result)
 
         if self.returnLen:
