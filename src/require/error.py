@@ -1,7 +1,8 @@
 class Invalid(Exception):
 
     context = None
-    msg = 'Invalid'
+    message = 'Invalid'
+    validator = None
 
     def __init__(self, _key='fail', **kwargs):
         self.key = _key

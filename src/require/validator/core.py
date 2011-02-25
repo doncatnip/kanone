@@ -9,7 +9,7 @@ log = logging.getLogger(__name__)
 #### Basic stuff
 
 # validators without messages and changeable parameters should derive from this
-class ValidatorBase:
+class ValidatorBase(object):
 
     def appendSubValidators( self, subValidators ):
         pass
@@ -44,9 +44,13 @@ class Validator( Parameterized, ValidatorBase ):
         ( '__messages__'
         )
 
+    __isValidateWrapped__ = False
+
     def __new__( klass, *args, **kwargs ):
-        self = Parameterized.__new__( klass )
-        self.validate = klass.__wrapValidate__( self.validate )
+        if not klass.__isValidateWrapped__:
+            klass.validate = klass.__wrapValidate__( klass.validate )
+            klass.__isValidateWrapped__ = True
+        self = object.__new__( klass )
         return self
 
     @classmethod
@@ -61,8 +65,8 @@ class Validator( Parameterized, ValidatorBase ):
     @classmethod
     def doValidate( klass, validator, validateFunc, context, value ):
         try:
-            return validateFunc( context, value )
-        except Exception, e:
+            return validateFunc( validator, context, value )
+        except Invalid, e:
             msg = validator.__messages__.get('catchall',None)
 
             if e.validator is None:
@@ -71,7 +75,7 @@ class Validator( Parameterized, ValidatorBase ):
                 e.context = context
                 e.extra['value'] = value
             if msg is not None:
-                e.msg = msg
+                e.message = msg
 
             raise e
 

@@ -16,7 +16,6 @@ class __MISSING__( str ):
 
 MISSING = __MISSING__()
 
-
 def _append_list(klass, key, data):
     setattr\
         ( klass
@@ -122,7 +121,7 @@ def inherit(*keys):
 
 
 def defaultErrorFormatter( context, error ):
-    return error.msg % (error.extra)
+    return error.message % (error.extra)
 
 
 
@@ -139,7 +138,7 @@ class Context( dict ):
     isValidated = False
     isPopulated = False
 
-    def __init__(self, value=MISSING, validator=None, key='', parent=None):
+    def __init__(self, validator=None, value=MISSING, key='', parent=None):
         if parent is not None:
             self.parent = parent
             self.root = parent.root
@@ -246,6 +245,7 @@ class Context( dict ):
         if self.parent is not None:
             self.parent.populate()
 
+        schemaData = None
         if self.parent:
             schemaData = getattr(self.parent,'currentSchemaData',None)
 
@@ -260,8 +260,6 @@ class Context( dict ):
                 result = self.validator.validate( self, self.__value__)
         except Invalid,e:
             self.__error__ = e
-        except ValidationDone,e:
-            result = e.result
 
         if not self.__error__:
             if result is not PASS:
@@ -270,6 +268,8 @@ class Context( dict ):
                 self.__result__ = self.__value__
 
         self.isPopulated = True
+        if not 'value' in self:
+            self['value'] = self.__value__
 
         return self['value']
 
@@ -334,6 +334,8 @@ class Parameterized:
     __inherit__ = [ ]
     __isRoot__ = True
 
+    __ignoreClassParameters__ = []
+
     def __init__( self, *args, **kwargs ):
         parent = kwargs.pop( '_parent', None )
 
@@ -348,10 +350,12 @@ class Parameterized:
 
             for key in self.__inherit__:
                 setattr(self, key, getattr(parent, key))
-
-        for key in self.__getParameterNames__():
-            if not key in kwargs and hasattr(self.__class__,key):
-                kwargs[key] = getattr(self.__class__, key)
+        else:
+            for key in self.__getParameterNames__():
+                if hasattr(self.__class__,key)\
+                and not key in self.__ignoreClassParameters__\
+                and not key in kwargs:
+                    kwargs[key] = getattr(self.__class__, key)
 
         if args or parent is None:
             if hasattr( self, 'setArguments' ):

@@ -1,14 +1,17 @@
 from .core import Validator
 from ..lib import messages
+from ..error import Invalid
 
 import logging
 log = logging.getLogger(__name__)
 
 class TypeValidator( Validator ):
+    __ignoreClassParameters__ = 'convert'
+
     converter = None
 
     def setParameters( self, convert=False ):
-        self.convert = convert
+        self._convert = convert
 
     @classmethod
     def convert( klass ):
@@ -27,7 +30,7 @@ class Dict( TypeValidator ):
     def on_value(self, context, value):
 
         if not isinstance(value, dict):
-            if  not self.convert:
+            if  not self._convert:
                 raise Invalid( 'type' )
             try:
                 value = dict(value)
@@ -52,7 +55,7 @@ class List( TypeValidator ):
             value = list(value)
 
         if not isinstance(value, list):
-            if not self.convert:
+            if not self._convert:
                 raise Invalid( 'type' )
 
             try:
@@ -78,7 +81,7 @@ class Boolean( TypeValidator):
             value = bool(value)
 
         if not (isinstance( value, bool )):
-            if self.convert:
+            if self._convert:
                 return bool(value)
             raise Invalid( 'type' )
         return value
@@ -96,7 +99,7 @@ class String( TypeValidator ):
             value = unicode(value)
 
         if not isinstance( value, unicode):
-            if not self.convert:
+            if not self._convert:
                 raise Invalid( 'type' )
             else:
                 value = unicode(value)
@@ -113,7 +116,7 @@ class Integer( TypeValidator ):
 
     def on_value(self, context, value):
         if not isinstance( value, int ) and not isinstance( value, long):
-            if not self.convert:
+            if not self._convert:
                 raise Invalid( 'type' )
             try:
                 value = int(value)
@@ -131,7 +134,7 @@ class Float( TypeValidator ):
 
     def on_value(self, context, value):
         if not isinstance(value,float):
-            if not self.convert:
+            if not self._convert:
                 raise Invalid('type')
             try:
                 value = float(value)
