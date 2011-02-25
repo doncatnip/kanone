@@ -117,8 +117,11 @@ class Tag( ValidatorBase ):
         self.tagId = Tag._id
         Tag._id += 1
 
+    def appendSubValidators( self, subValidators ):
+        self.validator.appendSubValidators( subValidators )
+
     def validate( self, context, value ):
-        tags = context.root.getattr('taggedValidators',None)
+        tags = getattr(context.root, 'taggedValidators',None)
         validator = False
 
         if tags and self.tagId in tags:
@@ -189,6 +192,8 @@ class Compose( Validator ):
     paramAlias = None
     messageAlias = None
 
+    taggedValidators = {}
+
     def setArguments( self, validator ):
         self.validator = validator
         self.tags = {}
@@ -240,7 +245,7 @@ class Compose( Validator ):
         try:
             return self.validator.validate( context, value )
         finally:
-            del contex.root.taggedValidators
+            del context.root.taggedValidators
 
     def messages( self, **kwargs ):
         taggedKwargs = _parseTaggedKeywords( kwargs, self.messageAlias )
@@ -320,7 +325,7 @@ class And( Validator ):
     def validate(self, context, value):
         result = value
 
-        for validator in self.__validators__:
+        for validator in self.validators:
             result = validator.validate( context, value )
             if self.chainResult:
                 value = result
@@ -355,7 +360,7 @@ class Or( Validator ):
         errors = []
         result = value
 
-        for validator in self.__validators__:
+        for validator in self.validators:
             try:
                 result = validator.validate( context, result )
             except Invalid, e:

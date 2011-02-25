@@ -37,7 +37,7 @@ CommonDomainPreValidaton\
 
 
 DomainLabel = Compose\
-    ( CommonDomainPreValidaton.tag('prevalidation')
+    ( CommonDomainPreValidaton().tag('prevalidation')
     & (~Blank()).tag('notBlank')
     & cache.Save(result='preEncode').tag('returnNonPuny', False )
     & ( Match(re.compile(r'^xn--')) | Encode('punycode') ).tag('punyCode')
@@ -79,7 +79,7 @@ def __restrictToTLDSetter( alias, param ):
             }
 
 Domain = Compose\
-    ( CommonDomainPreValidaton.tag('prevalidation')
+    ( CommonDomainPreValidaton().tag('prevalidation')
     & Split('.').tag('split')
     & Len(min=2).tag('numSubdomains')
     & ForEach\

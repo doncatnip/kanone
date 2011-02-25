@@ -95,16 +95,16 @@ class Match( Validator ):
         self.ignoreCase__ = ignoreCase
         self.required = required
 
-    def appendSubValidators( self, context, subValidators ):
-        if self.data.type == Match.VALIDATOR:
-            self.data.required.appendSubValidators( subValidators )
-            subValidators.append( self.data.required )
+    def appendSubValidators( self, subValidators ):
+        if self.type == Match.VALIDATOR:
+            self.required.appendSubValidators( subValidators )
+            subValidators.append( self.required )
 
     def on_value(self, context, value ):
 
         if self.type is Match.REGEX:
-            if not self.pattern.match(value):
-                raise Invalid( type=self.type, criteria=required.pattern)
+            if not self.required.match(value):
+                raise Invalid( type=self.type, criteria=self.required.pattern)
             return value
         elif self.type is Match.RAW:
             compare = self.required
@@ -149,7 +149,7 @@ class Len( Validator ):
             raise Invalid('type',type=value.__class__.__name__)
 
         if result<self.min or (self.max is not None and result>self.max ):
-            raise Invalid('fail',min=self.min, max=self.max, len=self.len)
+            raise Invalid('fail',min=self.min, max=self.max, len=result)
 
         if self.returnLen:
             return result

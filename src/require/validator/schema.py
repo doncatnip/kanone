@@ -130,6 +130,7 @@ class ForEach( Validator ):
 
     messages\
         ( numericKeys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
+        , type='Invalid input type (must be dict, list or tuple)'
         )
 
     def setParameters( self, criteria, numericKeys=True, returnList=True ):
@@ -146,6 +147,7 @@ class ForEach( Validator ):
         subValidators.append( self.validator )
 
     def validateItem( self, context, schemaData ):
+        print "validateItem %s" % context.value
         key = schemaData.isList\
             and int(context.key) or context.key
 
@@ -155,6 +157,7 @@ class ForEach( Validator ):
         return context.validator.validate( context, context.value )
 
     def getKeyByIndex( self, index, schemaData ):
+        print "getKeyByIndex %s" % index
         return str( index )
 
     def on_value( self, context, value ):

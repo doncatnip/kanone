@@ -363,14 +363,14 @@ class Parameterized:
             elif args:
                 raise SyntaxError('%s takes no further arguments' % self.__class__.__name__)
 
-        if kwargs or parent is None:
-            if hasattr( self, 'setParameters' ):
-                try:
-                    self.setParameters( **kwargs )
-                except TypeError, e:
-                    raise TypeError(self.__class__.__name__+': '+e[0])
-            elif kwargs:
-                raise SyntaxError('%s takes no parameters' % self.__class__.__name__)
+        if hasattr( self, 'setParameters' ):
+            try:
+                self.setParameters( **kwargs )
+            except TypeError, e:
+                raise TypeError(self.__class__.__name__+': '+e[0])
+
+        elif kwargs:
+            raise SyntaxError('%s takes no parameters' % self.__class__.__name__)
 
         self.__kwargs__ = kwargs
 
