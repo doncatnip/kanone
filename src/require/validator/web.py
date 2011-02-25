@@ -41,7 +41,7 @@ CommonDomainPreValidaton\
 DomainLabel = Compose\
     ( CommonDomainPreValidaton().tag('prevalidation')
     & (~Blank()).tag('notBlank')
-    & cache.Save(result='preEncode')\
+    & cache.Save(result='preEncode').tag('punycode')\
     &   ( Match( re.compile(r'^xn--') )\
         |   ( Encode('punycode')\
             &   (   (   Match( re.compile(r'.*-$') )\

@@ -62,6 +62,7 @@ class Validator( Parameterized, ValidatorBase ):
 
         return wrappedValidate
 
+
     @classmethod
     def doValidate( klass, validator, validateFunc, context, value ):
         try:
@@ -122,12 +123,11 @@ class Tag( ValidatorBase ):
 
     def validate( self, context, value ):
         tags = getattr(context.root, 'taggedValidators',None)
-        validator = False
 
-        if tags and self.tagId in tags:
-            validator = tags[ self.tagId ]
-        elif self.enabled:
-            validator = self.validator
+        if tags:
+            validator = tags.get(self.tagId,False)
+        else:
+            validator = self.enabled and self.validator
         if validator is not False:
             return validator.validate( context, value )
         return value
