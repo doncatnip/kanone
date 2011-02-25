@@ -2,11 +2,13 @@ import re
 
 from ..lib import messages, pre_validate, post_validate, fieldset
 
-from .core import ValidatorBase, Validator, Compose
+from .core import ValidatorBase, Validator, Compose, Pass
 from .basic import String, Dict
-from .alter import Encode, Lower, EliminateWhiteSpace, Split, Join, Update
+from .alter import Encode, Lower, EliminateWhiteSpace, Split, Join, UpdateValue, Insert
 from .check import Match, Blank, In, Len
 from .schema import Schema, ForEach, Field
+from .debug import Print
+
 import cache
 
 class ResolveDomain( Validator ):
@@ -33,35 +35,40 @@ CommonDomainPreValidaton\
     = String.convert().tag('string')\
     & EliminateWhiteSpace().tag('eliminateWhiteSpace')\
     & Lower().tag('toLower')\
-    & Update().tag('update')
+    & UpdateValue().tag('update')
 
 
 DomainLabel = Compose\
     ( CommonDomainPreValidaton().tag('prevalidation')
     & (~Blank()).tag('notBlank')
-    & cache.Save(result='preEncode').tag('returnNonPuny', False )
-    & ( Match(re.compile(r'^xn--')) | Encode('punycode') ).tag('punyCode')
-    & (~Match(re.compile(r'^..--'))).tag('noHyphen')
+    & cache.Save(result='preEncode')\
+    &   ( Match( re.compile(r'^xn--') )\
+        |   ( Encode('punycode')\
+            &   (   (   Match( re.compile(r'.*-$') )\
+                    &   cache.Restore(result='preEncode')\
+                    )
+                |   Insert('xn--',0)
+                )
+            )
+        ).tag('punycode')
     & Len(max=63).tag('tooLong')
-    & Match(re.compile(r'^[a-z0-9]+([-a-z0-9]+)*$')).tag('validSymbols')
+    & Match(re.compile(r'^(xn--)?[a-z0-9]+([-a-z0-9]+)*$')).tag('validSymbols')
     & cache.Restore(result='preEncode').tag('returnNonPuny', False)
     ).paramAlias\
         ( convertToString='string_convert'
         , updateValue='update_enabled'
         , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
         , toLower='toLower_enabled'
-        , convertToPunicode='punyCode_enabled'
+        , convertToPunicode='punycode_enabled'
         , returnNonPuny='returnNonPuny_enabled'
     ).messageAlias\
         ( type='string_type'
-        , noHyphen='noHyphen_fail'
         , tooLong='tooLong_fail'
         , invalidSymbols='validSymbols_fail'
         , blank=("notBlank_fail","string_blank")
         , missing="string_missing"
     ).messages\
         ( blank='Please provide a value'
-        , noHyphen='Domain cannot contain a hyphen at the 2nd and 3rd position'
         , tooLong='A domain can have max s(max)% characters'
         , invalidSymbols='The domain name contains invalid symbols'
         )
@@ -114,7 +121,7 @@ EmailLocalPart = Compose\
     ( ( String.convert().tag('string')
     & EliminateWhiteSpace().tag('eliminateWhiteSpace') ).tag('prevalidation')
     & Encode('ascii').tag('validSymbols')
-    & Update().tag('update')
+    & UpdateValue().tag('update')
     ).paramAlias\
         ( convertToString='string_convert'
         , updateValue='update_enabled'
@@ -137,7 +144,7 @@ class EmailSchema( Schema ):
     pre_validate\
         ( String.convert().tag('string')
         , EliminateWhiteSpace().tag('eliminateWhiteSpace')
-        , Update().tag('update')
+        , UpdateValue().tag('update')
         , Split('@',1).tag('split')
         )
 
@@ -167,7 +174,6 @@ Email = Compose\
             , format_fail = 'Invalid email format ( try my.email@address.com )'
             , localPart_invalidSymbols = u"The part before @ (%(value)s) contains invalid symbols"
             , domainPart_restrictTLD="Invalid top level domain %(value)s, allowed TLD are %(required)"
-            , domainPart_noHyphen="Domain cannot contain a hyphen at position 2-3"
             , domainPart_tooLong="Domain part %(value)s is too long (max %(max)s characters)"
             , domainPart_format="Invalid domain name format (%(value)s)"
             , domainPart_invalidSymbols="Domain part %(value)s contains invalid characters"

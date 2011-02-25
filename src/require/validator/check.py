@@ -134,7 +134,7 @@ class Len( Validator ):
 
     messages\
         ( type="Can not get len from values of type %(type)s"
-        , fail="Value must be between %(min)s and %(max)s in length"
+        , fail="Value must be between %(min)i and %(max)i in length"
         )
 
     def setParameters(self, min=0, max=None, returnLen=False):

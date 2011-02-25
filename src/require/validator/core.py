@@ -58,7 +58,7 @@ class Validator( Parameterized, ValidatorBase ):
         def wrappedValidate( self, context, value ):
             return klass.doValidate\
                 and klass.doValidate( self, validateFunc, context, value )\
-                or validateFunc( context, value )
+                or validateFunc( self, context, value )
 
         return wrappedValidate
 
@@ -350,7 +350,7 @@ class Or( Validator ):
 
     def setArguments( self, *validators ):
         assert len(validators)>=2
-        self.validators = validators
+        self.validators = list(validators)
 
     def appendSubValidators( self, subValidators):
         for validator in self.validators:

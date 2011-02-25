@@ -81,7 +81,32 @@ class Encode( Validator ):
 
         return value
 
-class Update( ValidatorBase ):
+class Insert( Validator ):
+
+    messages\
+        ( type = "Unsupported type for insertion (%(type)s)"
+        , fail = "Can not insert %(what)s at %(where)i"
+        )
+
+    def setParameters( self, what, where=0 ):
+        self.what = what
+        self.where = where
+
+    def on_value( self, context, value ):
+        result = value
+        if ( isinstance( value, basestring ) and isinstance(value,basestring) )\
+        or ( isinstance( value, list ) and isinstance( value, list ) ):
+            if self.where is 0:
+                return self.what + value
+            if self.where <0:
+                where = self.where-1
+            else:
+                where = self.where
+            return value[0:where] + self.what + value[where:None]
+
+        raise Invalid( 'type', type=value.__class__.__name__ )
+
+class UpdateValue( ValidatorBase ):
 
     def validate( self, context, value ):
         context['value'] = value
