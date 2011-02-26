@@ -44,42 +44,22 @@ class Validator( Parameterized, ValidatorBase ):
         ( '__messages__'
         )
 
-    __isValidateWrapped__ = False
+    def invalid( self, context, error='fail', **extra ):
 
-    def __new__( klass, *args, **kwargs ):
-        if not klass.__isValidateWrapped__:
-            klass.validate = klass.__wrapValidate__( klass.validate )
-            klass.__isValidateWrapped__ = True
-        self = object.__new__( klass )
-        return self
+        if not isinstance(error,Invalid):
+             e = Invalid(error, **extra)
 
-    @classmethod
-    def __wrapValidate__( klass, validateFunc ):
-        def wrappedValidate( self, context, value ):
-            return klass.doValidate\
-                and klass.doValidate( self, validateFunc, context, value )\
-                or validateFunc( self, context, value )
+        msg = self.__messages__.get('catchall',None)
+        msg = msg or self.__messages__[e.key]
 
-        return wrappedValidate
+        e.validator = self
+        e.context = context
+        e.extra['value'] = context.value
 
+        if msg is not None:
+            e.message = msg
 
-    @classmethod
-    def doValidate( klass, validator, validateFunc, context, value ):
-        try:
-            return validateFunc( validator, context, value )
-        except Invalid, e:
-            msg = validator.__messages__.get('catchall',None)
-
-            if e.validator is None:
-                msg = msg or validator.__messages__[e.key]
-                e.validator = validator
-                e.context = context
-                e.extra['value'] = value
-            if msg is not None:
-                e.message = msg
-
-            raise e
-
+        return e
 
     def messages( self, **messages):
         self.__messages__ = dict( self.__messages__ )
@@ -87,9 +67,9 @@ class Validator( Parameterized, ValidatorBase ):
         return self
 
     def validate( self, context, value ):
-        if (value is MISSING):
+        if value is MISSING:
             return self.on_missing( context )
-        elif (value in [None,'',[],{}]):
+        elif value is None:
             return self.on_blank( context )
         else:
             return self.on_value( context, value )
@@ -98,10 +78,10 @@ class Validator( Parameterized, ValidatorBase ):
         return value
 
     def on_missing(self, context):
-        raise Invalid( 'missing' )
+        raise self.invalid( context, 'missing' )
 
     def on_blank(self, context):
-        raise Invalid( 'blank' )
+        raise self.invalid( context, 'blank' )
 
 
 class Tag( ValidatorBase ):
@@ -115,23 +95,28 @@ class Tag( ValidatorBase ):
         self.validator = validator
         self.tagName = tagName
         self.enabled = enabled
-        self.tagId = Tag._id
+        self.tagID = Tag._id
         Tag._id += 1
 
     def appendSubValidators( self, subValidators ):
         self.validator.appendSubValidators( subValidators )
+        subValidators.append( self.validator )
 
     def validate( self, context, value ):
-        tags = getattr(context.root, 'taggedValidators',None)
+        tags = getattr(context.root,'taggedValidators',None)
 
-        if tags:
-            validator = tags.get(self.tagId,False)
-        else:
+        validator = None
+        if tags is not None:
+            validator = tags.get(self.tagID, None)
+        if validator is None:
             validator = self.enabled and self.validator
 
-        if validator is not False:
-            return validator.validate( context, value )
-        return value
+        return validator\
+            and validator.validate( context, value )\
+            or value
+
+        #validator = context.root.taggedValidators[ self.tagID ]
+        #return validator and validator.validate( context, value ) or value
 
 
 def _setParsedKeywordArg( tagKwargs, key, value ):
@@ -141,7 +126,11 @@ def _setParsedKeywordArg( tagKwargs, key, value ):
         if tagPath[0] not in tagKwargs:
             tagKwargs[tagPath[0]] = {}
         tagKwargs[tagPath[0]][tagPath[1]] = value
-
+    else:
+        # TODO: maybe we could alter the validators *varargs here
+        # but for now, just set it to raise an error if the tag
+        # doesnt exist
+        tagKwargs[tagPath[0]] = None
 
 def _parseTaggedKeywords( kwargs, alias ):
 
@@ -157,7 +146,7 @@ def _parseTaggedKeywords( kwargs, alias ):
                     _setParsedKeywordArg( tagKwargs, realKey, value )
             elif hasattr( alias[key], '__call__' ):
                 realKwargs = alias[key]( key, value )
-                for (realKey, realValue) in realKwargs:
+                for (realKey, realValue) in realKwargs.iteritems():
                     _setParsedKeywordArg( tagKwargs, realKey, realValue )
             else:
                 _setParsedKeywordArg( tagKwargs, alias[key], value )
@@ -186,8 +175,9 @@ class Compose( Validator ):
     inherit\
         ( 'paramAlias'
         , 'messageAlias'
-        , 'tags'
+        , 'tagIDs'
         , 'taggedValidators'
+        , 'currentTaggedValidators'
         , 'validator'
         )
 
@@ -199,52 +189,57 @@ class Compose( Validator ):
     def setArguments( self, validator ):
         self.validator = validator
         self.taggedValidators = {}
-        self.tags = {}
+        self.currentTaggedValidators = {}
+        self.tagIDs = {}
 
         subValidators = [ self.validator ]
         self.validator.appendSubValidators( subValidators )
 
         for validator in subValidators:
             if isinstance( validator, Tag ):
-                if not validator.tagName in self.tags:
-                    self.tags[validator.tagName] = []
-                self.tags[validator.tagName].append(validator)
-
-        if not self.tags:
+                if not validator.tagName in self.tagIDs:
+                    self.tagIDs[validator.tagName] = []
+                self.taggedValidators[ validator.tagID ] = validator.validator
+                self.currentTaggedValidators[ validator.tagID ] = validator.enabled and validator.validator
+                self.tagIDs[validator.tagName].append(validator.tagID)
+        if not self.tagIDs:
             raise SyntaxError('No tags found.')
 
     def setParameters( self, **kwargs):
         taggedKwargs = _parseTaggedKeywords( kwargs, self.paramAlias )
 
         notFound = []
+        self.__clonedTaggedValidators = []
 
         if not self.__isRoot__:
-            self.taggedValidators = dict( self.taggedValidators )
+            self.currentTaggedValidators = dict( self.currentTaggedValidators )
 
         for (tagName, args) in taggedKwargs.iteritems():
-            if not tagName in self.tags:
+            tagIDs = self.tagIDs.get( tagName, None )
+            if tagIDs is None:
                 notFound.append( tagName )
             else:
                 enabled = args.pop('enabled',True)
+                for tagID in tagIDs:
+                    if not enabled:
+                        self.currentTaggedValidators[ tagID ] = False
+                    else:
+                        if args:
+                            validator =\
+                                self.taggedValidators[ tagID ] =\
+                                self.taggedValidators[ tagID ](**args)
+                            self.__clonedTaggedValidators.append( tagID )
+                        else:
+                            validator = self.taggedValidators[ tagID ]
 
-                for tag in self.tags[ tagName ]:
-                    validator = enabled\
-                        and ( args and tag.validator( **args )\
-                              or tag.validator )\
-                        or False
-
-                    self.taggedValidators[ tag.tagId ] = validator
+                        self.currentTaggedValidators[ tagID ]\
+                            = validator
 
         if notFound:
-            raise SyntaxError('Tags %s not found' % str(notFound))
-
-
-    def appendSubValidators( self, subValidators ):
-        self.validator.appendSubValidators( subValidators )
-        subValidators.append( self.validator )
+            raise SyntaxError('setParameters: Tags %s not found' % str(notFound))
 
     def validate( self, context, value ):
-        context.root.taggedValidators = self.taggedValidators
+        context.root.taggedValidators = self.currentTaggedValidators
         try:
             return self.validator.validate( context, value )
         finally:
@@ -253,13 +248,26 @@ class Compose( Validator ):
     def messages( self, **kwargs ):
         taggedKwargs = _parseTaggedKeywords( kwargs, self.messageAlias )
 
+        notFound = []
+
         for (tagName,args) in taggedKwargs.iteritems():
-            if tagName in self.tags:
-                for tag in self.tags[tagName]:
-                    taggedValidator = tag.validator
-                    if not tag.tagId in self.taggedValidators:
-                        self.taggedValidators[tag.tagId] = taggedValidator()
+            tagIDs = self.tagIDs.get(tagName,None)
+            if tagIDs is None:
+                notFound.append( tagName )
+            else:
+                for tagID in tagIDs:
+                    if tagID not in self.__clonedTaggedValidators:
+                        taggedValidator = self.currentTaggedValidators[tagID]\
+                            = self.taggedValidators[tagID]\
+                            = self.taggedValidators[tagID]()
+                        self.__clonedTaggedValidators.append ( tagID )
+                    else:
+                        taggedValidator = taggedValidators[tagID]
+
                     taggedValidator.messages( **args )
+
+        if notFound:
+            raise SyntaxError('messages: Tags %s not found' % str(notFound))
 
         return self
 
@@ -304,7 +312,7 @@ class Not( Validator ):
         except Invalid:
             return value
 
-        raise Invalid('fail')
+        raise self.invalid(context)
 
 
 class And( Validator ):
@@ -372,7 +380,7 @@ class Or( Validator ):
 
             return result
         if errors:
-            raise Invalid(errors=errors)
+            raise self.invalid(context, errors=errors)
 
         return value
 

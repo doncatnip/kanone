@@ -123,9 +123,8 @@ def inherit(*keys):
 def defaultErrorFormatter( context, error ):
     return error.message % (error.extra)
 
-
-
 class Context( dict ):
+
     __value__ = MISSING
     __error__ = MISSING
     __result__ = MISSING
@@ -169,10 +168,13 @@ class Context( dict ):
 
     @property
     def value(self):
-        return self.populate()
+        return self.get('value',self.__value__)
 
     @value.setter
     def value( self,value):
+        # lil bit faster this way ..
+        if value is '' or value is u'' or value is [] or value is {}:
+            value = None
         self.__value__ = value
         self.clear()
 
@@ -236,6 +238,44 @@ class Context( dict ):
         if self.validator is not None:
             self['value'] = self.__value__
 
+    def validate(self ):
+        if self.isValidated:
+            if self.__error__ is not MISSING:
+                raise self.__error__
+            return self.get('result',MISSING)
+
+        schemaData = None
+        if self.parent is not None:
+            self.parent.validate()
+            schemaData = getattr(self.parent,'currentSchemaData',None)
+
+        if self.validator is None:
+            raise AttributeError("No validator set for context '%s'" % self.path )
+
+        result = PASS
+        try:
+            if schemaData:
+                result = schemaData.validationFunc( self, schemaData )
+            else:
+                result = self.validator.validate( self, self.__value__)
+        except Invalid,e:
+            self.__error__ = e
+
+        if not self.__error__:
+            if result is not PASS:
+                self['result'] = result
+            else:
+                self['result'] = self.__value__
+
+        self.isValidated = True
+
+        if self.__error__ is not MISSING:
+            raise self.__error__
+
+        return self['result']
+
+
+    """
     def populate(self ):
         if self.isPopulated:
             if 'value' in self:
@@ -249,7 +289,7 @@ class Context( dict ):
         if self.parent:
             schemaData = getattr(self.parent,'currentSchemaData',None)
 
-        if (self.validator is None) and not schemaData:
+        if self.validator is None:
             raise AttributeError("No validator set for context '%s'" % self.path )
 
         result = PASS
@@ -292,6 +332,7 @@ class Context( dict ):
             return self.__result__
 
         raise self.__error__
+    """
 
     def __call__( self, path ):
         if path.__class__ is int:

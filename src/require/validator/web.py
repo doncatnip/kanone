@@ -26,7 +26,7 @@ class ResolveDomain( Validator ):
 
         dnsdomains=[x['data'] for x in a]
         if not dnsdomains:
-            raise Invalid()
+            raise self.invalid( context )
 
         return value
 
@@ -40,7 +40,6 @@ CommonDomainPreValidaton\
 
 DomainLabel = Compose\
     ( CommonDomainPreValidaton().tag('prevalidation')
-    & (~Blank()).tag('notBlank')
     & cache.Save(result='preEncode').tag('punycode')\
     &   ( Match( re.compile(r'^xn--') )\
         |   ( Encode('punycode')\
@@ -59,13 +58,13 @@ DomainLabel = Compose\
         , updateValue='update_enabled'
         , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
         , toLower='toLower_enabled'
-        , convertToPunicode='punycode_enabled'
+        , convertToPunycode='punycode_enabled'
         , returnNonPuny='returnNonPuny_enabled'
     ).messageAlias\
         ( type='string_type'
         , tooLong='tooLong_fail'
         , invalidSymbols='validSymbols_fail'
-        , blank=("notBlank_fail","string_blank")
+        , blank=("toLower_blank","string_blank")
         , missing="string_missing"
     ).messages\
         ( blank='Please provide a value'
@@ -104,8 +103,9 @@ Domain = Compose\
         , toLower='toLower_enabled'
         , restrictToTLD= __restrictToTLDSetter
     ).messageAlias\
-        ( blank=('string_blank','split_blank')
+        ( blank=('string_blank','toLower_blank')
         , missing='string_missing'
+        , tooLong='domainLabel_tooLong'
         , type='string_type'
         , format = ('format_fail','numSubdomains_fail')
         , restrictToTLD= 'restrictToTLD_fail'
@@ -137,7 +137,7 @@ EmailLocalPart = Compose\
         , invalidSymbols='Localpart contains invalid symbols'
         )
 
-
+"""
 class EmailSchema( Schema ):
 
     returnList = True
@@ -180,7 +180,7 @@ Email = Compose\
             , domainPart_invalidSymbols="Domain part %(value)s contains invalid characters"
             )
 
-
+"""
 
 class NestedPostConverter( ValidatorBase ):
 

@@ -21,7 +21,7 @@ class Missing( Validator ):
         self.default = default
 
     def on_value( self, context, value ):
-        raise Invalid( )
+        raise self.invalid( context )
 
     def on_missing( self, context ):
         return (self.default is PASS) and MISSING or self.default
@@ -60,7 +60,7 @@ class Blank( Validator ):
             if n is MISSING:
                 return self.default
 
-        raise Invalid( )
+        raise self.invalid( context )
 
     def on_blank( self, context ):
         return (self.default is PASS) and None or self.default
@@ -104,7 +104,7 @@ class Match( Validator ):
 
         if self.type is Match.REGEX:
             if not self.required.match(value):
-                raise Invalid( type=self.type, criteria=self.required.pattern)
+                raise self.invalid( context, type=self.type, criteria=self.required.pattern)
             return value
         elif self.type is Match.RAW:
             compare = self.required
@@ -120,7 +120,7 @@ class Match( Validator ):
             val = str(value).lower()
 
         if val <> compare:
-            raise Invalid( type=self.type, critaria=compare )
+            raise self.invalid( context, type=self.type, critaria=compare )
 
         return value
 
@@ -146,10 +146,10 @@ class Len( Validator ):
         try:
             result = len(value)
         except Exception,e:
-            raise Invalid('type',type=value.__class__.__name__)
+            raise self.invalid( context, 'type',type=value.__class__.__name__)
 
         if result<self.min or (self.max is not None and (result>self.max )):
-            raise Invalid('fail',min=self.min, max=self.max, len=result)
+            raise self.invalid( context, 'fail',min=self.min, max=self.max, len=result)
 
         if self.returnLen:
             return result
@@ -167,7 +167,7 @@ class In( Validator ):
 
     def on_value(self, context, value):
         if not value in selt.required:
-            raise Invalid('fail')
+            raise self.invalid( context, 'fail')
 
         return value
 
