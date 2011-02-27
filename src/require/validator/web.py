@@ -39,7 +39,8 @@ CommonDomainPreValidaton\
 
 
 # We should propably implement a dedicated and therefore
-# faster validator. It was mainly to test our abilities.
+# faster validator. It was mainly done this way first to test
+# our possibilities.
 ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton().tag('prevalidation')
     & cache.Save(result='preEncode').tag('punycode')\
@@ -53,7 +54,7 @@ ComposedDomainLabel = Compose\
             )
         ).tag('punycode')
     & Len(max=63).tag('tooLong')
-    & Match(re.compile(r'^(xn--)?[a-z0-9]+([-a-z0-9]+)*$')).tag('validSymbols')
+    & Match(re.compile(r'^(xn--)?[a-z0-9]+[-a-z0-9]+$')).tag('validSymbols')
     & cache.Restore(result='preEncode').tag('returnNonPuny', False)
     ).paramAlias\
         ( convertToString='string_convert'
@@ -76,7 +77,7 @@ ComposedDomainLabel = Compose\
 
 
 def __restrictToTLDSetter( alias, param ):
-    if isinstance( param, dict ):
+    if isinstance( param, list ) or isinstance( param, tuple ) or isinstance( param, set ):
         return\
             { 'restrictToTLDValidator_enabled':True
             , 'restrictToTLD_required': param
@@ -91,11 +92,12 @@ Domain = Compose\
     & Split('.').tag('split')
     & Len(min=2).tag('numSubdomains')
     & ForEach\
-        ( ~(Blank()).tag('format') & ComposedDomainLabel\
+        ( ComposedDomainLabel\
             ( prevalidation_enabled=False
             ).tag('domainLabel')
+        , createContextChilds=False
         )
-    & Field( '.(-1)', In([]).tag('restrictToTLD') ).tag('restrictToTLDValidator')
+    & Field( '(-1)', In([]).tag('restrictToTLD') ).tag('restrictToTLDValidator', False)
     & Join('.')
     & ResolveDomain().tag('resolve',False)
     ).paramAlias\
@@ -111,7 +113,7 @@ Domain = Compose\
         , missing='string_missing'
         , tooLong='domainLabel_tooLong'
         , type='string_type'
-        , format = ('format_fail','numSubdomains_fail')
+        , format = ('numSubdomains_fail','domainLabel_tooLong_blank')
         , restrictToTLD= 'restrictToTLD_fail'
         , invalidSymbols='domainLabel_invalidSymbols'
     ).messages\

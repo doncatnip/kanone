@@ -167,7 +167,7 @@ class In( Validator ):
 
     def on_value(self, context, value):
         if not value in self.required:
-            raise self.invalid( context, 'fail')
+            raise self.invalid( context, required=self.required )
 
         return value
 

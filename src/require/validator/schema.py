@@ -79,14 +79,23 @@ class Schema( Validator ):
 
         data.values = value
         context.setSchemaData( data )
-        result = {}
+
+        if self.returnList:
+            result = []
+        else:
+            result = {}
 
         for pos in range(len(self.index)):
             key = self.index[pos]
             try:
-                result[ key ] = context( pos ).result
+                res = context( pos ).result
             except Invalid,e:
-                errors.append( e )
+                errors.append( e.context.key )
+            else:
+                if self.returnList:
+                    result.append( res )
+                else:
+                    result[ pos ] = result
             if not self.allowExtraFields:
                 if data.isList:
                     extraFields-=1
@@ -99,10 +108,7 @@ class Schema( Validator ):
             raise self.invalid( context, 'extraFields',extraFields=extraFields)
 
         if errors:
-            raise self.invalid( context )
-
-        if self.returnList:
-            return result.values()
+            raise self.invalid( context, errors=errors )
 
         return result
 
@@ -142,15 +148,14 @@ class ForEach( Validator ):
         self.returnList = returnList
         self.numericKeys = numericKeys
         self.validator = criteria
-        self.createContextChilds = createContextChilds
+        self.validate = createContextChilds and self._createContextChilds_on_value \
+            or self._on_value
 
     def appendSubValidators( self, subValidators ):
         self.validator.appendSubValidators( subValidators )
         subValidators.append( self.validator )
 
     def validateItem( self, context, schemaData ):
-        print "validateItem values: %s isList: %s key: %s" % (str(schemaData.values), schemaData.isList, context.key )
-
         key = schemaData.isList\
             and int(context.key) or context.key
 
@@ -159,12 +164,38 @@ class ForEach( Validator ):
 
         return context.validator.validate( context, context.value )
 
-    def getKeyByIndex( self, index, schemaData ):
-        print "getKeyByIndex %s" % index
-        return str( index )
+    def _on_value( self, context, value ):
+        if self.returnList:
+            result = []
+        else:
+            result = {}
 
-    def on_value( self, context, value ):
+        isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
 
+        if isList or self.numericKeys:
+            for pos in range( len( value ) ):
+                if isList is False:
+                    val = value.get(str(pos),MISSING)
+                    if val is MISSING:
+                        raise self.invalid( context, 'numericKeys', keys=value.keys() )
+                else:
+                    val = value[pos]
+                res = self.validator.validate( context, val )
+                if self.returnList is True:
+                    result.append( res )
+                else:
+                    result[pos] = res
+        else:
+            for (key, val) in value.iteritems():
+                res = self.validator.validate( context, val )
+                if self.returnList is True:
+                    result.append( res )
+                else:
+                    result[key] = res
+
+        return result
+
+    def _createContextChilds_on_value( self, context, value ):
         data = SchemaData( self.validateItem )
         data.isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
 
@@ -182,21 +213,18 @@ class ForEach( Validator ):
         context.setSchemaData( data )
 
         if data.isList or self.numericKeys:
-            data.indexFunc = self.getKeyByIndex
+            data.indexFunc = lambda index, schemaData: str(index)
 
             for pos in range( len( value ) ):
                 if not data.isList:
-                    contextKey = value.get(str(pos),None) and pos
-                    if contextKey is None:
+                    if value.get(str(pos),MISSING) is MISSING:
                         context.resetSchemaData()
-                        raise self.invalid( context, 'numericKeys',keys=data.keys())
-                else:
-                    contextKey = pos
+                        raise self.invalid( context, 'numericKeys',keys=value.keys())
 
                 try:
-                    res = context( contextKey ).result
+                    res = context( pos ).result
                 except Invalid, e:
-                    errors.append( e )
+                    errors.append( e.context.key )
                 else:
                     if self.returnList:
                         result.append( res )
@@ -214,7 +242,7 @@ class ForEach( Validator ):
         context.resetSchemaData()
 
         if errors:
-            raise self.invalid( context )
+            raise self.invalid( context, errors=errors )
 
         return result
 
@@ -225,28 +253,22 @@ class FieldValidator( Validator ):
         raise SyntaxError( "FieldValidator cannot be used directly" )
 
     def getField( self, context, path):
-        print "incoming path %s" % path
         pathSplit = path.split('.')
-        print "pathsplit %s" % pathSplit
-        print "current context %s (%s)" % (context.path, context.key)
 
-
-        if pathSplit[0] is not '':
+        if pathSplit[0].startswith('/'):
+            pathSplit[0] = pathSplit[0][1:]
             fieldcontext = context.root
         else:
             fieldcontext = context
-            del pathSplit[0]
 
-        while fieldcontext.parent and pathSplit and pathSplit[0] is '':
-            fieldcontext = fieldcontext.parent
-            del pathSplit[0]
+            while fieldcontext.parent and pathSplit and pathSplit[0] is '':
+                fieldcontext = fieldcontext.parent
+                del pathSplit[0]
 
         for part in pathSplit:
             if part.startswith('(') and part.endswith(')'):
-                print "%s is int" % part
                 part = int(part[1:-1])
 
-            print fieldcontext.indexKeyRelation
             fieldcontext = fieldcontext( part )
         if fieldcontext is context:
             raise SyntaxError( "Cannot reference myself. Nice try, though :)" )
@@ -267,7 +289,7 @@ class Field( FieldValidator ):
 
         if criteria is None:
             self.copy = True
-        elif not isinstance( criteria, Validator):
+        elif not isinstance( criteria, ValidatorBase):
             criteria = Match( criteria )
 
         self.validator  = criteria
@@ -277,7 +299,6 @@ class Field( FieldValidator ):
         subValidators.append( self.validator )
 
     def validate(self, context, value):
-
         fieldcontext = self.getField( context, self.path )
 
         result = MISSING

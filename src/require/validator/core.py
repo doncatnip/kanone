@@ -115,16 +115,18 @@ class Tag( ValidatorBase ):
 
 def _setParsedKeywordArg( tagKwargs, key, value ):
     tagPath = key.split('_',1)
-    
+
+    theKwargs = tagKwargs.get(tagPath[0], None)
+    if theKwargs is None:
+        theKwargs = tagKwargs[tagPath[0]] = {}
+   
     if len(tagPath)==2:
-        if tagPath[0] not in tagKwargs:
-            tagKwargs[tagPath[0]] = {}
-        tagKwargs[tagPath[0]][tagPath[1]] = value
+        theKwargs[tagPath[1]] = value
     else:
-        # TODO: maybe we could alter the validators *varargs here
+        # maybe TODO: we could use these values as varargs
         # but for now, just set it to raise an error if the tag
         # doesnt exist
-        tagKwargs[tagPath[0]] = None
+        theKwargs['_none__'] = None
 
 def _parseTaggedKeywords( kwargs, alias ):
 
