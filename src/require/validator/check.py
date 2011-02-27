@@ -166,7 +166,7 @@ class In( Validator ):
         self.required = required
 
     def on_value(self, context, value):
-        if not value in selt.required:
+        if not value in self.required:
             raise self.invalid( context, 'fail')
 
         return value

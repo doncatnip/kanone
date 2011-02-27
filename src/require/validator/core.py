@@ -57,7 +57,7 @@ class Validator( Parameterized, ValidatorBase ):
         e.extra['value'] = context.value
 
         if msg is not None:
-            e.message = msg
+            e.data['message'] = msg
 
         return e
 
@@ -103,11 +103,7 @@ class Tag( ValidatorBase ):
         subValidators.append( self.validator )
 
     def validate( self, context, value ):
-        tags = getattr(context.root,'taggedValidators',None)
-
-        validator = None
-        if tags is not None:
-            validator = tags.get(self.tagID, None)
+        validator = context.root.taggedValidators.get(self.tagID, None)
         if validator is None:
             validator = self.enabled and self.validator
 
@@ -115,8 +111,6 @@ class Tag( ValidatorBase ):
             and validator.validate( context, value )\
             or value
 
-        #validator = context.root.taggedValidators[ self.tagID ]
-        #return validator and validator.validate( context, value ) or value
 
 
 def _setParsedKeywordArg( tagKwargs, key, value ):
@@ -239,11 +233,12 @@ class Compose( Validator ):
             raise SyntaxError('setParameters: Tags %s not found' % str(notFound))
 
     def validate( self, context, value ):
+        tmpTags = context.root.taggedValidators
         context.root.taggedValidators = self.currentTaggedValidators
         try:
             return self.validator.validate( context, value )
         finally:
-            del context.root.taggedValidators
+            context.root.taggedValidators = tmpTags
 
     def messages( self, **kwargs ):
         taggedKwargs = _parseTaggedKeywords( kwargs, self.messageAlias )
@@ -375,7 +370,7 @@ class Or( Validator ):
             try:
                 result = validator.validate( context, result )
             except Invalid, e:
-                errors.append( e )
+                errors.append( e.data )
                 continue
 
             return result

@@ -131,40 +131,49 @@ class Context( dict ):
 
     parent = None
     root = None
-
-    key = ''
+    key = '/'
 
     isValidated = False
-    isPopulated = False
+    isValidating = False
 
-    def __init__(self, validator=None, value=MISSING, key='', parent=None):
+    taggedValidators = {}
+    indexKeyRelation = {}
+    numValues = 0
+
+    def __init__(self, validator=None, value=MISSING, key='/', parent=None):
         if parent is not None:
             self.parent = parent
             self.root = parent.root
             self.key = key
-            if parent.path:
-                self['path'] = '%s.%s' % (parent.path,key)
-            else:
-                self['path'] = key
+
+            sep = self.root is not parent and '.' or ''
+
+            self['path'] = '%s%s%s' % (parent.path,sep,key)
         else:
             self.root = self
-            self.errorlist = []
             self.errorFormatter = defaultErrorFormatter
+            self['path'] = key
 
         self.validator = validator
         self.value = value
 
     @property
     def path(self):
-        if not 'path' in self:
-            return ''
         return self['path']
 
     @property
     def childs(self):
-        if not 'childs' in self:
-            self[ 'childs' ] = {}
-        return self['childs']
+        childs = self.get('childs',None)
+        if childs is None:
+            childs = self[ 'childs' ] = {}
+        return childs
+
+    @property
+    def errorlist(self):
+        errorlist = self.get('errorlist',None)
+        if errorlist is None:
+            errorlist = self[ 'errorlist' ] = []
+        return errorlist
 
     @property
     def value(self):
@@ -184,9 +193,7 @@ class Context( dict ):
 
     @property
     def error(self):
-        if not 'error' in self:
-            return MISSING
-        return self['error']
+        return str(self.__error__)
 
     @property
     def validator(self):
@@ -200,37 +207,41 @@ class Context( dict ):
         self.clear()
 
     def getKeyByIndex( self, index ):
-        if not index in self.indexKeyRelation:
-            schemaData = getattr(self,'currentSchemaData',None)
-        if schemaData and schemaData.indexFunc:
-            self.indexKeyRelation[ index ] = schemaData.indexFunc( index, schemaData )
-        else:
-            raise SyntaxError('This context has no childs supporting indexing')
+        key = self.indexKeyRelation.get( index, None )
+        if key is not None:
+            return key
 
-        return self.indexKeyRelation[ index ]
+        schemaData = getattr(self,'currentSchemaData',None)
+
+        if schemaData and schemaData.indexFunc:
+            if not self.indexKeyRelation:
+                self.numValues = len(schemaData.values)
+            self.indexKeyRelation[ index ] = schemaData.indexFunc( index, schemaData )
+            return self.indexKeyRelation[ index ]
+        else:
+            raise SyntaxError('Context %s has no childs supporting indexing' % (self.path))
 
     def setSchemaData( self, data ):
         self.indexKeyRelation = {}
         self.currentSchemaData = data
-        self.isPopulated = True
+        self.isValidated = True
 
     def resetSchemaData( self ):
         del self.currentSchemaData
-        self.isPopulated = False
+        self.isValidated = False
 
     def clear( self ):
-        if not(self.isPopulated or self.isValidated):
+        if not self.isValidated:
             return
 
         dict.clear( self )
 
-        if parent is not None and parent.path:
+        if self.parent is not None and self.parent.path:
             self['path'] = '%s.%s' % (parent.path,self.key)
         else:
             self['path'] = self.key
 
         self.isValidated = False
-        self.isPopulated = False
 
         self.__result__ = MISSING
         self.__error__ = MISSING
@@ -239,17 +250,20 @@ class Context( dict ):
             self['value'] = self.__value__
 
     def validate(self ):
-        if self.isValidated:
+        if self.isValidated or self.isValidating:
             if self.__error__ is not MISSING:
                 raise self.__error__
             return self.get('result',MISSING)
 
+        self.isValidating = True
+
         schemaData = None
         if self.parent is not None:
-            self.parent.validate()
+            if not self.parent.isValidating:
+                self.parent.validate()
             schemaData = getattr(self.parent,'currentSchemaData',None)
 
-        if self.validator is None:
+        if self.validator is None and schemaData is None:
             raise AttributeError("No validator set for context '%s'" % self.path )
 
         result = PASS
@@ -268,8 +282,11 @@ class Context( dict ):
                 self['result'] = self.__value__
 
         self.isValidated = True
+        self.isValidating = False
 
         if self.__error__ is not MISSING:
+            self.root.errorlist.append( self.__error__.context.path )
+            self['error'] = self.__error__.data
             raise self.__error__
 
         return self['result']
@@ -337,9 +354,11 @@ class Context( dict ):
     def __call__( self, path ):
         if path.__class__ is int:
             if path < 0:
-                path = len( self.childs )-path
+                path = self.numValues+path
 
             return self( self.getKeyByIndex( path ) )
+        elif not path:
+            raise SyntaxError('Path cannot be empty')
 
         path = path.split('.',1)
 

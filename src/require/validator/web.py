@@ -38,7 +38,9 @@ CommonDomainPreValidaton\
     & UpdateValue().tag('update')
 
 
-DomainLabel = Compose\
+# We should propably implement a dedicated and therefore
+# faster validator. It was mainly to test our abilities.
+ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton().tag('prevalidation')
     & cache.Save(result='preEncode').tag('punycode')\
     &   ( Match( re.compile(r'^xn--') )\
@@ -89,7 +91,7 @@ Domain = Compose\
     & Split('.').tag('split')
     & Len(min=2).tag('numSubdomains')
     & ForEach\
-        ( ~(Blank()).tag('format') & DomainLabel\
+        ( ~(Blank()).tag('format') & ComposedDomainLabel\
             ( prevalidation_enabled=False
             ).tag('domainLabel')
         )
@@ -98,6 +100,8 @@ Domain = Compose\
     & ResolveDomain().tag('resolve',False)
     ).paramAlias\
         ( convertToString='string_convert'
+        , convertToPunycode='domainLabel_convertToPunycode'
+        , returnNonPuny='domainLabel_returnNonPuny'
         , updateValue='update_enabled'
         , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
         , toLower='toLower_enabled'
