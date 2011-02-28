@@ -160,7 +160,7 @@ class EmailSchema( Schema ):
         , EliminateWhiteSpace().tag('eliminateWhiteSpace')
         , Split('@',1).tag('split')
         , Tmp\
-            ( Item( 1 , Lower() ).tag('itemDomainLocalPart')
+            ( Item( 1 , Lower() ).tag('itemDomainPart')
             & Join('@' )
             & UpdateValue().tag('update')
             ).tag('lowerDomainPart')
@@ -187,10 +187,10 @@ Email = Compose\
             ( blank = ('string_blank','split_blank' )
             , missing = 'string_missing'
             , format = \
-                ( 'itemDomainLocalPart_blank'
-                , 'itemDomainLocalPart_notFound'
-                , 'localPart_tooLong_blank'
-                , 'domainPart_split_blank'
+                ( 'itemDomainPart_blank'
+                , 'itemDomainPart_notFound'
+                , 'localPart_blank'
+                , 'domainPart_blank'
                 )
         ).messages\
             ( blank = 'Please enter an email address'
