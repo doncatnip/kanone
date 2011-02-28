@@ -6,6 +6,25 @@ from .error import  Invalid
 import copy, logging, inspect
 log = logging.getLogger(__name__)
 
+# major TODO: check the possibilities on how one could port as much as
+# possible to c/c++ and write python bindings to it. This might get
+# composed validation competitive fast.
+# Goal should be: composing can be more encouraged because it still
+# performs 'okish' ( atm it is not that bad, but a couple of python
+# function calls could be avoided which may sum up under critical
+# circumstances )
+# My guess is, that Tagging/Composing, iteration within And/Or/ForEach
+# and checking if on_value or something else needs to be called and
+# context creation can be done using c.
+# Composing guarantees uniform error messages, parameters and behavior
+# - and ofc a nonredundant codebase to maintain.
+# Another thing is: it may become efficient enuff to introduce some
+# kind of generic 'runtime parameters' by using validators as
+# parameters transparently. E.g.:
+#   lang = In( LangsForCountry( Field( 'country', useResult=True ) ) )
+# while 'In' in this example will still only receive an array and
+# the fictive custom LangsForCountry a string as parameter the moment
+# they are validating.
 
 class PASS:
     pass
@@ -417,7 +436,7 @@ class Parameterized:
                 and not key in kwargs:
                     kwargs[key] = getattr(self.__class__, key)
 
-        if args or parent is None:
+        if args or (parent is None):
             if hasattr( self, 'setArguments' ):
                 self.setArguments( *args )
             elif args:

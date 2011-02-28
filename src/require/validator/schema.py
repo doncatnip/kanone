@@ -52,21 +52,22 @@ class Schema( Validator ):
         except KeyError:
             raise SyntaxError("No validator set for %s" % context.path)
 
-        key = schemaData.isList\
-            and self.keyIndexRelation[ key ] or context.key
+        if schemaData.isList:
+            try:
+                value = schemaData.values[ self.keyIndexRelation[ context.key ] ]
+            except IndexError:
+                value = MISSING
+        else:
+            value = schemaData.values.get\
+                ( key
+                , MISSING
+                )
 
-        context.value = schemaData.values.get\
-            ( key
-            , MISSING
-            )
+        return context.validator.validate( context, value )
 
-        return context.validator.validate( context, context.value )
-
-    def getKeyByIndex( self, index, schemaData ):
-        return self.index[ index ]
 
     def on_value( self, context, value ):
-        data = SchemaData( validateField, getKeyByIndex )
+        data = SchemaData( self.validateField, lambda index, schemaData: self.index[index] )
         data.isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
         if not data.isList and not isinstance( value, dict ):
             raise self.invalid( context, 'type')
@@ -140,7 +141,12 @@ class ForEach( Validator ):
         , listType='Invalid input type (must be list, tuple or set)'
         )
 
-    def setParameters( self, criteria, numericKeys=True, returnList=True, createContextChilds=True ):
+    def setParameters\
+        ( self
+        , criteria
+        , numericKeys=True
+        , returnList=True
+        , createContextChilds=True ):
 
         if not isinstance( criteria, ValidatorBase ):
             criteria = Match( criteria )

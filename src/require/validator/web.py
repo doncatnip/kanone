@@ -2,7 +2,7 @@ import re
 
 from ..lib import messages, pre_validate, post_validate, fieldset
 
-from .core import ValidatorBase, Validator, Compose, Pass
+from .core import ValidatorBase, Validator, Compose, Pass, Tmp, Item
 from .basic import String, Dict
 from .alter import Encode, Lower, EliminateWhiteSpace, Split, Join, UpdateValue, Insert
 from .check import Match, Blank, In, Len
@@ -54,7 +54,7 @@ ComposedDomainLabel = Compose\
             )
         ).tag('punycode')
     & Len(max=63).tag('tooLong')
-    & Match(re.compile(r'^(xn--)?[a-z0-9]+[-a-z0-9]+$')).tag('validSymbols')
+    & Match(re.compile(r'^(xn--)?[a-z0-9]+[\-a-z0-9]+$')).tag('validSymbols')
     & cache.Restore(result='preEncode').tag('returnNonPuny', False)
     ).paramAlias\
         ( convertToString='string_convert'
@@ -97,7 +97,11 @@ Domain = Compose\
             ).tag('domainLabel')
         , createContextChilds=False
         )
-    & Field( '(-1)', In([]).tag('restrictToTLD') ).tag('restrictToTLDValidator', False)
+    & Item\
+        ( -1
+        , In([]).tag('restrictToTLD')
+        , alter=False
+        ).tag('restrictToTLDValidator', False)
     & Join('.')
     & ResolveDomain().tag('resolve',False)
     ).paramAlias\
@@ -127,7 +131,8 @@ Domain = Compose\
 EmailLocalPart = Compose\
     ( ( String.convert().tag('string')
     & EliminateWhiteSpace().tag('eliminateWhiteSpace') ).tag('prevalidation')
-    & Encode('ascii').tag('validSymbols')
+    & Len(max=64).tag('tooLong')
+    & Match(re.compile(r'^[a-z0-9!#$%&\'\*\+\-\/\=\?\^_`\{\|\}~]+(\.[a-z0-9!#$%&\'\*\+\-\/\=\?\^_`\{\|\}~]+)*$', re.I)).tag('validSymbols')
     & UpdateValue().tag('update')
     ).paramAlias\
         ( convertToString='string_convert'
@@ -136,32 +141,36 @@ EmailLocalPart = Compose\
     ).messageAlias\
         ( blank=('string_blank','validSymbols_blank')
         , missing='string_missing'
+        , tooLong='tooLong_fail'
         , type='string_type'
         , invalidSymbols='validSymbols_fail'
     ).messages\
         ( blank='Please enter a domain name'
+        , tooLong='Email local-part only may be up do %(max)i characters long'
         , invalidSymbols='Localpart contains invalid symbols'
         )
 
-"""
 class EmailSchema( Schema ):
 
+    createContextChilds = False
     returnList = True
 
     pre_validate\
         ( String.convert().tag('string')
         , EliminateWhiteSpace().tag('eliminateWhiteSpace')
-        , UpdateValue().tag('update')
         , Split('@',1).tag('split')
+        , Tmp\
+            ( Item( 1 , Lower() ).tag('itemDomainLocalPart')
+            & Join('@' )
+            & UpdateValue().tag('update')
+            ).tag('lowerDomainPart')
         )
 
     fieldset\
         ( 'localPart'
-            , (~Blank()).tag('format')
-            & EmailLocalPart( prevalidation_enabled=False ).tag('localPart')
+            , EmailLocalPart( prevalidation_enabled=False ).tag('localPart')
         , 'domainPart'
-            , Lower() & (~Blank()).tag('format')
-            & Domain( prevalidation_enabled=False ).tag('domainPart')
+            , Domain( prevalidation_enabled=False ).tag('domainPart')
         )
 
     post_validate\
@@ -173,20 +182,27 @@ Email = Compose\
         ).paramAlias\
             ( eliminateWhiteSpace = 'eliminateWhiteSpace_enabled'
             , updateValue = 'update_enabled'
+            , lowerDomainPart = 'lowerDomainPart_enabled'
         ).messageAlias\
             ( blank = ('string_blank','split_blank' )
             , missing = 'string_missing'
+            , format = \
+                ( 'itemDomainLocalPart_blank'
+                , 'itemDomainLocalPart_notFound'
+                , 'localPart_tooLong_blank'
+                , 'domainPart_split_blank'
+                )
         ).messages\
             ( blank = 'Please enter an email address'
-            , format_fail = 'Invalid email format ( try my.email@address.com )'
+            , format = 'Invalid email format ( try my.email@address.com )'
             , localPart_invalidSymbols = u"The part before @ (%(value)s) contains invalid symbols"
-            , domainPart_restrictTLD="Invalid top level domain %(value)s, allowed TLD are %(required)"
+            , domainPart_restrictToTLD="Invalid top level domain %(value)s, allowed TLD are %(required)"
             , domainPart_tooLong="Domain part %(value)s is too long (max %(max)s characters)"
             , domainPart_format="Invalid domain name format (%(value)s)"
             , domainPart_invalidSymbols="Domain part %(value)s contains invalid characters"
             )
 
-"""
+
 
 class NestedPostConverter( ValidatorBase ):
 

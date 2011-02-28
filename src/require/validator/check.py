@@ -145,7 +145,7 @@ class Len( Validator ):
     def on_value(self, context, value):
         try:
             result = len(value)
-        except Exception,e:
+        except Exception:
             raise self.invalid( context, 'type',type=value.__class__.__name__)
 
         if result<self.min or (self.max is not None and (result>self.max )):

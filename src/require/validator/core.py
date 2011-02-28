@@ -11,6 +11,20 @@ log = logging.getLogger(__name__)
 # validators without messages and changeable parameters should derive from this
 class ValidatorBase(object):
 
+    def __new__( klass, *args, **kwargs ):
+        self = object.__new__( klass )
+
+        preValidators =\
+            getattr(klass,'__pre_validate__',[])
+        postValidators =\
+            getattr(klass,'__post_validate__',[])
+
+        if preValidators or preValidators:
+            self.__init__( *args, **kwargs )
+            self = And( *preValidators + [ self ] + postValidators )
+
+        return self
+
     def appendSubValidators( self, subValidators ):
         pass
 
@@ -44,35 +58,39 @@ class Validator( Parameterized, ValidatorBase ):
         ( '__messages__'
         )
 
-    def invalid( self, context, error='fail', **extra ):
+    def __init__( self, *args, **kwargs ):
+        Parameterized.__init__( self, *args, **kwargs )
 
-        if not isinstance(error,Invalid):
-             e = Invalid(error, **extra)
+    def invalid( self, _context, _error='fail', **extra ):
+
+        if not isinstance(_error,Invalid):
+             e = Invalid(_error, **extra)
 
         msg = self.__messages__.get('catchall',None)
         msg = msg or self.__messages__[e.key]
 
         e.validator = self
-        e.context = context
-        e.extra['value'] = context.value
+        e.context = _context
+        e.extra['value'] = _context.value
 
         if msg is not None:
             e.data['message'] = msg
 
         return e
 
-    def messages( self, **messages):
-        self.__messages__ = dict( self.__messages__ )
-        self.__messages__.update( messages )
-        return self
-
     def validate( self, context, value ):
         if value is MISSING:
             return self.on_missing( context )
         elif value is None:
-            return self.on_blank( context )
-        else:
-            return self.on_value( context, value )
+            self.on_blank( context )
+
+        return self.on_value( context, value )
+
+
+    def messages( self, **messages):
+        self.__messages__ = dict( self.__messages__ )
+        self.__messages__.update( messages )
+        return self
 
     def on_value( self, context, value ):
         return value
@@ -277,12 +295,69 @@ class Compose( Validator ):
         return self
 
 
+class Tmp( ValidatorBase ):
+
+    def __init__( self, validator, raiseError=True ):
+        self.validator = validator
+        self.raiseError = raiseError
+
+    def appendSubValidators( self, subValidators ):
+        subValidators.append( self.validator )
+        self.validator.appendSubValidators( subValidators )
+        return subValidators
+
+    def validate( self, context, value ):
+        try:
+            self.validator.validate( context, value )
+        except Invalid:
+            if self.raiseError is True:
+                raise
+
+        return value
+
+
+class Item( Validator ):
+
+    messages\
+        ( type='Unsupported type, must be list-like or dict'
+        , notFound='Item %(key)s not found'
+        )
+
+    def setParameters( self, key=1, validator=None, alter=None ):
+        if not validator and alter:
+            raise SyntaxError('alter can only be set to True, if a validator is given')
+
+        self.key = key
+        self.validator = validator
+        self.alter = alter is None and validator is not None or alter
+
+    def appendSubValidators( self, subValidators ):
+        subValidators.append( self.validator )
+        self.validator.appendSubValidators( subValidators )
+
+    def validate( self, context, value ):
+        try:
+            val = value[ self.key ]
+        except TypeError:
+            raise self.invalid(context, 'type' )
+        except (KeyError, IndexError):
+            raise self.invalid(context, 'notFound', key=self.key )
+        else:
+            if self.validator is not None:
+                val = self.validator.validate( context, val )
+
+                if self.alter:
+                    value[self.key] = val
+                    return value
+
+            return val
+
+
 
 class Pass( ValidatorBase ):
 
-    def validate( self, context, value ):
-        return value
-
+    def __init__( self ):
+        self.validate = lambda context, value: value
 
 
 class Not( Validator ):
