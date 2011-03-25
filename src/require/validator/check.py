@@ -85,7 +85,7 @@ class Match( Validator ):
 
     def setParameters(self, required, ignoreCase=False):
         if not isinstance( required, ValidatorBase ):
-            if callable(getattr( required, 'match', None )):
+            if hasattr(getattr( required, 'match', None ),'__call__'):
                 self.type = Match.REGEX
             else:
                 self.type = Match.RAW

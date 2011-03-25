@@ -1,7 +1,8 @@
 from .core import *
 from .basic import *
 from .schema import *
-import web
-import check
-import cache
-import alter
+
+from . import web
+from . import check
+from . import cache
+from . import alter

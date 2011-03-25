@@ -9,7 +9,7 @@ from .check import Match, Blank, In, Len
 from .schema import Schema, ForEach, Field
 from .debug import Print
 
-import cache
+from . import cache
 
 class ResolveDomain( Validator ):
 
