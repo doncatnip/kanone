@@ -43,7 +43,7 @@ CommonDomainPreValidaton\
 # our possibilities.
 ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton().tag('prevalidation')
-    & cache.Save(result='preEncode').tag('punycode')\
+    & cache.Save(result='preEncode').tag('savePreEncode')\
     &   ( Match( re.compile(r'^xn--') )\
         |   ( Encode('punycode')\
             &   (   (   Match( re.compile(r'.*-$') )\
@@ -61,12 +61,12 @@ ComposedDomainLabel = Compose\
         , updateValue='update_enabled'
         , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
         , toLower='toLower_enabled'
-        , convertToPunycode='punycode_enabled'
+        , convertToPunycode=('punycode_enabled','savePreEncode_enabled')
         , returnNonPuny='returnNonPuny_enabled'
     ).messageAlias\
         ( type='string_type'
         , tooLong='tooLong_fail'
-        , invalidSymbols='validSymbols_fail'
+        , invalidSymbols=('validSymbols_fail','punycode_fail')
         , blank=("toLower_blank","string_blank")
         , missing="string_missing"
     ).messages\
@@ -153,6 +153,7 @@ EmailLocalPart = Compose\
 class EmailSchema( Schema ):
 
     createContextChilds = False
+    raiseFieldError = True
     returnList = True
 
     pre_validate\

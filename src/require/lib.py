@@ -450,7 +450,7 @@ class Parameterized:
         if hasattr( self, 'setParameters' ):
             try:
                 self.setParameters( **kwargs )
-            except (TypeError, e):
+            except TypeError as e:
                 raise TypeError(self.__class__.__name__+': '+e[0])
 
         elif kwargs:

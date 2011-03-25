@@ -41,7 +41,7 @@ class Schema( Validator ):
         ( self, allowExtraFields=False
         , returnList=False
         , createContextChilds=True
-        , raiseFieldError=True # only temporary until we have some generic ignoreError toggle
+        , raiseFieldError=False
         ):
 
         if self.returnList:
@@ -51,7 +51,7 @@ class Schema( Validator ):
 
         self.allowExtraFields = allowExtraFields
         self.returnList = returnList
-        self.raiseError = raiseError
+        self.raiseFieldError = raiseFieldError
         self.on_value = createContextChilds\
             and self._createContextChilds_on_value\
             or self._on_value
@@ -87,7 +87,7 @@ class Schema( Validator ):
 
         extraFields = None
         if not self.allowExtraFields:
-            extraFields = data.isList\
+            extraFields = isList\
                 and len(value) or value.keys()
 
         if self.returnList:
@@ -100,7 +100,7 @@ class Schema( Validator ):
         for pos in range(len(self.index)):
             key = self.index[pos]
             if isList is True:
-                if numValues<pos:
+                if numValues>pos:
                     val = value[ pos ]
                     if not self.allowExtraFields:
                         extraFields-=1
@@ -113,15 +113,14 @@ class Schema( Validator ):
             try:
                 res = self.validators[ key ].validate( context, val )
             except Invalid:
-                if self.raiseError:
+                if self.raiseFieldError:
                     raise
-                else:
-                    return value
-
-            if self.returnList:
-                result.append( res )
+                raise self.invalid( context )
             else:
-                result[ key ] = res
+                if self.returnList:
+                    result.append( res )
+                else:
+                    result[ key ] = res
 
             pos += 1
 
@@ -174,7 +173,7 @@ class Schema( Validator ):
         if extraFields:
             raise self.invalid( context, 'extraFields',extraFields=extraFields)
 
-        if errors and self.raiseError is True:
+        if errors and self.raiseFieldError is True:
             raise self.invalid( context, errors=errors )
 
         return result

@@ -64,6 +64,10 @@ class Validator( Parameterized, ValidatorBase ):
         #self.__class__.validate = getattr(self.__class__,'validate',self.__class__.on_value)
 
     def invalid( self, _context, _error='fail', **extra ):
+        value = extra.get('value', MISSING);
+
+        if value is MISSING:
+            value = _context.value;
 
         if not isinstance(_error,Invalid):
              e = Invalid(_error, **extra)
@@ -73,7 +77,7 @@ class Validator( Parameterized, ValidatorBase ):
 
         e.validator = self
         e.context = _context
-        e.extra['value'] = _context.value
+        e.extra['value'] = value
 
         if msg is not None:
             e.data['message'] = msg
