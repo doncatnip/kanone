@@ -1,5 +1,5 @@
 import pprint
-from require import *
+import require
 
 # require - stateful validation
 
@@ -7,7 +7,7 @@ from require import *
 #  example 1: the obvious
 #_______
 
-
+Hello = require.String() & require.Match('world')
 
 #*************
 #  example 2: using tags

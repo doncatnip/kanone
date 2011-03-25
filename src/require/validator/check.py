@@ -92,7 +92,7 @@ class Match( Validator ):
         else:
             self.type = Match.VALIDATOR
 
-        self.ignoreCase__ = ignoreCase
+        self.ignoreCase = ignoreCase
         self.required = required
 
     def appendSubValidators( self, subValidators ):
@@ -112,15 +112,15 @@ class Match( Validator ):
             try:
                 compare = self.required.validate( context, value )
             except Invalid as e:
-                return value
+                raise self.invalid( context, value=value, type=self.type, criteria=e )
 
         val = value
-        if self.__ignore_case__:
+        if self.ignoreCase:
             compare = str(compare).lower()
             val = str(value).lower()
 
         if val != compare:
-            raise self.invalid( context, value=value, type=self.type, critaria=compare )
+            raise self.invalid( context, value=value, type=self.type, criteria=compare )
 
         return value
 
