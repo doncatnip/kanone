@@ -85,7 +85,7 @@ class Validator( Parameterized, ValidatorBase ):
     def validate( self, context, value ):
         if value is MISSING:
             return self.on_missing( context )
-        elif value is None or value is '' or value is b'':
+        elif value is None or (value == ''):
             self.on_blank( context )
 
         return self.on_value( context, value )

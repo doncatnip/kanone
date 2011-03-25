@@ -40,7 +40,8 @@ CommonDomainPreValidaton\
 
 # We should propably implement a dedicated and therefore
 # faster validator. It was mainly done this way first to test
-# our possibilities.
+# our possibilities and performance ( turns out that throwing Exceptions
+# around is not that fast ).
 ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton().tag('prevalidation')
     & cache.Save(result='preEncode').tag('savePreEncode')\
@@ -129,11 +130,12 @@ Domain = Compose\
 
 
 EmailLocalPart = Compose\
-    ( ( String.convert().tag('string')
-    & EliminateWhiteSpace().tag('eliminateWhiteSpace') ).tag('prevalidation')
+    ( String.convert().tag('string')
+    &   ( EliminateWhiteSpace().tag('eliminateWhiteSpace')
+        & UpdateValue().tag('update')
+        ).tag('prevalidation')
     & Len(max=64).tag('tooLong')
     & Match(re.compile(r'^[a-z0-9!#$%&\'\*\+\-\/\=\?\^_`\{\|\}~]+(\.[a-z0-9!#$%&\'\*\+\-\/\=\?\^_`\{\|\}~]+)*$', re.I)).tag('validSymbols')
-    & UpdateValue().tag('update')
     ).paramAlias\
         ( convertToString='string_convert'
         , updateValue='update_enabled'

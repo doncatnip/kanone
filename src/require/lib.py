@@ -206,7 +206,7 @@ class Context( dict ):
     @value.setter
     def value( self,value):
         # lil bit faster this way ..
-        if value is '' or value is b'' or value is [] or value is {}:
+        if (value == '') or value is [] or value is {}:
             value = None
         self.__value__ = value
         self.clear()
