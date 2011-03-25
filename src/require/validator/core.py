@@ -61,6 +61,8 @@ class Validator( Parameterized, ValidatorBase ):
     def __init__( self, *args, **kwargs ):
         Parameterized.__init__( self, *args, **kwargs )
 
+        #self.__class__.validate = getattr(self.__class__,'validate',self.__class__.on_value)
+
     def invalid( self, _context, _error='fail', **extra ):
 
         if not isinstance(_error,Invalid):
@@ -81,7 +83,7 @@ class Validator( Parameterized, ValidatorBase ):
     def validate( self, context, value ):
         if value is MISSING:
             return self.on_missing( context )
-        elif value is None or value == '':
+        elif value is None or value is '' or value is u'':
             self.on_blank( context )
 
         return self.on_value( context, value )

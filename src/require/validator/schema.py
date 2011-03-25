@@ -37,9 +37,24 @@ class Schema( Validator ):
         if not self.validators:
             raise SyntaxError('No fieldset given')
 
-    def setParameters( self, allowExtraFields=False, returnList=False ):
+    def setParameters\
+        ( self, allowExtraFields=False
+        , returnList=False
+        , createContextChilds=True
+        , raiseFieldError=True # only temporary until we have some generic ignoreError toggle
+        ):
+
+        if self.returnList:
+            result = []
+        else:
+            result = {}
+
         self.allowExtraFields = allowExtraFields
         self.returnList = returnList
+        self.raiseError = raiseError
+        self.on_value = createContextChilds\
+            and self._createContextChilds_on_value\
+            or self._on_value
 
     def appendSubValidators( self, subValidators ):
         for validator in self.validators.values():
@@ -65,13 +80,63 @@ class Schema( Validator ):
 
         return context.validator.validate( context, value )
 
+    def _on_value( self, context, value ):
+        isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
+        if not isList and not isinstance( value, dict ):
+            raise self.invalid( context, 'type')
 
-    def on_value( self, context, value ):
+        extraFields = None
+        if not self.allowExtraFields:
+            extraFields = data.isList\
+                and len(value) or value.keys()
+
+        if self.returnList:
+            result = []
+        else:
+            result = {}
+
+        numValues = len(value)
+
+        for pos in range(len(self.index)):
+            key = self.index[pos]
+            if isList is True:
+                if numValues<pos:
+                    val = value[ pos ]
+                    if not self.allowExtraFields:
+                        extraFields-=1
+                else:
+                    val = MISSING
+            else:
+                val = value.get( key, MISING)
+                if not self.allowExtraFields and val is not MISSING: 
+                    del extraFields[key]
+            try:
+                res = self.validators[ key ].validate( context, val )
+            except Invalid:
+                if self.raiseError:
+                    raise
+                else return value
+
+            if self.returnList:
+                result.append( res )
+            else:
+                result[ key ] = res
+
+            pos += 1
+
+        if extraFields:
+            raise self.invalid( context, 'extraFields',extraFields=extraFields)
+
+        return result
+
+
+    def _createContextChilds_on_value( self, context, value ):
         data = SchemaData( self.validateField, lambda index, schemaData: self.index[index] )
         data.isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
         if not data.isList and not isinstance( value, dict ):
             raise self.invalid( context, 'type')
 
+        extraFields = None
         if not self.allowExtraFields:
             extraFields = data.isList\
                 and len(value) or value.keys()
@@ -108,7 +173,7 @@ class Schema( Validator ):
         if extraFields:
             raise self.invalid( context, 'extraFields',extraFields=extraFields)
 
-        if errors:
+        if errors and self.raiseError is True:
             raise self.invalid( context, errors=errors )
 
         return result
@@ -230,7 +295,7 @@ class ForEach( Validator ):
                 try:
                     res = context( pos ).result
                 except Invalid, e:
-                    errors.append( e.context.key )
+                    errors.append( c.context.key )
                 else:
                     if self.returnList:
                         result.append( res )
@@ -243,7 +308,7 @@ class ForEach( Validator ):
                 try:
                     result[ key ] = context( key ).result
                 except Invalid, e:
-                    errors.append( e )
+                    errors.append( key )
 
         context.resetSchemaData()
 
@@ -276,6 +341,7 @@ class FieldValidator( Validator ):
                 part = int(part[1:-1])
 
             fieldcontext = fieldcontext( part )
+
         if fieldcontext is context:
             raise SyntaxError( "Cannot reference myself. Nice try, though :)" )
 

@@ -6,6 +6,9 @@ from .error import  Invalid
 import copy, logging, inspect
 log = logging.getLogger(__name__)
 
+# TODO: get rid of exceptions in validators, they are too slow to be
+# useful for chains like Not( Missing() )
+
 # major TODO: check the possibilities on how one could port as much as
 # possible to c/c++ and write python bindings to it. This might get
 # composed validation competitive fast.
@@ -15,17 +18,19 @@ log = logging.getLogger(__name__)
 # circumstances )
 # My guess is, that Tagging/Composing, iteration within And/Or/ForEach
 # and checking if on_value or something else needs to be called and
-# context creation can be done using c.
+# context creation could be done using c.
 # Composing guarantees uniform error messages, parameters and behavior
 # - and ofc a nonredundant codebase to maintain.
 # Another thing is: it may become efficient enuff to introduce some
 # kind of generic 'runtime parameters' by using validators as
 # parameters transparently. E.g.:
 #   lang = In( LangsForCountry( Field( 'country', useResult=True ) ) )
-# while 'In' in this example will still only receive an array and
-# the fictive custom LangsForCountry a string as parameter the moment
-# they are validating.
-
+# while 'In' in this example will still only receive a list and the
+# fictive custom LangsForCountry a string as parameter the moment they
+# are validating.
+# Also: it could be interesting to have validation separated from error
+# handling, but it would add another wrapper .. e.g. you could write
+# this instead of .messages( ... ):
 class PASS:
     pass
 

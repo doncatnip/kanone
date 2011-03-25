@@ -15,17 +15,41 @@ class Lower( Validator ):
             raise self.invalid(context,'type',type=value.__class__.__name__)
 
 
+"""
+class Replace( Validator ):
+
+    messages\
+        ( type = "Can not eliminate white spaces in values of type %(type)s"
+        )
+
+    def setParameters( self, what, replacement='' ):
+        self.what = what
+        self.replacement = replacement
+        self.whatIsList = isinstance( self.what, list ) or\
+            isinstance( self.what, tuple ) or\
+            isinstance( self.what, set )
+
+    def on_value( self, context, value):
+        try:
+            return u''.join(value.split())
+        except AttributeError:
+            raise self.invalid(context,'type',type=value.__class__.__name__)
+"""
+
 class EliminateWhiteSpace( Validator ):
 
     messages\
         ( type = "Can not eliminate white spaces in values of type %(type)s"
         )
 
+
     def on_value( self, context, value):
         try:
             return u''.join(value.split())
-        except Exception,e:
+        except AttributeError:
             raise self.invalid(context,'type',type=value.__class__.__name__)
+
+
 
 
 class Split( Validator ):
