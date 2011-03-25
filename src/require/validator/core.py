@@ -63,9 +63,7 @@ class Validator( Parameterized, ValidatorBase ):
 
         #self.__class__.validate = getattr(self.__class__,'validate',self.__class__.on_value)
 
-    def invalid( self, _context, _error='fail', **extra ):
-        value = extra.get('value', MISSING);
-
+    def invalid( self, _context, _error='fail', value=MISSING, **extra ):
         if value is MISSING:
             value = _context.value;
 
@@ -345,18 +343,18 @@ class Item( Validator ):
         try:
             val = value[ self.key ]
         except TypeError:
-            raise self.invalid(context, 'type' )
+            raise self.invalid(context, 'type', value )
         except (KeyError, IndexError):
-            raise self.invalid(context, 'notFound', key=self.key )
+            raise self.invalid(context, 'notFound', value, key=self.key )
         else:
             if self.validator is not None:
                 val = self.validator.validate( context, val )
 
                 if self.alter:
                     value[self.key] = val
-                    return value
-
-            return val
+                return value
+            else:
+                return val
 
 
 
@@ -390,7 +388,7 @@ class Not( Validator ):
         except Invalid:
             return value
 
-        raise self.invalid(context)
+        raise self.invalid(context, value=value)
 
 
 class And( Validator ):
@@ -458,7 +456,7 @@ class Or( Validator ):
 
             return result
         if errors:
-            raise self.invalid(context, errors=errors)
+            raise self.invalid(context, value=value, errors=errors)
 
         return value
 

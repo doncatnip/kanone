@@ -31,11 +31,11 @@ class Dict( TypeValidator ):
 
         if not isinstance(value, dict):
             if  not self._convert:
-                raise self.invalid( context, 'type' )
+                raise self.invalid( context, 'type',value )
             try:
                 value = dict(value)
             except (ValueError,TypeError):
-                raise self.invalid( context,'convert', inputType=value.__class__.__name__ )
+                raise self.invalid( context,'convert', value, inputType=value.__class__.__name__ )
 
         if len( value ) == 0:
             return self.on_blank( context )
@@ -56,12 +56,12 @@ class List( TypeValidator ):
 
         if not isinstance(value, list):
             if not self._convert:
-                raise self.invalid( context,'type' )
+                raise self.invalid( context,'type', value )
 
             try:
                 value = list(value)
             except (ValueError,TypeError):
-                raise self.invalid( context,'convert', inputType=value.__class__.__name__ )
+                raise self.invalid( context,'convert', value, inputType=value.__class__.__name__ )
 
         if len( value ) == 0:
             return self.on_blank( context )
@@ -83,7 +83,7 @@ class Boolean( TypeValidator):
         if not (isinstance( value, bool )):
             if self._convert:
                 return bool(value)
-            raise self.invalid( context, 'type' )
+            raise self.invalid( context, 'type', value )
         return value
 
 
@@ -100,7 +100,7 @@ class String( TypeValidator ):
 
         if not isinstance( value, unicode):
             if not self._convert:
-                raise self.invalid( context,'type' )
+                raise self.invalid( context,'type', value )
             else:
                 value = unicode(value)
 
@@ -117,11 +117,11 @@ class Integer( TypeValidator ):
     def on_value(self, context, value):
         if not isinstance( value, int ) and not isinstance( value, long):
             if not self._convert:
-                raise self.invalid( context,'type' )
+                raise self.invalid( context,'type', value )
             try:
                 value = int(value)
             except (TypeError, ValueError):
-                raise self.invalid( context,'convert', inputType=value.__class__.__name__ )
+                raise self.invalid( context,'convert', value, inputType=value.__class__.__name__ )
 
         return value
 
@@ -135,10 +135,10 @@ class Float( TypeValidator ):
     def on_value(self, context, value):
         if not isinstance(value,float):
             if not self._convert:
-                raise self.invalid( context,'type')
+                raise self.invalid( context,'type', value)
             try:
                 value = float(value)
             except (TypeError, ValueError):
-                raise self.invalid( context,'convert',inputType=value.__class__.__name__ )
+                raise self.invalid( context,'convert',value, inputType=value.__class__.__name__ )
 
         return value

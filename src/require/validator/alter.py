@@ -12,7 +12,7 @@ class Lower( Validator ):
         try:
             return value.lower()
         except Exception as e:
-            raise self.invalid(context,'type',type=value.__class__.__name__)
+            raise self.invalid(context,'type', value, type=value.__class__.__name__)
 
 
 """
@@ -47,7 +47,7 @@ class EliminateWhiteSpace( Validator ):
         try:
             return (''.join(value.split()))
         except AttributeError:
-            raise self.invalid(context,'type',type=value.__class__.__name__)
+            raise self.invalid(context,'type', value, type=value.__class__.__name__)
 
 
 
@@ -66,7 +66,7 @@ class Split( Validator ):
         try:
             return value.split( self.separator, self.limit )
         except Exception as e:
-            raise self.invalid(context,'type',type=value.__class__.__name__)
+            raise self.invalid(context,'type', value, type=value.__class__.__name__)
 
 
 class Join( Validator):
@@ -82,7 +82,7 @@ class Join( Validator):
         try:
             return self.separator.join( value )
         except Exception as e:
-            raise self.invalid(context,'type',type=value.__class__.__name__)
+            raise self.invalid(context,'type', value, type=value.__class__.__name__)
 
 class Encode( Validator ):
 
@@ -96,12 +96,12 @@ class Encode( Validator ):
 
     def on_value( self, context, value ):
         if not hasattr( value,'encode') or not hasattr( value.encode,'__call__' ):
-            raise self.invalid(context, 'type', format=self.format, type=value.__class__.__name__ )
+            raise self.invalid(context, 'type', value, format=self.format, type=value.__class__.__name__ )
 
         try:
             value = value.encode( self.format )
         except ValueError:
-            raise self.invalid( context,format=self.format )
+            raise self.invalid( context, value=value, format=self.format )
 
         return value
 
@@ -128,7 +128,7 @@ class Insert( Validator ):
                 where = self.where
             return value[0:where] + self.what + value[where:None]
 
-        raise self.invalid( context,'type', type=value.__class__.__name__ )
+        raise self.invalid( context,'type', value, type=value.__class__.__name__ )
 
 class UpdateValue( ValidatorBase ):
 
