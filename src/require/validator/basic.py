@@ -34,7 +34,7 @@ class Dict( TypeValidator ):
                 raise self.invalid( context, 'type' )
             try:
                 value = dict(value)
-            except ValueError,TypeError:
+            except (ValueError,TypeError):
                 raise self.invalid( context,'convert', inputType=value.__class__.__name__ )
 
         if len( value ) == 0:
@@ -60,7 +60,7 @@ class List( TypeValidator ):
 
             try:
                 value = list(value)
-            except ValueError,TypeError:
+            except (ValueError,TypeError):
                 raise self.invalid( context,'convert', inputType=value.__class__.__name__ )
 
         if len( value ) == 0:

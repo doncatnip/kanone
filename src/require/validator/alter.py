@@ -11,7 +11,7 @@ class Lower( Validator ):
     def on_value(self, context, value):
         try:
             return value.lower()
-        except Exception,e:
+        except (Exception,e):
             raise self.invalid(context,'type',type=value.__class__.__name__)
 
 
@@ -45,7 +45,7 @@ class EliminateWhiteSpace( Validator ):
 
     def on_value( self, context, value):
         try:
-            return u''.join(value.split())
+            return (''.join(value.split()))
         except AttributeError:
             raise self.invalid(context,'type',type=value.__class__.__name__)
 
@@ -65,7 +65,7 @@ class Split( Validator ):
     def on_value( self, context, value):
         try:
             return value.split( self.separator, self.limit )
-        except Exception,e:
+        except (Exception,e):
             raise self.invalid(context,'type',type=value.__class__.__name__)
 
 
@@ -81,7 +81,7 @@ class Join( Validator):
     def on_value( self, context, value):
         try:
             return self.separator.join( value )
-        except Exception,e:
+        except (Exception,e):
             raise self.invalid(context,'type',type=value.__class__.__name__)
 
 class Encode( Validator ):

@@ -83,7 +83,7 @@ class Validator( Parameterized, ValidatorBase ):
     def validate( self, context, value ):
         if value is MISSING:
             return self.on_missing( context )
-        elif value is None or value is '' or value is u'':
+        elif value is None or value is '' or value is b'':
             self.on_blank( context )
 
         return self.on_value( context, value )
@@ -448,7 +448,7 @@ class Or( Validator ):
         for validator in self.validators:
             try:
                 result = validator.validate( context, result )
-            except Invalid, e:
+            except (Invalid, e):
                 errors.append( e.data )
                 continue
 

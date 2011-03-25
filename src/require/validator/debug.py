@@ -8,7 +8,7 @@ class Print( ValidatorBase ):
 
     def validate( self, context, value):
         if self.result:
-            print "%s - result: %s" % (self.result, value)
+            print ("%s - result: %s" % (self.result, value))
         if self.value:
-            print "%s - value: %s" % (self.value, context.get('value',context.__value__))
+            print ("%s - value: %s" % (self.value, context.get('value',context.__value__)))
         return value

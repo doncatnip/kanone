@@ -206,7 +206,7 @@ class Context( dict ):
     @value.setter
     def value( self,value):
         # lil bit faster this way ..
-        if value is '' or value is u'' or value is [] or value is {}:
+        if value is '' or value is b'' or value is [] or value is {}:
             value = None
         self.__value__ = value
         self.clear()
@@ -296,7 +296,7 @@ class Context( dict ):
                 result = schemaData.validationFunc( self, schemaData )
             else:
                 result = self.validator.validate( self, self.__value__)
-        except Invalid,e:
+        except (Invalid,e):
             self.__error__ = e
 
         if not self.__error__:
@@ -450,7 +450,7 @@ class Parameterized:
         if hasattr( self, 'setParameters' ):
             try:
                 self.setParameters( **kwargs )
-            except TypeError, e:
+            except (TypeError, e):
                 raise TypeError(self.__class__.__name__+': '+e[0])
 
         elif kwargs:

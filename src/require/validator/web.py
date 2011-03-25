@@ -195,7 +195,7 @@ Email = Compose\
         ).messages\
             ( blank = 'Please enter an email address'
             , format = 'Invalid email format ( try my.email@address.com )'
-            , localPart_invalidSymbols = u"The part before @ (%(value)s) contains invalid symbols"
+            , localPart_invalidSymbols = "The part before @ (%(value)s) contains invalid symbols"
             , domainPart_restrictToTLD="Invalid top level domain %(value)s, allowed TLD are %(required)"
             , domainPart_tooLong="Domain part %(value)s is too long (max %(max)s characters)"
             , domainPart_format="Invalid domain name format (%(value)s)"
