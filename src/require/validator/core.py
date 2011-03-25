@@ -448,7 +448,7 @@ class Or( Validator ):
         for validator in self.validators:
             try:
                 result = validator.validate( context, result )
-            except (Invalid, e):
+            except Invalid as e:
                 errors.append( e.data )
                 continue
 

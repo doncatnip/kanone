@@ -156,7 +156,7 @@ class Schema( Validator ):
             key = self.index[pos]
             try:
                 res = context( pos ).result
-            except (Invalid,e):
+            except Invalid as e:
                 errors.append( e.context.key )
             else:
                 if self.returnList:
@@ -295,7 +295,7 @@ class ForEach( Validator ):
 
                 try:
                     res = context( pos ).result
-                except (Invalid, e):
+                except Invalid as e:
                     errors.append( c.context.key )
                 else:
                     if self.returnList:
@@ -308,7 +308,7 @@ class ForEach( Validator ):
             for key in value.keys():
                 try:
                     result[ key ] = context( key ).result
-                except (Invalid, e):
+                except Invalid as e:
                     errors.append( key )
 
         context.resetSchemaData()
@@ -384,7 +384,7 @@ class Field( FieldValidator ):
             else:
                 try:
                     targetValue = fieldcontext.result
-                except (Invalid,e):
+                except Invalid as e:
                     targetValue = PASS
 
             if targetValue is not PASS:

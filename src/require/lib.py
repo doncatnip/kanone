@@ -296,7 +296,7 @@ class Context( dict ):
                 result = schemaData.validationFunc( self, schemaData )
             else:
                 result = self.validator.validate( self, self.__value__)
-        except (Invalid,e):
+        except Invalid as e:
             self.__error__ = e
 
         if not self.__error__:
@@ -339,7 +339,7 @@ class Context( dict ):
                 result = schemaData.validationFunc( self, schemaData )
             else:
                 result = self.validator.validate( self, self.__value__)
-        except Invalid,e:
+        except Invalid as e:
             self.__error__ = e
 
         if not self.__error__:

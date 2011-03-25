@@ -111,7 +111,7 @@ class Match( Validator ):
         elif self.type is Match.VALIDATOR:
             try:
                 compare = self.required.validate( context, value )
-            except (Invalid,e):
+            except Invalid as e:
                 return value
 
         val = value
