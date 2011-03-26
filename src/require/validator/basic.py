@@ -23,7 +23,7 @@ class TypeValidator( Validator ):
 class Dict( TypeValidator ):
 
     messages\
-        ( type="Invalid type, must be a dictionary"
+        ( type="Invalid type (%(type)s), must be a dictionary"
         , convert="Could not convert %s(inputType)s to dict"
         )
 
@@ -46,7 +46,7 @@ class Dict( TypeValidator ):
 class List( TypeValidator ):
 
     messages\
-        ( type="Invalid type, must be a list"
+        ( type="Invalid type (%(type)s), must be a list"
         , convert="Could not convert %(inputType)s to list"
         )
 
@@ -72,7 +72,7 @@ class List( TypeValidator ):
 class Boolean( TypeValidator):
 
     messages\
-        ( type="Invalid type, must be a bool"
+        ( type="Invalid type (%(type)s), must be a bool"
         )
 
     def on_value(self, context, value):
@@ -90,7 +90,7 @@ class Boolean( TypeValidator):
 class String( TypeValidator ):
 
     messages\
-        ( type="Invalid type, must be a string"
+        ( type="Invalid type (%(type)s), must be a string"
         )
 
     def on_value(self, context, value):
@@ -110,7 +110,7 @@ class String( TypeValidator ):
 class Integer( TypeValidator ):
 
     messages\
-        ( type="Invalid type, must be a integer"
+        ( type="Invalid type (%(type)s), must be a integer"
         , convert="Could not convert %(inputType)s to integer"
         )
 
@@ -128,7 +128,7 @@ class Integer( TypeValidator ):
 
 class Float( TypeValidator ):
     messages\
-        ( type="Invalid type, must be a floating point number"
+        ( type="Invalid type (%(type)s), must be a floating point number"
         , convert="Could not convert %(inputType)s to a floating point number"
         )
 

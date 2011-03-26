@@ -15,6 +15,27 @@ class Lower( Validator ):
             raise self.invalid(context,'type', value, type=value.__class__.__name__)
 
 
+class Format( Validator ):
+
+    messages\
+        ( type = "Cannot format type %(type)s"
+        )
+
+    def setParameters( self, formatter, **parameters ):
+        self.formatter = formatter
+        self.parameters = parameters
+
+    def on_value(self, context, value):
+        parameters = dict(self.parameters)
+        parameters['value'] = value
+
+        if not isinstance( self.formatter, basestring ):
+            raise self.invalid( context, 'type', value, type=value.__class__.__name__ )
+        try:
+            return self.formatter % parameters
+        except Exception:
+            raise self.invalid(context, value=value )
+
 """
 class Replace( Validator ):
 

@@ -76,6 +76,11 @@ class Validator( Parameterized, ValidatorBase ):
         e.validator = self
         e.context = _context
         e.extra['value'] = value
+        valueType = ''
+        if hasattr( value, '__class__') and hasattr( value.__class__,'__name__'):
+            valueType = value.__class__.__name__
+
+        e.extra['type'] = valueType
 
         if msg is not None:
             e.data['message'] = msg
@@ -191,16 +196,16 @@ class Compose( Validator ):
 
     # stuff defined here will be inherited by childs of this Validator
     inherit\
-        ( 'paramAlias'
-        , 'messageAlias'
+        ( '__paramAlias__'
+        , '__messageAlias__'
         , 'tagIDs'
         , 'taggedValidators'
         , 'currentTaggedValidators'
         , 'validator'
         )
 
-    paramAlias = None
-    messageAlias = None
+    __paramAlias__ = None
+    __messageAlias__ = None
 
     taggedValidators = {}
 
@@ -224,7 +229,7 @@ class Compose( Validator ):
             raise SyntaxError('No tags found.')
 
     def setParameters( self, **kwargs):
-        taggedKwargs = _parseTaggedKeywords( kwargs, self.paramAlias )
+        taggedKwargs = _parseTaggedKeywords( kwargs, self.__paramAlias__ )
 
         notFound = []
         self.__clonedTaggedValidators = []
@@ -265,7 +270,7 @@ class Compose( Validator ):
             context.root.taggedValidators = tmpTags
 
     def messages( self, **kwargs ):
-        taggedKwargs = _parseTaggedKeywords( kwargs, self.messageAlias )
+        taggedKwargs = _parseTaggedKeywords( kwargs, self.__messageAlias__ )
 
         notFound = []
 
@@ -281,7 +286,7 @@ class Compose( Validator ):
                             = self.taggedValidators[tagID]()
                         self.__clonedTaggedValidators.append ( tagID )
                     else:
-                        taggedValidator = taggedValidators[tagID]
+                        taggedValidator = self.taggedValidators[tagID]
 
                     taggedValidator.messages( **args )
 
@@ -291,11 +296,11 @@ class Compose( Validator ):
         return self
 
     def messageAlias( self, **alias ):
-        self.messageAlias = alias
+        self.__messageAlias__ = alias
         return self
 
     def paramAlias( self, **alias ):
-        self.paramAlias = alias
+        self.__paramAlias__ = alias
         return self
 
 
@@ -413,7 +418,13 @@ class And( Validator ):
         result = value
 
         for validator in self.validators:
-            result = validator.validate( context, value )
+            try:
+                result = validator.validate( context, value )
+            except Invalid as e:
+                if 'catchall' in self.__messages__:
+                    raise self.invalid(e.context,'catchall', e.extra['value'])
+                raise
+
             if self.chainResult:
                 value = result
 
