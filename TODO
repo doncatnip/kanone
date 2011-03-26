@@ -3,3 +3,4 @@
   useful for chains like Not( Missing() )
 * check how much core functionality could be ported to c/c++ without
   sacrifying an easy API - mainly to make composed Validators faster
+* unit tests
