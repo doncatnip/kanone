@@ -246,12 +246,12 @@ class Context( dict ):
             raise SyntaxError('Context %s has no childs supporting indexing' % (self.path))
 
     def setSchemaData( self, data ):
+        self.clear()
         self.indexKeyRelation = {}
         self.currentSchemaData = data
 
     def resetSchemaData( self ):
-        pass
-        #del self.currentSchemaData
+        del self.currentSchemaData
 
     def clear( self ):
         if not self.isValidated:
@@ -298,6 +298,7 @@ class Context( dict ):
                 result = schemaData.validationFunc( self, schemaData )
             else:
                 result = self.validator.validate( self, self.__value__)
+
         except Invalid as e:
             self.__error__ = e
 

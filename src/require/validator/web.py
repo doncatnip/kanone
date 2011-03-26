@@ -232,6 +232,7 @@ class NestedPostConverter( ValidatorBase ):
 NestedPost = Compose\
     ( Dict().tag('type')
     & NestedPostConverter()
+    & UpdateValue()
     ).messageAlias\
         ( type='type_fail'
         )

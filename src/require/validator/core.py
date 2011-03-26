@@ -80,6 +80,7 @@ class Validator( Parameterized, ValidatorBase ):
         if hasattr( value, '__class__') and hasattr( value.__class__,'__name__'):
             valueType = value.__class__.__name__
 
+        e.extra['path'] = _context.path
         e.extra['type'] = valueType
 
         if msg is not None:

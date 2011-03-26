@@ -63,8 +63,12 @@ try:
     result = context.result
 except require.Invalid as e:
     pprint (str(e))      # 'Please enter "bob" or "world", not "there".'
-    context.errorFormatter = lambda context, error: ('"%(value)s" is not allowed here' % error.extra)
-    pprint (str(e))      # '"there" not allowed here'
+
+    # you can change the errorFormatter at any time
+    context.errorFormatter \
+        = lambda context, error: (('Error (%(type)s): '+error.message) % error.extra)
+    pprint (str(e))      # 'Error (unicode): Please enter "bob" or "world", not "there".' 
+
 
 # use catchall to set a message for every possible error
 
@@ -76,14 +80,14 @@ Hello = ( require.String() \
                 )
             ) \
         & require.alter.Format('Hello %(value)s !')
-        ).messages(catchall='Please enter "bob" or "world", not "%(value)s".')
+        ).messages(catchall='Validition for "%(value)s" (%(path)s, %(type)s) failed.')
 
 context = require.Context( Hello, None )
 
 try:
     result = context.result
 except require.Invalid as e:
-    pprint (str(e))      # 'Please enter "bob" or "world", not "None".'
+    pprint (str(e))      # 'Validition for "None" (/, NoneType) failed.'
 
 
 
@@ -164,6 +168,7 @@ context = require.Context\
 
 pprint (context('nick').result ) # 'bob'
 # note: the domain part will be lowered ( local part is case-sensitive acc. to specs )
+# you can disable this behaviour by Email(domainPart_toLower=False)
 pprint (context('email').result ) # 'Bob@some.domain.org'
 pprint (context('email_confirm').result ) # 'BOB@Some.domain.org'
 
@@ -171,12 +176,78 @@ pprint (context('email_confirm').result ) # 'BOB@Some.domain.org'
 # you can also use a list as input, which is handy if you, for example, want
 # to validate the *args of a function or after using Split() and thelike
 
-context.value = ['bob','Bob@Some.Domain.Org', 'BOB@Some.domain.org']
+context.value = ['jack','Jack@Some.Domain.Org', 'jack@Some.domain.org']
 
-pprint (context('nick').result ) # 'bob'
-pprint (context('email').result ) # 'Bob@some.domain.org'
-pprint (context('email_confirm').result ) # 'BOB@Some.domain.org'
+pprint (context('nick').result ) # 'jack'
+pprint (context('email').result ) # 'Jack@some.domain.org'
+pprint (context('email_confirm').result ) # 'jack@Some.domain.org'
 
 
 
-# TODO: there is much, much more to show :)
+#*************
+#  example 6: nested (and posted) schemas
+#_______
+
+# note: you could just remove NestedPost and use native nested dicts
+# as input, or you can set the values of childs manully - e.g.:
+#   context('people.0.nick').value = 'bob'
+
+class PostedSchema( require.Schema ):
+
+    require.pre_validate\
+        ( require.web.NestedPost()
+        & require.debug.Print('Nested: %(value)s')
+        )
+
+    require.fieldset\
+        ( 'people'
+            , require.ForEach( HelloSchema() )
+        )
+
+# notes:
+# * using pre_validate or post_validate results in an And validator
+#   as you would have written
+#     SomePreValidators() & MyValidator() & SomePostValidators()
+# * ForEach creates new context childs ( as well as Schema )
+#   use ForEach( createContextChilds=False ) to disable this behaviour
+
+
+context = require.Context\
+    ( PostedSchema()
+    ,   { 'people.0.nick':'bob'
+        , 'people.0.email':'Bob@Some.Domain.Org'
+        , 'people.0.email_confirm': 'BOB@Some.domain.org'
+        , 'people.1.nick':'jack'
+        , 'people.1.email':'Jack@Some.Domain.Org'
+        , 'people.1.email_confirm': 'JACK@Some.domain.org'
+        }
+    )
+pprint (context('people.0.nick').result ) # 'bob'
+pprint (context('people.0.email').result ) # 'Bob@some.domain.org'
+pprint (context('people.0.email_confirm').result ) # 'BOB@Some.domain.org'
+
+pprint (context('people').result )
+#[{'email': u'Bob@some.domain.org',
+#  'email_confirm': 'BOB@Some.domain.org',
+#  'nick': u'bob'},
+# {'email': u'Jack@some.domain.org',
+#  'email_confirm': 'JACK@Some.domain.org',
+#  'nick': u'jack'}]
+
+
+context.value = \
+    { 'people.0.email':'Bob@Some.Domain.Org'
+    , 'people.0.email_confirm': 'BOB@Some.domain.or'
+    }
+
+try:
+    result = context.result
+except require.Invalid as e:
+    pprint(context.errorlist) # ['/people.0.nick', '/people.0', '/people', '/']
+    # note: if a child has an error, the parent also does
+
+pprint ( context( 'people.0.nick' ).error )  # 'Please provide a value'
+pprint ( context( 'people.0.email_confirm' ).error )  # 'Value must match bob@some.domain.org'
+
+
+# TODO: there is much, much more to learn :)

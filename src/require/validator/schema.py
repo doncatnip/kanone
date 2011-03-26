@@ -46,10 +46,6 @@ class Schema( Validator ):
         ):
 
         self.returnList = returnList
-        if self.returnList:
-            result = []
-        else:
-            result = {}
 
         self.allowExtraFields = allowExtraFields
         self.raiseFieldError = raiseFieldError
@@ -89,7 +85,7 @@ class Schema( Validator ):
         extraFields = None
         if not self.allowExtraFields:
             if isList:
-                extraFields = len(value)
+                extraFields = max( len(value), len(self.index) )
             else:
                 extraFields = value.keys()
 
@@ -111,8 +107,9 @@ class Schema( Validator ):
                     val = MISSING
             else:
                 val = value.get( key, MISING)
-                if not self.allowExtraFields and val is not MISSING: 
-                    del extraFields[key]
+                if not self.allowExtraFields and val is not MISSING:
+                    try: extraFields.remove(key)
+                    except: pass
             try:
                 res = self.validators[ key ].validate( context, val )
             except Invalid:
@@ -142,7 +139,7 @@ class Schema( Validator ):
         extraFields = None
         if not self.allowExtraFields:
             if data.isList:
-                extraFields = len(value)
+                extraFields = max( len(value), len(self.index) )
             else:
                 extraFields = value.keys()
 
@@ -161,24 +158,29 @@ class Schema( Validator ):
             try:
                 res = context( pos ).result
             except Invalid as e:
-                errors.append( e.context.key )
+                if self.raiseFieldError is True:
+                    raise
+                else:
+                    errors.append( e.context.key )
             else:
                 if self.returnList:
                     result.append( res )
                 else:
-                    result[ pos ] = res
+                    result[ key ] = res
+
             if not self.allowExtraFields:
                 if data.isList:
                     extraFields-=1
                 else:
-                    extraFields.remove(key)
+                    try: extraFields.remove(key)
+                    except: pass
 
         context.resetSchemaData()
 
         if extraFields:
             raise self.invalid( context, 'extraFields',extraFields=extraFields)
 
-        if errors and self.raiseFieldError is True:
+        if errors:
             raise self.invalid( context, errors=errors )
 
         return result
@@ -232,10 +234,12 @@ class ForEach( Validator ):
         subValidators.append( self.validator )
 
     def validateItem( self, context, schemaData ):
-        key = schemaData.isList\
-            and int(context.key) or context.key
+        if schemaData.isList:
+            key = int(context.key)
+        else:
+            key = context.key
 
-        context.value = schemaData.values[ int(key) ]
+        context.value = schemaData.values[ key ]
         context.validator = self.validator
 
         return context.validator.validate( context, context.value )
@@ -276,7 +280,7 @@ class ForEach( Validator ):
         data.isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
 
         if not data.isList:
-            if not isinstance(data, dict ):
+            if not isinstance(value, dict ):
                 raise self.invalid( context,'type' )
 
         if self.returnList:
@@ -300,7 +304,7 @@ class ForEach( Validator ):
                 try:
                     res = context( pos ).result
                 except Invalid as e:
-                    errors.append( c.context.key )
+                    errors.append( context.key )
                 else:
                     if self.returnList:
                         result.append( res )
