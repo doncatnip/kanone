@@ -3,6 +3,8 @@ import require
 
 # require - stateful validation
 
+
+
 #*************
 #  example 1: the obvious
 #_______
@@ -24,6 +26,8 @@ context.value = 'Bob'
 # re-validate
 pprint ( context.result ) # Hello Bob !
 
+
+
 #*************
 #  example 2: errors
 #_______
@@ -37,6 +41,8 @@ except require.Invalid as e:
 
 # the context now holds the error as string
 pprint( context.error )
+
+
 
 #*************
 #  example 3: error messages
@@ -80,12 +86,17 @@ except require.Invalid as e:
     pprint (str(e))      # 'Please enter "bob" or "world", not "None".'
 
 
+
 #*************
 #  example 4: composing
 #_______
 
 # composing is useful if you want to reuse a certain validator with different
 # parameters or messages
+
+# note: please take a look at require.validator.web for advanced
+# tag usage, since DomainLabel, Domain, EmailLocalPart and
+# Email are all composed
 
 Hello = require.Compose\
         ( require.String().tag('inputType') \
@@ -117,8 +128,55 @@ context = require.Context( myHello, 'there' )
 pprint (context.result ) # 'Hey there !'
 
 context.value = 'world'
+
 try:
     result = context.result
 except require.Invalid as e:
     pprint (str(e))      # 'Please enter one of ['there', 'bob']'
 
+
+
+#*************
+#  example 5: schemas
+#_______
+
+# note: please take a look at require.validator.web.Email for a
+# more advanced real-world example
+
+class HelloSchema( require.Schema ):
+
+    require.fieldset\
+        ( 'nick'
+            , require.String() & require.check.Len(max=20)
+        , 'email'
+            , require.web.Email()
+        , 'email_confirm'
+            , require.Match( require.Field('.email'), ignoreCase=True )
+        )
+
+context = require.Context\
+    ( HelloSchema()
+    ,   { 'nick':'bob'
+        , 'email':'Bob@Some.Domain.Org'
+        , 'email_confirm': 'BOB@Some.domain.org'
+        }
+    )
+
+pprint (context('nick').result ) # 'bob'
+# note: the domain part will be lowered ( local part is case-sensitive acc. to specs )
+pprint (context('email').result ) # 'Bob@some.domain.org'
+pprint (context('email_confirm').result ) # 'BOB@Some.domain.org'
+
+
+# you can also use a list as input, which is handy if you, for example, want
+# to validate the *args of a function or after using Split() and thelike
+
+context.value = ['bob','Bob@Some.Domain.Org', 'BOB@Some.domain.org']
+
+pprint (context('nick').result ) # 'bob'
+pprint (context('email').result ) # 'Bob@some.domain.org'
+pprint (context('email_confirm').result ) # 'BOB@Some.domain.org'
+
+
+
+# TODO: there is much, much more to show :)

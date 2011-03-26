@@ -248,11 +248,10 @@ class Context( dict ):
     def setSchemaData( self, data ):
         self.indexKeyRelation = {}
         self.currentSchemaData = data
-        self.isValidated = True
 
     def resetSchemaData( self ):
-        del self.currentSchemaData
-        self.isValidated = False
+        pass
+        #del self.currentSchemaData
 
     def clear( self ):
         if not self.isValidated:
@@ -261,7 +260,7 @@ class Context( dict ):
         dict.clear( self )
 
         if self.parent is not None and self.parent.path:
-            self['path'] = '%s.%s' % (parent.path,self.key)
+            self['path'] = '%s.%s' % (self.parent.path,self.key)
         else:
             self['path'] = self.key
 
@@ -274,7 +273,7 @@ class Context( dict ):
             self['value'] = self.__value__
 
     def validate(self ):
-        if self.isValidated or self.isValidating:
+        if self.isValidated:
             if self.__error__ is not MISSING:
                 raise self.__error__
             return self.get('result',MISSING)
@@ -283,11 +282,14 @@ class Context( dict ):
 
         schemaData = None
         if self.parent is not None:
-            if not self.parent.isValidating:
-                self.parent.validate()
+
+            if not self.parent.isValidated and not self.parent.isValidating:
+                res = self.parent.validate()
+                return self.result
+
             schemaData = getattr(self.parent,'currentSchemaData',None)
 
-        if self.validator is None and schemaData is None:
+        if (self.validator is None and not self.isValidating ) and schemaData is None:
             raise AttributeError("No validator set for context '%s'" % self.path )
 
         result = PASS

@@ -38,19 +38,20 @@ class Schema( Validator ):
             raise SyntaxError('No fieldset given')
 
     def setParameters\
-        ( self, allowExtraFields=False
+        ( self
+        , allowExtraFields=False
         , returnList=False
         , createContextChilds=True
         , raiseFieldError=False
         ):
 
+        self.returnList = returnList
         if self.returnList:
             result = []
         else:
             result = {}
 
         self.allowExtraFields = allowExtraFields
-        self.returnList = returnList
         self.raiseFieldError = raiseFieldError
         self.on_value = createContextChilds\
             and self._createContextChilds_on_value\
@@ -74,7 +75,7 @@ class Schema( Validator ):
                 value = MISSING
         else:
             value = schemaData.values.get\
-                ( key
+                ( context.key
                 , MISSING
                 )
 
@@ -87,8 +88,10 @@ class Schema( Validator ):
 
         extraFields = None
         if not self.allowExtraFields:
-            extraFields = isList\
-                and len(value) or value.keys()
+            if isList:
+                extraFields = len(value)
+            else:
+                extraFields = value.keys()
 
         if self.returnList:
             result = []
@@ -138,8 +141,10 @@ class Schema( Validator ):
 
         extraFields = None
         if not self.allowExtraFields:
-            extraFields = data.isList\
-                and len(value) or value.keys()
+            if data.isList:
+                extraFields = len(value)
+            else:
+                extraFields = value.keys()
 
         errors = []
 
@@ -161,12 +166,12 @@ class Schema( Validator ):
                 if self.returnList:
                     result.append( res )
                 else:
-                    result[ pos ] = result
+                    result[ pos ] = res
             if not self.allowExtraFields:
                 if data.isList:
                     extraFields-=1
                 else:
-                    del extraFields[ key ]
+                    extraFields.remove(key)
 
         context.resetSchemaData()
 
@@ -373,21 +378,20 @@ class Field( FieldValidator ):
     def validate(self, context, value):
         fieldcontext = self.getField( context, self.path )
 
-        result = MISSING
+        result = PASS
+
+        if not self.useResult:
+            result = fieldcontext.value
+
+        else:
+            try:
+                result = fieldcontext.result
+            except Invalid as e:
+                result = PASS
 
         if self.validator is not None:
-            targetValue = PASS
-
-            if not self.useResult:
-                targetValue = fieldcontext.value
-            else:
-                try:
-                    targetValue = fieldcontext.result
-                except Invalid as e:
-                    targetValue = PASS
-
-            if targetValue is not PASS:
-                result = self.validator.validate( fieldcontext, targetValue )
+            if result is not PASS:
+                result = self.validator.validate( fieldcontext, result )
 
         if self.copy:
             return result
