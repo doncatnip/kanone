@@ -40,7 +40,7 @@ except require.Invalid as e:
     pprint (str(e))      # Invalid type (int), must be a string
 
 # the context now holds the error as string
-pprint( context.error )
+pprint( context.error )  # Invalid type (int), must be a string
 
 
 
@@ -80,7 +80,7 @@ Hello = ( require.String() \
                 )
             ) \
         & require.alter.Format('Hello %(value)s !')
-        ).messages(catchall='Validition for "%(value)s" (%(path)s, %(type)s) failed.')
+        ).messages(catchall='Validition for "%(value)s", %(type)s) failed.')
 
 context = require.Context( Hello, None )
 
@@ -250,4 +250,16 @@ pprint ( context( 'people.0.nick' ).error )  # 'Please provide a value'
 pprint ( context( 'people.0.email_confirm' ).error )  # 'Value must match bob@some.domain.org'
 
 
-# TODO: there is much, much more to learn :)
+#*************
+#  example 7: (json) serialization
+#_______
+
+# farly easy, since a context is a native dict
+pprint ( context ) # '{ lots of pretty printed stuff }'
+
+import json
+
+pprint( json.dumps( context ) ) # '{ lots of not so pretty printed stuff }'
+
+
+# TODO: there is much, much more to show :)
