@@ -87,7 +87,7 @@ context = require.Context( Hello, None )
 try:
     result = context.result
 except require.Invalid as e:
-    pprint (str(e))      # 'Validition for "None" (/, NoneType) failed.'
+    pprint (str(e))      # 'Validition for "None", NoneType failed.'
 
 
 
@@ -189,7 +189,7 @@ pprint (context('email_confirm').result ) # 'jack@Some.domain.org'
 #_______
 
 # note: you could just remove NestedPost and use native nested dicts
-# as input, or you can set the values of childs manully - e.g.:
+# as input, or you can set the values of childs manually - e.g.:
 #   context('people.0.nick').value = 'bob'
 
 class PostedSchema( require.Schema ):
@@ -243,7 +243,7 @@ context.value = \
 try:
     result = context.result
 except require.Invalid as e:
-    pprint(context.errorlist) # ['/people.0.nick', '/people.0', '/people', '/']
+    pprint(context.errorlist) # ['/people.0.nick', '/people.0.email_confirm', '/people.0', '/people', '/']
     # note: if a child has an error, the parent also does
 
 pprint ( context( 'people.0.nick' ).error )  # 'Please provide a value'
