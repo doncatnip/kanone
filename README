@@ -1,5 +1,5 @@
-require - validation libary
-===========================
+require - validation library
+============================
 
 Why another validation lib ?
 
@@ -24,7 +24,7 @@ Why another validation lib ?
     the parent context )
 
 * Schemas and derivants can handle lists natively, because fields do have
-  an order - enabling them handle *args
+  an order - enabling them to handle *args
 
 
 for more, see tutorial/tutorial.py for now
