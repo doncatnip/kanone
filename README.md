@@ -14,7 +14,7 @@ Why another validation lib ?
   on other fields, because validation takes place on demand.
   ( e.g. this will work:
     fieldset\
-        ( 'email_confirm' , Field('email_confirm', Match('.email'))
+        ( 'email_confirm' , Match( Field('.email') )
         , 'email' , String()
         )
   )
@@ -24,7 +24,7 @@ Why another validation lib ?
     the parent context )
 
 * Schemas and derivants can handle lists natively, because fields do have
-  an order - enabling them to handle *args
+  an order - enabling them to handle \*args
 
 
 for more, see tutorial/tutorial.py for now
