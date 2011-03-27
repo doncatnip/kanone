@@ -3,20 +3,20 @@ require - validation library
 
 Why another validation lib ?
 
-* there is a validation state represented as 'Context' throughout the
+* there is a validation state represented as *Context* throughout the
   validation process, which stores the current result for a certain field
   ( e.g. no validator will be called twice within a validation process )
 
-* navigation through your data is very easy, once you have created a Context
-  by using context( 'my.child.context' )
+* navigation through your data is easily done using context( 'my.child.context' )
+  once you have created a Context.
 
 * You do not need to maintain a certain order for Fields which are depending
   on other fields, because validation takes place on demand.
   ( e.g. this will work:
-    fieldset\
-        ( 'email_confirm' , Match( Field('.email') )
-        , 'email' , String()
-        )
+        fieldset\
+            ( 'email_confirm' , Match( Field('.email') )
+            , 'email' , String()
+            )
   )
 
 * relative access by path of Fields within Schemas
