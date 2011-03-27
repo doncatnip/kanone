@@ -11,7 +11,7 @@ setup(
     version = appVersion.decode('ascii')[0:-1],
     description='a validation library',
     author = 'don`catnip',
-    author_email = 'don.t@pan1.cc',
+    author_email = 'don dot t at pan1 dot cc',
     url = '',
     packages = find_packages('src'),
     package_dir={'':'src'},
