@@ -1,8 +1,8 @@
-from ..lib import MISSING, messages, inherit
+from ..lib import PASS, MISSING, messages, inherit
 from ..error import Invalid
 
 from .core import ValidatorBase, Validator
-from .check import PASS, Match
+from .check import Match
 
 import re
 
@@ -80,7 +80,7 @@ class Schema( Validator ):
     def _on_value( self, context, value ):
         isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
         if not isList and not isinstance( value, dict ):
-            raise self.invalid( context, 'type')
+            raise Invalid( self, 'type')
 
         extraFields = None
         if not self.allowExtraFields:
@@ -115,7 +115,7 @@ class Schema( Validator ):
             except Invalid:
                 if self.raiseFieldError:
                     raise
-                raise self.invalid( context )
+                raise Invalid( self )
             else:
                 if self.returnList:
                     result.append( res )
@@ -125,7 +125,7 @@ class Schema( Validator ):
             pos += 1
 
         if extraFields:
-            raise self.invalid( context, 'extraFields',extraFields=extraFields)
+            raise Invalid( self, 'extraFields',extraFields=extraFields)
 
         return result
 
@@ -134,7 +134,7 @@ class Schema( Validator ):
         data = SchemaData( self.validateField, lambda index, schemaData: self.index[index] )
         data.isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
         if not data.isList and not isinstance( value, dict ):
-            raise self.invalid( context, 'type')
+            raise Invalid( self, 'type')
 
         extraFields = None
         if not self.allowExtraFields:
@@ -178,10 +178,10 @@ class Schema( Validator ):
         context.resetSchemaData()
 
         if extraFields:
-            raise self.invalid( context, 'extraFields',extraFields=extraFields)
+            raise Invalid( self, 'extraFields',extraFields=extraFields)
 
         if errors:
-            raise self.invalid( context, errors=errors )
+            raise Invalid( self, errors=errors )
 
         return result
 
@@ -257,7 +257,7 @@ class ForEach( Validator ):
                 if isList is False:
                     val = value.get(str(pos),MISSING)
                     if val is MISSING:
-                        raise self.invalid( context, 'numericKeys', keys=value.keys() )
+                        raise Invalid( self, 'numericKeys', keys=value.keys() )
                 else:
                     val = value[pos]
                 res = self.validator.validate( context, val )
@@ -281,7 +281,7 @@ class ForEach( Validator ):
 
         if not data.isList:
             if not isinstance(value, dict ):
-                raise self.invalid( context,'type' )
+                raise Invalid( self,'type' )
 
         if self.returnList:
             result = []
@@ -299,7 +299,7 @@ class ForEach( Validator ):
                 if not data.isList:
                     if value.get(str(pos),MISSING) is MISSING:
                         context.resetSchemaData()
-                        raise self.invalid( context, 'numericKeys',keys=value.keys())
+                        raise Invalid( self, 'numericKeys',keys=value.keys())
 
                 try:
                     res = context( pos ).result
@@ -312,7 +312,7 @@ class ForEach( Validator ):
                         result[ contextKey ] =  res
         else:
             if self.returnList:
-                raise self.invalid( context, 'listType' )
+                raise Invalid( self, 'listType' )
             for key in value.keys():
                 try:
                     result[ key ] = context( key ).result
@@ -322,7 +322,7 @@ class ForEach( Validator ):
         context.resetSchemaData()
 
         if errors:
-            raise self.invalid( context, errors=errors )
+            raise Invalid( self, errors=errors )
 
         return result
 

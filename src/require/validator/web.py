@@ -26,7 +26,7 @@ class ResolveDomain( Validator ):
 
         dnsdomains=[x['data'] for x in a]
         if not dnsdomains:
-            raise self.invalid( context )
+            raise Invalid( self )
 
         return value
 
@@ -40,8 +40,7 @@ CommonDomainPreValidaton\
 
 # We should propably implement a dedicated and therefore
 # faster validator. It was mainly done this way first to test
-# our possibilities and performance ( turns out that throwing Exceptions
-# around is not that fast ).
+# ( nested And/Or with a few elements still slow things down )
 ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton().tag('prevalidation')
     & cache.Save(result='preEncode').tag('savePreEncode')\

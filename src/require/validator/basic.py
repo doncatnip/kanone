@@ -24,18 +24,18 @@ class Dict( TypeValidator ):
 
     messages\
         ( type="Invalid type (%(type)s), must be a dictionary"
-        , convert="Could not convert %s(inputType)s to dict"
+        , convert="Could not convert %s(type)s to dict"
         )
 
     def on_value(self, context, value):
 
         if not isinstance(value, dict):
             if  not self._convert:
-                raise self.invalid( context, 'type',value )
+                raise Invalid( self, 'type' )
             try:
                 value = dict(value)
             except (ValueError,TypeError):
-                raise self.invalid( context,'convert', value, inputType=value.__class__.__name__ )
+                raise Invalid( self,'convert')
 
         if len( value ) == 0:
             return self.on_blank( context )
@@ -47,7 +47,7 @@ class List( TypeValidator ):
 
     messages\
         ( type="Invalid type (%(type)s), must be a list"
-        , convert="Could not convert %(inputType)s to list"
+        , convert="Could not convert %(type)s to list"
         )
 
     def on_value(self, context, value):
@@ -56,12 +56,12 @@ class List( TypeValidator ):
 
         if not isinstance(value, list):
             if not self._convert:
-                raise self.invalid( context,'type', value )
+                raise Invalid( self,'type' )
 
             try:
                 value = list(value)
             except (ValueError,TypeError):
-                raise self.invalid( context,'convert', value, inputType=value.__class__.__name__ )
+                raise Invalid( self,'convert' )
 
         if len( value ) == 0:
             return self.on_blank( context )
@@ -83,7 +83,7 @@ class Boolean( TypeValidator):
         if not (isinstance( value, bool )):
             if self._convert:
                 return bool(value)
-            raise self.invalid( context, 'type', value )
+            raise Invalid( self, 'type' )
         return value
 
 
@@ -100,7 +100,7 @@ class String( TypeValidator ):
 
         if not isinstance( value, unicode):
             if not self._convert:
-                raise self.invalid( context,'type', value )
+                raise Invalid( self,'type' )
             else:
                 value = unicode(value)
 
@@ -111,17 +111,17 @@ class Integer( TypeValidator ):
 
     messages\
         ( type="Invalid type (%(type)s), must be a integer"
-        , convert="Could not convert %(inputType)s to integer"
+        , convert="Could not convert %(type)s to integer"
         )
 
     def on_value(self, context, value):
         if not isinstance( value, int ) and not isinstance( value, long):
             if not self._convert:
-                raise self.invalid( context,'type', value )
+                raise Invalid( self,'type' )
             try:
                 value = int(value)
             except (TypeError, ValueError):
-                raise self.invalid( context,'convert', value, inputType=value.__class__.__name__ )
+                raise Invalid( self,'convert' )
 
         return value
 
@@ -129,16 +129,16 @@ class Integer( TypeValidator ):
 class Float( TypeValidator ):
     messages\
         ( type="Invalid type (%(type)s), must be a floating point number"
-        , convert="Could not convert %(inputType)s to a floating point number"
+        , convert="Could not convert %(type)s to a floating point number"
         )
 
     def on_value(self, context, value):
         if not isinstance(value,float):
             if not self._convert:
-                raise self.invalid( context,'type', value)
+                raise Invalid( self,'type')
             try:
                 value = float(value)
             except (TypeError, ValueError):
-                raise self.invalid( context,'convert',value, inputType=value.__class__.__name__ )
+                raise Invalid( self,'convert' )
 
         return value

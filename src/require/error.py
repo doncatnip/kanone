@@ -1,21 +1,17 @@
-class Invalid(Exception):
+class Invalid(BaseException):
 
-    context = None
-    validator = None
-
-    def __init__(self, _key='fail', **kwargs):
-        self.data = {}
-        self.data['key'] = _key
-        self.data['extra'] = dict(kwargs)
-        Exception.__init__( self, _key )
-
-    @property
-    def message(self):
-        return self.data['message']
+    def __init__(self, _validator=None, _key='fail', **kwargs):
+        if _validator is not None:
+            self.validator = _validator
+        self.data = {'key': _key, 'extra': kwargs}
 
     @property
     def key(self):
         return self.data['key']
+
+    @property
+    def message(self):
+        return self.data['message']
 
     @property
     def extra(self):

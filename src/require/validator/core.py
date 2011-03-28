@@ -63,29 +63,6 @@ class Validator( Parameterized, ValidatorBase ):
 
         #self.__class__.validate = getattr(self.__class__,'validate',self.__class__.on_value)
 
-    def invalid( self, _context, _error='fail', value=MISSING, **extra ):
-        if value is MISSING:
-            value = _context.value;
-
-        if not isinstance(_error,Invalid):
-             e = Invalid(_error, **extra)
-
-        msg = self.__messages__.get('catchall',None)
-        msg = msg or self.__messages__[e.key]
-
-        e.validator = self
-        e.context = _context
-        e.extra['value'] = value
-        valueType = ''
-        if hasattr( value, '__class__') and hasattr( value.__class__,'__name__'):
-            valueType = value.__class__.__name__
-
-        e.extra['type'] = valueType
-
-        if msg is not None:
-            e.data['message'] = msg
-
-        return e
 
     def validate( self, context, value ):
         if value is MISSING:
@@ -105,10 +82,10 @@ class Validator( Parameterized, ValidatorBase ):
         return value
 
     def on_missing(self, context):
-        raise self.invalid( context, 'missing' )
+        raise Invalid( self, 'missing' )
 
     def on_blank(self, context):
-        raise self.invalid( context, 'blank' )
+        raise Invalid( self, 'blank' )
 
 
 class Tag( ValidatorBase ):
@@ -348,9 +325,9 @@ class Item( Validator ):
         try:
             val = value[ self.key ]
         except TypeError:
-            raise self.invalid(context, 'type', value )
+            raise Invalid( self, 'type' )
         except (KeyError, IndexError):
-            raise self.invalid(context, 'notFound', value, key=self.key )
+            raise Invalid( self, 'notFound', key=self.key )
         else:
             if self.validator is not None:
                 val = self.validator.validate( context, val )
@@ -393,7 +370,7 @@ class Not( Validator ):
         except Invalid:
             return value
 
-        raise self.invalid(context, value=value)
+        raise Invalid( self )
 
 
 class And( Validator ):
@@ -421,9 +398,11 @@ class And( Validator ):
             try:
                 result = validator.validate( context, value )
             except Invalid as e:
+                e.value = value
                 if 'catchall' in self.__messages__:
-                    raise self.invalid(e.context,'catchall', e.extra['value'])
-                raise
+                    e.data['message'] = self.__messages__['catchall']
+
+                raise e
 
             if self.chainResult:
                 value = result
@@ -466,8 +445,9 @@ class Or( Validator ):
                 continue
 
             return result
+
         if errors:
-            raise self.invalid(context, value=value, errors=errors)
+            raise Invalid( self, errors=errors)
 
         return value
 
@@ -482,7 +462,9 @@ class Call( Validator ):
         self.__func__ = func
 
     def validate( self, context, value ):
-        return self.__func__( context, value )
-
-
+        try:
+            return self.__func__( context, value )
+        except Invalid as e:
+            e.validator = self
+            raise e
 

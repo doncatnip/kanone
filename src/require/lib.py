@@ -276,6 +276,20 @@ class Context( dict ):
                 result = self.validator.validate( self, self.__value__)
 
         except Invalid as e:
+            e.context = self
+            extra = e.data['extra']
+
+            value = getattr( e,'value', self.__value__ )
+            data = e.data
+            messages = e.validator.__messages__
+
+            if not 'message' in data:
+                data['message'] = messages.get('catchall',messages[ data['key'] ] )
+
+            extra['value'] = str(value)
+            extra['type'] = getattr(value, '__class__', None) is not None \
+                and getattr(value.__class__,'__name__', False) or 'unknown'
+
             self.__error__ = e
 
         if not self.__error__:

@@ -1,6 +1,5 @@
 * docs for validators
-* (maybe) get rid of exceptions in validators, they are too slow to be
-  useful for chains like Not( Missing() )
 * check how much core functionality could be ported to c/c++ without
   sacrifiyng an easy API - mainly to make composed Validators faster
+  bottleneck atm is chaining alot with nested And/Or
 * unit tests

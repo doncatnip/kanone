@@ -1,4 +1,4 @@
-from ..lib import messages, MISSING
+from ..lib import messages, PASS, MISSING
 from ..error import Invalid
 
 from .core import Validator, ValidatorBase
@@ -8,8 +8,6 @@ import re
 import logging
 log = logging.getLogger(__name__)
 
-class PASS:
-    pass
 
 class Missing( Validator ):
 
@@ -21,7 +19,7 @@ class Missing( Validator ):
         self.default = default
 
     def on_value( self, context, value ):
-        raise self.invalid( context, value=value )
+        raise Invalid( self )
 
     def on_missing( self, context ):
         return (self.default is PASS) and MISSING or self.default
@@ -60,7 +58,7 @@ class Blank( Validator ):
             if n is MISSING:
                 return self.default
 
-        raise self.invalid( context, value=value )
+        raise Invalid( self )
 
     def on_blank( self, context ):
         return (self.default is PASS) and None or self.default
@@ -104,7 +102,7 @@ class Match( Validator ):
 
         if self.type is Match.REGEX:
             if not self.required.match(value):
-                raise self.invalid( context, value=value, type=self.type, criteria=self.required.pattern)
+                raise Invalid( self, matchType=self.type, criteria=self.required.pattern)
             return value
         elif self.type is Match.RAW:
             compare = self.required
@@ -112,7 +110,7 @@ class Match( Validator ):
             try:
                 compare = self.required.validate( context, value )
             except Invalid as e:
-                raise self.invalid( context, value=value, type=self.type, criteria=e )
+                raise Invalid( self, matchType=self.type, criteria=e )
 
         val = value
         if self.ignoreCase:
@@ -120,7 +118,7 @@ class Match( Validator ):
             val = str(value).lower()
 
         if val != compare:
-            raise self.invalid( context, value=value, type=self.type, criteria=compare )
+            raise Invalid( self, matchType=self.type, criteria=compare )
 
         return value
 
@@ -146,10 +144,10 @@ class Len( Validator ):
         try:
             result = len(value)
         except Exception:
-            raise self.invalid( context, 'type', value, type=value.__class__.__name__)
+            raise Invalid( self, 'type' )
 
         if result<self.min or (self.max is not None and (result>self.max )):
-            raise self.invalid( context, 'fail', value, min=self.min, max=self.max, len=result)
+            raise Invalid( self, 'fail', min=self.min, max=self.max, len=result)
 
         if self.returnLen:
             return result
@@ -167,7 +165,7 @@ class In( Validator ):
 
     def on_value(self, context, value):
         if not value in self.required:
-            raise self.invalid( context, value=value, required=self.required )
+            raise Invalid( self, required=self.required )
 
         return value
 
