@@ -31,14 +31,14 @@ class Dict( TypeValidator ):
 
         if not isinstance(value, dict):
             if  not self._convert:
-                raise Invalid( self, 'type' )
+                raise Invalid( value, self, 'type' )
             try:
                 value = dict(value)
             except (ValueError,TypeError):
-                raise Invalid( self,'convert')
+                raise Invalid( value, self,'convert')
 
         if len( value ) == 0:
-            return self.on_blank( context )
+            return self.on_blank( context, value )
 
         return value
 
@@ -56,15 +56,15 @@ class List( TypeValidator ):
 
         if not isinstance(value, list):
             if not self._convert:
-                raise Invalid( self,'type' )
+                raise Invalid( value, self,'type' )
 
             try:
                 value = list(value)
             except (ValueError,TypeError):
-                raise Invalid( self,'convert' )
+                raise Invalid( value, self,'convert' )
 
         if len( value ) == 0:
-            return self.on_blank( context )
+            return self.on_blank( context, value )
 
         return value
 
@@ -83,7 +83,7 @@ class Boolean( TypeValidator):
         if not (isinstance( value, bool )):
             if self._convert:
                 return bool(value)
-            raise Invalid( self, 'type' )
+            raise Invalid( value, self, 'type' )
         return value
 
 
@@ -104,16 +104,16 @@ class String( TypeValidator ):
             try:
                 value = value.decode( self.encoding )
             except UnicodeDecodeError:
-                raise Invalid( self,'encoding', encoding=self.encoding )
+                raise Invalid( value, self,'encoding', encoding=self.encoding )
 
         elif not isinstance( value, unicode):
             if not self._convert:
-                raise Invalid( self,'type', encoding=self.encoding )
+                raise Invalid( value, self,'type', encoding=self.encoding )
             else:
                 try:
                     value = str(value).decode( self.encoding )
                 except UnicodeDecodeError:
-                    raise Invalid( self,'encoding', encoding=self.encoding )
+                    raise Invalid( value, self,'encoding', encoding=self.encoding )
 
         return value
 
@@ -128,11 +128,11 @@ class Integer( TypeValidator ):
     def on_value(self, context, value):
         if not isinstance( value, int ) and not isinstance( value, long):
             if not self._convert:
-                raise Invalid( self,'type' )
+                raise Invalid( value, self,'type' )
             try:
                 value = int(value)
             except (TypeError, ValueError):
-                raise Invalid( self,'convert' )
+                raise Invalid( value, self,'convert' )
 
         return value
 
@@ -146,10 +146,10 @@ class Float( TypeValidator ):
     def on_value(self, context, value):
         if not isinstance(value,float):
             if not self._convert:
-                raise Invalid( self,'type')
+                raise Invalid( value, self,'type')
             try:
                 value = float(value)
             except (TypeError, ValueError):
-                raise Invalid( self,'convert' )
+                raise Invalid( value, self,'convert' )
 
         return value

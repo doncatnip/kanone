@@ -47,7 +47,7 @@ class ValidatorBase(object):
         return Tag( self, tagName, enabled )
 
 
-class Validator( Parameterized, ValidatorBase ):
+class Validator( ValidatorBase, Parameterized ):
 
     messages\
         ( fail='Validation failed'
@@ -61,15 +61,25 @@ class Validator( Parameterized, ValidatorBase ):
 
     def __init__( self, *args, **kwargs ):
         Parameterized.__init__( self, *args, **kwargs )
+        #self.validate = self.__wrapValidate__( self.validate )
 
-        #self.__class__.validate = getattr(self.__class__,'validate',self.__class__.on_value)
+    def __wrapValidate__( self, origFunc ):
+        def __wrappedValidate__( context, value ):
+            try:
+                return origFunc( context, value )
+            except Invalid as e:
+                e.validators.append( self )
+                if not hasattr(e, 'value' ):
+                    e.value = value
+                raise e
 
+        return __wrappedValidate__
 
     def validate( self, context, value ):
         if value is MISSING:
             return self.on_missing( context )
         elif value is None or (value == ''):
-            self.on_blank( context )
+            self.on_blank( context, value )
 
         return self.on_value( context, value )
 
@@ -83,10 +93,10 @@ class Validator( Parameterized, ValidatorBase ):
         return value
 
     def on_missing(self, context):
-        raise Invalid( self, 'missing' )
+        raise Invalid( '', self, 'missing' )
 
-    def on_blank(self, context):
-        raise Invalid( self, 'blank' )
+    def on_blank(self, context, value ):
+        raise Invalid( value, self, 'blank' )
 
 
 class Tag( ValidatorBase ):
@@ -329,9 +339,9 @@ class Item( Validator ):
         try:
             val = value[ self.key ]
         except TypeError:
-            raise Invalid( self, 'type' )
+            raise Invalid( value, self, 'type' )
         except (KeyError, IndexError):
-            raise Invalid( self, 'notFound', key=self.key )
+            raise Invalid( value, self, 'notFound', key=self.key )
         else:
             if self.validator is not None:
                 val = self.validator.validate( context, val )
@@ -374,7 +384,7 @@ class Not( Validator ):
         except Invalid:
             return value
 
-        raise Invalid( self )
+        raise Invalid( value, self )
 
 
 class And( Validator ):
@@ -395,18 +405,20 @@ class And( Validator ):
             validator.appendSubValidators( subValidators )
             subValidators.append( validator )
 
+
     def validate(self, context, value):
         result = value
 
         for validator in self.validators:
-            try:
-                result = validator.validate( context, value )
-            except Invalid as e:
-                e.value = value
-                if 'catchall' in self.__messages__:
-                    e.data['message'] = self.__messages__['catchall']
+            #try:
 
-                raise e
+            result = validator.validate( context, value )
+            #except Invalid as e:
+            #    e.value = value
+            #    if 'catchall' in self.__messages__:
+            #        e.data['message'] = self.__messages__['catchall']
+
+            #    raise e
 
             if self.chainResult:
                 value = result
@@ -451,7 +463,7 @@ class Or( Validator ):
             return result
 
         if errors:
-            raise Invalid( self, errors=errors)
+            raise Invalid( value, self, errors=errors)
 
         return value
 

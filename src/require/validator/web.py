@@ -26,7 +26,7 @@ class ResolveDomain( Validator ):
 
         dnsdomains=[x['data'] for x in a]
         if not dnsdomains:
-            raise Invalid( self )
+            raise Invalid( value, self )
 
         return value
 
@@ -154,7 +154,6 @@ EmailLocalPart = Compose\
 class EmailSchema( Schema ):
 
     createContextChilds = False
-    raiseFieldError = True
     returnList = True
 
     pre_validate\

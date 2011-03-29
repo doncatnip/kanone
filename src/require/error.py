@@ -1,8 +1,10 @@
 class Invalid(BaseException):
+    context = None
 
-    def __init__(self, _validator=None, _key='fail', **kwargs):
+    def __init__(self, value, _validator=None, _key='fail', **kwargs):
         if _validator is not None:
             self.validator = _validator
+        self.value = value
         self.data = {'key': _key, 'extra': kwargs}
 
     @property
@@ -16,6 +18,9 @@ class Invalid(BaseException):
     @property
     def extra(self):
         return self.data['extra']
+
+    def __repr__(self):
+        return 'Invalid(%s, %s)' % (self.value, self.key)
 
     def __str__(self):
         if self.context is not None and self.message is not None:

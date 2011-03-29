@@ -12,7 +12,7 @@ class Lower( Validator ):
         try:
             return value.lower()
         except Exception as e:
-            raise Invalid( self, 'type' )
+            raise Invalid( value, self, 'type' )
 
 
 class Format( Validator ):
@@ -30,11 +30,11 @@ class Format( Validator ):
         parameters['value'] = value
 
         if not isinstance( self.formatter, basestring ):
-            raise Invalid( self, 'type' )
+            raise Invalid( value, self, 'type' )
         try:
             return self.formatter % parameters
         except Exception:
-            raise Invalid( self )
+            raise Invalid( value, self )
 
 """
 class Replace( Validator ):
@@ -68,7 +68,7 @@ class EliminateWhiteSpace( Validator ):
         try:
             return (''.join(value.split()))
         except AttributeError:
-            raise Invalid( self, 'type' )
+            raise Invalid( value, self, 'type' )
 
 
 
@@ -87,7 +87,7 @@ class Split( Validator ):
         try:
             return value.split( self.separator, self.limit )
         except Exception as e:
-            raise Invalid( self, 'type' )
+            raise Invalid( value, self, 'type' )
 
 
 class Join( Validator):
@@ -103,7 +103,7 @@ class Join( Validator):
         try:
             return self.separator.join( value )
         except Exception as e:
-            raise Invalid( self, 'type' )
+            raise Invalid( value, self, 'type' )
 
 class Encode( Validator ):
 
@@ -117,12 +117,12 @@ class Encode( Validator ):
 
     def on_value( self, context, value ):
         if not hasattr( value,'encode') or not hasattr( value.encode,'__call__' ):
-            raise Invalid( self, 'type', format=self.format )
+            raise Invalid( value, self, 'type', format=self.format )
 
         try:
             value = value.encode( self.format )
         except ValueError:
-            raise Invalid( self, format=self.format )
+            raise Invalid( value, self, format=self.format )
 
         return value
 
@@ -149,7 +149,7 @@ class Insert( Validator ):
                 where = self.where
             return value[0:where] + self.what + value[where:None]
 
-        raise Invalid( self,'type' )
+        raise Invalid( value, self,'type' )
 
 class UpdateValue( ValidatorBase ):
 

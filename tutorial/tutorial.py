@@ -70,26 +70,6 @@ except require.Invalid as e:
     pprint (str(e))      # 'Error (unicode): Please enter "bob" or "world", not "there".' 
 
 
-# use catchall to set a message for every possible error
-
-Hello = ( require.String() \
-        & require.Tmp\
-            ( require.alter.Lower()
-            & require.check.In\
-                ( ['world', 'bob']
-                )
-            ) \
-        & require.alter.Format('Hello %(value)s !')
-        ).messages(catchall='Validation for "%(value)s", %(type)s) failed.')
-
-context = require.Context( Hello, None )
-
-try:
-    result = context.result
-except require.Invalid as e:
-    pprint (str(e))      # 'Validation for "None", NoneType failed.'
-
-
 
 #*************
 #  example 4: composing
@@ -147,7 +127,7 @@ except require.Invalid as e:
 # note: please take a look at require.validator.web.Email for a
 # more advanced real-world example
 
-class HelloSchema( require.Schema ):
+class HelloSchema( require.Schema):
 
     require.fieldset\
         ( 'nick'
@@ -196,7 +176,7 @@ class PostedSchema( require.Schema ):
 
     require.pre_validate\
         ( require.web.NestedPost()
-        & require.debug.Print('Nested: %(value)s')
+        , require.debug.Print('Nested: %(value)s')
         )
 
     require.fieldset\
