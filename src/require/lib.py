@@ -17,9 +17,10 @@ class __MISSING__( str ):
 MISSING = __MISSING__()
 
 def _append_list(klass, key, data):
+    key = "__%s__" % key
     setattr\
         ( klass
-        , "__%s__" % key
+        , key
         , list(getattr(klass,key,[])) + list(data)
         )
 
