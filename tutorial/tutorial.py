@@ -80,14 +80,14 @@ Hello = ( require.String() \
                 )
             ) \
         & require.alter.Format('Hello %(value)s !')
-        ).messages(catchall='Validition for "%(value)s", %(type)s) failed.')
+        ).messages(catchall='Validation for "%(value)s", %(type)s) failed.')
 
 context = require.Context( Hello, None )
 
 try:
     result = context.result
 except require.Invalid as e:
-    pprint (str(e))      # 'Validition for "None", NoneType failed.'
+    pprint (str(e))      # 'Validation for "None", NoneType failed.'
 
 
 
