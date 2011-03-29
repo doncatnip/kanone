@@ -91,18 +91,29 @@ class String( TypeValidator ):
 
     messages\
         ( type="Invalid type (%(type)s), must be a string"
+        , encoding='Could not decode "%(value)s" to %(encoding)s'
         )
+
+    def setParameters( self, convert=False, encoding='utf-8' ):
+        TypeValidator.setParameters( self, convert )
+        self.encoding = encoding
 
     def on_value(self, context, value):
 
         if isinstance( value, str):
-            value = unicode(value)
+            try:
+                value = value.decode( self.encoding )
+            except UnicodeDecodeError:
+                raise Invalid( self,'encoding', encoding=self.encoding )
 
-        if not isinstance( value, unicode):
+        elif not isinstance( value, unicode):
             if not self._convert:
-                raise Invalid( self,'type' )
+                raise Invalid( self,'type', encoding=self.encoding )
             else:
-                value = unicode(value)
+                try:
+                    value = str(value).decode( self.encoding )
+                except UnicodeDecodeError:
+                    raise Invalid( self,'encoding', encoding=self.encoding )
 
         return value
 
