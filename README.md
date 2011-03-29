@@ -30,5 +30,9 @@ Why another validation lib ?
   One could use them to validate the \*varargs of a function or in chain after
   Split() and the like.
 
+* Easy serialization of the whole context, containing errors and values which
+  should be re-populated ( e.g. when your domain validator lowers the input ).
+
+* Punycode-aware DomainLabel, Domain, and Email validator.
 
 for more, see tutorial/tutorial.py for now
