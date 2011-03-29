@@ -37,6 +37,7 @@ class ValidatorBase(object):
     def __or__( self, other ):
         if isinstance(other, Or):
             other.validators.insert(0,self)
+            return other
         return Or( self, other )
 
     def __invert__( self ):
@@ -90,7 +91,7 @@ class Validator( Parameterized, ValidatorBase ):
 
 class Tag( ValidatorBase ):
 
-    _id = 0
+    _ID = 0
 
     def __init__( self, validator, tagName, enabled=True):
         if isinstance( validator, Tag ):
@@ -99,8 +100,8 @@ class Tag( ValidatorBase ):
         self.validator = validator
         self.tagName = tagName
         self.enabled = enabled
-        self.tagID = Tag._id
-        Tag._id += 1
+        self.tagID = Tag._ID
+        Tag._ID += 1
 
     def appendSubValidators( self, subValidators ):
         self.validator.appendSubValidators( subValidators )
@@ -111,10 +112,10 @@ class Tag( ValidatorBase ):
         if validator is None:
             validator = self.enabled and self.validator
 
-        return validator\
-            and validator.validate( context, value )\
-            or value
+        if validator is False:
+            return value
 
+        return validator.validate( context, value )
 
 
 def _setParsedKeywordArg( tagKwargs, key, value ):
@@ -258,9 +259,12 @@ class Compose( Validator ):
             else:
                 for tagID in tagIDs:
                     if tagID not in self.__clonedTaggedValidators:
-                        taggedValidator = self.currentTaggedValidators[tagID]\
+                        taggedValidator \
                             = self.taggedValidators[tagID]\
                             = self.taggedValidators[tagID]()
+                        if self.currentTaggedValidators[tagID] is not False:
+                            self.currentTaggedValidators[tagID] = taggedValidator
+
                         self.__clonedTaggedValidators.append ( tagID )
                     else:
                         taggedValidator = self.taggedValidators[tagID]
