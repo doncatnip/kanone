@@ -11,14 +11,14 @@ class Invalid(BaseException):
 
     @property
     def message(self):
-        return self.data['message']
+        return self.data.get('message',None)
 
     @property
     def extra(self):
         return self.data['extra']
 
     def __str__(self):
-        if self.context is not None:
+        if self.context is not None and self.message is not None:
             return self.context.root.errorFormatter( self.context, self )
         else:
             return self.__repr__()

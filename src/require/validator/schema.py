@@ -25,7 +25,7 @@ class Schema( Validator ):
         )
 
     messages\
-        ( fail='Validation failed.'
+        ( fail=None
         , extraFields='No extra fields allowed (extra fields: %(extraFields)s)'
         , type='Invalid input type (must be dict, list or tuple)'
         )
@@ -208,7 +208,8 @@ class Schema( Validator ):
 class ForEach( Validator ):
 
     messages\
-        ( numericKeys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
+        ( fail=None
+        , numericKeys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
         , type='Invalid input type (must be dict, list, tuple or set)'
         , listType='Invalid input type (must be list, tuple or set)'
         )
@@ -322,7 +323,9 @@ class ForEach( Validator ):
         context.resetSchemaData()
 
         if errors:
-            raise Invalid( self, errors=errors )
+            e = Invalid( self, errors=errors )
+            e.value = value
+            raise e
 
         return result
 

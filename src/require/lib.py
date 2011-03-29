@@ -246,14 +246,11 @@ class Context( dict ):
         self.__result__ = MISSING
         self.__error__ = MISSING
 
-        if self.validator is not None:
-            self['value'] = self.__value__
-
     def validate(self ):
         if self.isValidated:
             if self.__error__ is not MISSING:
                 raise self.__error__
-            return self.get('result',MISSING)
+            return self.__result__
 
         self.isValidating = True
 
@@ -285,29 +282,33 @@ class Context( dict ):
             messages = e.validator.__messages__
 
             if not 'message' in data:
-                data['message'] = messages.get('catchall',messages[ data['key'] ] )
-
-            extra['value'] = str(value)
-            extra['type'] = getattr(value, '__class__', None) is not None \
-                and getattr(value.__class__,'__name__', False) or 'unknown'
+                data['message'] = message = messages.get('catchall',messages[ data['key'] ] )
+            else:
+                message = data['message']
 
             self.__error__ = e
 
-        if not self.__error__:
+            if message is not None:
+                extra['value'] = str(value)
+                extra['type'] = getattr(value, '__class__', None) is not None \
+                    and getattr(value.__class__,'__name__', False) or 'unknown'
+
+                self['error'] = self.__error__.data
+
+                self.root.errorlist.append( self.__error__.context.path )
+
+            raise e
+        else:
             if result is not PASS:
-                self['result'] = result
+                self.__result__ = result
             else:
-                self['result'] = self.__value__
+                self.__result__ = self.__value__
 
-        self.isValidated = True
-        self.isValidating = False
+            return self.__result__
+        finally:
+            self.isValidated = True
+            self.isValidating = False
 
-        if self.__error__ is not MISSING:
-            self.root.errorlist.append( self.__error__.context.path )
-            self['error'] = self.__error__.data
-            raise self.__error__
-
-        return self['result']
 
 
     """

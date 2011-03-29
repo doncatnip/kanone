@@ -243,8 +243,10 @@ context.value = \
 try:
     result = context.result
 except require.Invalid as e:
-    pprint(context.errorlist) # ['/people.0.nick', '/people.0.email_confirm', '/people.0', '/people', '/']
-    # note: if a child has an error, the parent also does
+    pprint(context.errorlist) # ['/people.0.nick', '/people.0.email_confirm' ]
+    # note: errors will only be set if the message is not None
+    # Schema and ForEach do have None set as 'fail' message, thus do
+    # not populate the context with an error by default
 
 pprint ( context( 'people.0.nick' ).error )  # 'Please provide a value'
 pprint ( context( 'people.0.email_confirm' ).error )  # 'Value must match bob@some.domain.org'
