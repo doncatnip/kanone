@@ -3,11 +3,11 @@ require - validation library
 
 Why another validation lib ?
 
-* there is a validation state represented as *Context* throughout the
+* There is a validation state represented as *Context* throughout the
   validation process, which stores the current result for a certain field
   ( e.g. no validator will be called twice within a validation process )
 
-* navigation through your data is easily done using context( 'my.child.context' )
+* Navigation through your data is easily done using context( 'my.child.context' )
   once you have created a Context.
 
 * You do not need to maintain a certain order for Fields which are depending
@@ -19,12 +19,16 @@ Why another validation lib ?
             )
   )
 
-* relative access by path of Fields within Schemas
+* Relative access by path of Fields during validation
   ( Field('..someChild') gets the value of a child called someChild of
-    the parent context )
+    the parent context; root can be addressed by using '/' ).
 
-* Schemas and derivants can handle lists natively, because fields do have
-  an order - enabling them to handle \*args
+* Access fields by index during validation ( Field('.(0)') will get you the
+  value of the first field, Field('.(-1)') will address the last )
+
+* Schemas can handle lists natively, because defined fields do have an order.
+  One could use them to validate the \*varargs of a function or in chain after
+  Split() and the like.
 
 
 for more, see tutorial/tutorial.py for now
