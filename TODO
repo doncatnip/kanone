@@ -2,6 +2,7 @@
 * javascript context reconstruction ( deserialize the result of
   json.dumps( context ) to a javascript obj which should behave
   similar to Context )
+* make values stored with cache.Save available to the errorFormatter
 * (propably) remove pre_validate, post_validate, fieldset
   - using pre and post_validate is exactly the same as using &
   - defining a Schema with a fieldset is exactly the same as using
