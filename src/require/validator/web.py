@@ -43,19 +43,20 @@ CommonDomainPreValidaton\
 # ( nested And/Or with a few elements still slow things down )
 ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton().tag('prevalidation')
-    & cache.Save(result='preEncode').tag('savePreEncode')\
-    & Len(max=63).tag('tooLong')
-    &   ( Match( re.compile(r'^xn--') )\
-        |   ( Encode('punycode')\
-            &   (   (   Match( re.compile(r'.*-$') )\
-                    &   cache.Restore(result='preEncode')\
+    & Len(max=63).tag('length')
+    & cache.Save(result='domainLabel')
+    &   ( Match( re.compile(r'^xn--') )
+        |   ( Encode('punycode')
+            &   (   (   Match( re.compile(r'.*-$') )
+                    &   cache.Restore('domainLabel')
                     )
-                |   ( Insert('xn--',0) & Len(max=63) )
+                |   Insert('xn--',0)
                 )
             )
         ).tag('punycode')
+    & Len(min=2, max=63).tag('length')
     & Match(re.compile(r'^(xn--)?[a-z0-9]+[\-a-z0-9]+$')).tag('validSymbols')
-    & cache.Restore(result='preEncode').tag('returnNonPuny', False)
+    & cache.Restore('domainLabel').tag('returnNonPuny', False)
     ).paramAlias\
         ( convertToString='string_convert'
         , updateValue='update_enabled'
@@ -65,13 +66,15 @@ ComposedDomainLabel = Compose\
         , returnNonPuny='returnNonPuny_enabled'
     ).messageAlias\
         ( type='string_type'
-        , tooLong='tooLong_fail'
+        , tooLong='length_max'
+        , tooShort='length_min'
         , invalidSymbols='validSymbols_fail'
-        , blank=("toLower_blank","string_blank","tooLong_blank")
+        , blank=("toLower_blank","string_blank","length_blank")
         , missing="string_missing"
     ).messages\
         ( blank='Please provide a value'
-        , tooLong='A domain can have max %(max)i characters'
+        , tooLong='A domain label can have max %(max)i characters'
+        , tooShort='A domain label must have at least %(min)i characters'
         , invalidSymbols='The domain name contains invalid symbols'
         )
 
@@ -117,7 +120,7 @@ Domain = Compose\
         , missing='string_missing'
         , tooLong='domainLabel_tooLong'
         , type='string_type'
-        , format = ('numSubdomains_fail','domainLabel_blank')
+        , format = ('numSubdomains_min','domainLabel_blank')
         , restrictToTLD= 'restrictToTLD_fail'
         , invalidSymbols='domainLabel_invalidSymbols'
     ).messages\
@@ -129,11 +132,11 @@ Domain = Compose\
 
 
 EmailLocalPart = Compose\
-    ( String.convert().tag('string')
-    &   ( EliminateWhiteSpace().tag('eliminateWhiteSpace')
+    (   ( String.convert().tag('string')
+        & EliminateWhiteSpace().tag('eliminateWhiteSpace')
         & UpdateValue().tag('update')
         ).tag('prevalidation')
-    & Len(max=64).tag('tooLong')
+    & Len(max=64).tag('length')
     & Match(re.compile(r'^[a-z0-9!#$%&\'\*\+\-\/\=\?\^_`\{\|\}~]+(\.[a-z0-9!#$%&\'\*\+\-\/\=\?\^_`\{\|\}~]+)*$', re.I)).tag('validSymbols')
     ).paramAlias\
         ( convertToString='string_convert'
@@ -142,7 +145,7 @@ EmailLocalPart = Compose\
     ).messageAlias\
         ( blank=('string_blank','validSymbols_blank')
         , missing='string_missing'
-        , tooLong='tooLong_fail'
+        , tooLong='length_max'
         , type='string_type'
         , invalidSymbols='validSymbols_fail'
     ).messages\
@@ -162,10 +165,11 @@ Email = Compose\
         ).tag('lowerDomainPart')
     & Schema\
         ( 'localPart'
-            , EmailLocalPart( prevalidation_enabled=False ).tag('localPart')
+            ,  cache.Save('localPart') & EmailLocalPart( prevalidation_enabled=False ).tag('localPart')
         , 'domainPart'
-            , Domain( prevalidation_enabled=False ).tag('domainPart')
+            ,  cache.Save('domainPart') & Domain( prevalidation_enabled=False ).tag('domainPart')
         , createContextChilds=False
+        , returnList=True
         )
     & Join('@')
     ).paramAlias\
@@ -185,11 +189,11 @@ Email = Compose\
     ).messages\
         ( blank = 'Please enter an email address'
         , format = 'Invalid email format ( try my.email@address.com )'
-        , localPart_invalidSymbols = "The part before @ (%(value)s) contains invalid symbols"
-        , domainPart_restrictToTLD="Invalid top level domain %(value)s, allowed TLD are %(required)s"
-        , domainPart_tooLong="Domain part %(value)s is too long (max %(max)s characters)"
-        , domainPart_format="Invalid domain name format (%(value)s)"
-        , domainPart_invalidSymbols="Domain part %(value)s contains invalid characters"
+        , localPart_invalidSymbols = "The part before @ (%(localPart)s) contains invalid symbols"
+        , domainPart_restrictToTLD="Invalid top level domain %(domainLabel)s, allowed TLD are %(required)s"
+        , domainPart_tooLong="Domain part %(domainLabel)s is too long (max %(max)s characters)"
+        , domainPart_format="Invalid domain name format (%(domainPart)s)"
+        , domainPart_invalidSymbols="Domain part %(domainLabel)s contains invalid characters"
         )
 
 

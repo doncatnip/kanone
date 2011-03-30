@@ -9,13 +9,14 @@ class CacheBase( ValidatorBase ):
         self.result = result
         self.value = value
 
-    def getCache( self, context ):
-        cache = getattr( context.root, 'cache', None)
+    def getCache( self, context, isGlobal=False ):
+        if isGlobal:
+            context = context.root
+
+        cache = getattr( context, 'cache', None)
 
         if cache is None:
-            cache = context.root.cache = {}
-            cache['result'] = {}
-            cache['value'] = {}
+            cache = context.cache = {}
 
         return cache
 
@@ -25,23 +26,19 @@ class Save( CacheBase ):
 
         cache = self.getCache( context )
         if self.result:
-            cache['result'][self.result] = value
+            cache[self.result] = value
         if self.value:
-            cache['value'][self.value] = context.get('value',context.__value__)
+            cache[self.value] = context.get('value',context.__value__)
 
         return value
 
 
 class Restore( CacheBase ):
+    def __init__( self, key ):
+        self.key = key
 
     def validate( self, context, value ):
         cache = self.getCache( context )
 
-        if self.result:
-            return cache['result'].get(self.result,PASS)
-        if self.value:
-            context['value'] = cache['value'].get(self.value,context.__value__)
-
-        return value
-
+        return cache.get(self.key, value)
 

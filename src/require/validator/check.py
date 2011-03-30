@@ -132,7 +132,8 @@ class Len( Validator ):
 
     messages\
         ( type="Can not get len from values of type %(type)s"
-        , fail="Value must be between %(min)i and %(max)i in length"
+        , min="Value must have at least%(min)i characters"
+        , max="Value cannot have more than least%(max)i characters"
         )
 
     def setParameters(self, min=1, max=None, returnLen=False):
@@ -146,8 +147,10 @@ class Len( Validator ):
         except Exception:
             raise Invalid( value, self, 'type' )
 
-        if result<self.min or (self.max is not None and (result>self.max )):
-            raise Invalid( value, self, 'fail', min=self.min, max=self.max, len=result)
+        if result<self.min:
+            raise Invalid( value, self, 'min', min=self.min, max=self.max, len=result)
+        if (self.max is not None and (result>self.max )):
+            raise Invalid( value, self, 'max', min=self.min, max=self.max, len=result)
 
         if self.returnLen:
             return result

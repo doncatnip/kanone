@@ -290,6 +290,10 @@ class Context( dict ):
                 extra['type'] = getattr(value, '__class__', None) is not None \
                     and getattr(value.__class__,'__name__', False) or 'unknown'
 
+                cache = getattr( self, 'cache', None)
+                if cache is not None:
+                    extra.update( cache )
+
                 self['error'] = self.__error__.data
 
                 self.root.errorlist.append( self.__error__.context.path )
