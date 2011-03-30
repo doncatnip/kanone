@@ -39,21 +39,21 @@ CommonDomainPreValidaton\
 
 
 # We should propably implement a dedicated and therefore
-# faster validator. It was mainly done this way first to test
+# faster validator.
 # ( nested And/Or with a few elements still slow things down )
 ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton().tag('prevalidation')
     & cache.Save(result='preEncode').tag('savePreEncode')\
+    & Len(max=63).tag('tooLong')
     &   ( Match( re.compile(r'^xn--') )\
         |   ( Encode('punycode')\
             &   (   (   Match( re.compile(r'.*-$') )\
                     &   cache.Restore(result='preEncode')\
                     )
-                |   Insert('xn--',0)
+                |   ( Insert('xn--',0) & Len(max=63) )
                 )
             )
         ).tag('punycode')
-    & Len(max=63).tag('tooLong')
     & Match(re.compile(r'^(xn--)?[a-z0-9]+[\-a-z0-9]+$')).tag('validSymbols')
     & cache.Restore(result='preEncode').tag('returnNonPuny', False)
     ).paramAlias\
@@ -66,8 +66,8 @@ ComposedDomainLabel = Compose\
     ).messageAlias\
         ( type='string_type'
         , tooLong='tooLong_fail'
-        , invalidSymbols=('validSymbols_fail','punycode_fail')
-        , blank=("toLower_blank","string_blank")
+        , invalidSymbols='validSymbols_fail'
+        , blank=("toLower_blank","string_blank","tooLong_blank")
         , missing="string_missing"
     ).messages\
         ( blank='Please provide a value'
@@ -117,7 +117,7 @@ Domain = Compose\
         , missing='string_missing'
         , tooLong='domainLabel_tooLong'
         , type='string_type'
-        , format = ('numSubdomains_fail','domainLabel_tooLong_blank')
+        , format = ('numSubdomains_fail','domainLabel_blank')
         , restrictToTLD= 'restrictToTLD_fail'
         , invalidSymbols='domainLabel_invalidSymbols'
     ).messages\
@@ -146,8 +146,7 @@ EmailLocalPart = Compose\
         , type='string_type'
         , invalidSymbols='validSymbols_fail'
     ).messages\
-        ( blank='Please enter a domain name'
-        , tooLong='Email local-part only may be up do %(max)i characters long'
+        ( tooLong='Email local-part only may be up do %(max)i characters long'
         , invalidSymbols='Localpart contains invalid symbols'
         )
 
@@ -157,7 +156,7 @@ Email = Compose\
     & EliminateWhiteSpace().tag('eliminateWhiteSpace')
     & Split('@',1).tag('split')
     & Tmp\
-        ( Item( 1 , Lower() ).tag('itemDomainPart')
+        ( Item( 1 , Lower().tag('doLowerDomainPart') ).tag('itemDomainPart')
         & Join('@' )
         & UpdateValue().tag('update')
         ).tag('lowerDomainPart')
@@ -179,6 +178,7 @@ Email = Compose\
         , format = \
             ( 'itemDomainPart_blank'
             , 'itemDomainPart_notFound'
+            , 'doLowerDomainPart_blank'
             , 'localPart_blank'
             , 'domainPart_blank'
             )

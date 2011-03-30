@@ -223,6 +223,7 @@ class Compose( Validator ):
         self.__clonedTaggedValidators = []
 
         if not self.__isRoot__:
+            self.taggedValidators = dict( self.taggedValidators )
             self.currentTaggedValidators = dict( self.currentTaggedValidators )
 
         for (tagName, args) in taggedKwargs.iteritems():
@@ -236,8 +237,8 @@ class Compose( Validator ):
                         self.currentTaggedValidators[ tagID ] = False
                     else:
                         if args:
-                            validator =\
-                                self.taggedValidators[ tagID ] =\
+                            self.taggedValidators[ tagID ] =\
+                                validator =\
                                 self.taggedValidators[ tagID ](**args)
                             self.__clonedTaggedValidators.append( tagID )
                         else:
@@ -269,8 +270,8 @@ class Compose( Validator ):
             else:
                 for tagID in tagIDs:
                     if tagID not in self.__clonedTaggedValidators:
-                        taggedValidator \
-                            = self.taggedValidators[tagID]\
+                        self.taggedValidators[tagID]\
+                            = taggedValidator \
                             = self.taggedValidators[tagID]()
                         if self.currentTaggedValidators[tagID] is not False:
                             self.currentTaggedValidators[tagID] = taggedValidator
@@ -430,17 +431,9 @@ class And( Validator ):
         return self
 
 
-class Or( Validator ):
+class Or( ValidatorBase ):
 
-    messages\
-        ( fail='No criteria met (Errors: %(errors)s)'
-        )
-
-    inherit\
-        ( 'validators'
-        )
-
-    def setArguments( self, *validators ):
+    def __init__( self, *validators ):
         assert len(validators)>=2
         self.validators = list(validators)
 
@@ -452,18 +445,18 @@ class Or( Validator ):
     def validate(self, context, value):
         errors = []
         result = value
+        lastError = None
 
         for validator in self.validators:
             try:
                 result = validator.validate( context, result )
             except Invalid as e:
-                errors.append( e.data )
-                continue
+                lastError = e
+            else:
+                return result
 
-            return result
-
-        if errors:
-            raise Invalid( value, self, errors=errors)
+        if lastError is not None:
+            raise lastError
 
         return value
 
