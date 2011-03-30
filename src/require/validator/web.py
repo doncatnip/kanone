@@ -1,6 +1,6 @@
 import re
 
-from ..lib import messages, pre_validate, post_validate, fieldset
+from ..lib import messages
 
 from .core import ValidatorBase, Validator, Compose, Pass, Tmp, Item
 from .basic import String, Dict
@@ -151,57 +151,46 @@ EmailLocalPart = Compose\
         , invalidSymbols='Localpart contains invalid symbols'
         )
 
-class EmailSchema( Schema ):
 
-    createContextChilds = False
-    returnList = True
-
-    pre_validate\
-        ( String.convert().tag('string')
-        , EliminateWhiteSpace().tag('eliminateWhiteSpace')
-        , Split('@',1).tag('split')
-        , Tmp\
-            ( Item( 1 , Lower() ).tag('itemDomainPart')
-            & Join('@' )
-            & UpdateValue().tag('update')
-            ).tag('lowerDomainPart')
-        )
-
-    fieldset\
+Email = Compose\
+    ( String.convert().tag('string')
+    & EliminateWhiteSpace().tag('eliminateWhiteSpace')
+    & Split('@',1).tag('split')
+    & Tmp\
+        ( Item( 1 , Lower() ).tag('itemDomainPart')
+        & Join('@' )
+        & UpdateValue().tag('update')
+        ).tag('lowerDomainPart')
+    & Schema\
         ( 'localPart'
             , EmailLocalPart( prevalidation_enabled=False ).tag('localPart')
         , 'domainPart'
             , Domain( prevalidation_enabled=False ).tag('domainPart')
+        , createContextChilds=False
         )
-
-    post_validate\
-        ( Join('@')
-        )
-
-Email = Compose\
-        ( EmailSchema()
-        ).paramAlias\
-            ( eliminateWhiteSpace = 'eliminateWhiteSpace_enabled'
-            , updateValue = 'update_enabled'
-            , lowerDomainPart = 'lowerDomainPart_enabled'
-        ).messageAlias\
-            ( blank = ('string_blank','split_blank' )
-            , missing = 'string_missing'
-            , format = \
-                ( 'itemDomainPart_blank'
-                , 'itemDomainPart_notFound'
-                , 'localPart_blank'
-                , 'domainPart_blank'
-                )
-        ).messages\
-            ( blank = 'Please enter an email address'
-            , format = 'Invalid email format ( try my.email@address.com )'
-            , localPart_invalidSymbols = "The part before @ (%(value)s) contains invalid symbols"
-            , domainPart_restrictToTLD="Invalid top level domain %(value)s, allowed TLD are %(required)s"
-            , domainPart_tooLong="Domain part %(value)s is too long (max %(max)s characters)"
-            , domainPart_format="Invalid domain name format (%(value)s)"
-            , domainPart_invalidSymbols="Domain part %(value)s contains invalid characters"
+    & Join('@')
+    ).paramAlias\
+        ( eliminateWhiteSpace = 'eliminateWhiteSpace_enabled'
+        , updateValue = 'update_enabled'
+        , lowerDomainPart = 'lowerDomainPart_enabled'
+    ).messageAlias\
+        ( blank = ('string_blank','split_blank' )
+        , missing = 'string_missing'
+        , format = \
+            ( 'itemDomainPart_blank'
+            , 'itemDomainPart_notFound'
+            , 'localPart_blank'
+            , 'domainPart_blank'
             )
+    ).messages\
+        ( blank = 'Please enter an email address'
+        , format = 'Invalid email format ( try my.email@address.com )'
+        , localPart_invalidSymbols = "The part before @ (%(value)s) contains invalid symbols"
+        , domainPart_restrictToTLD="Invalid top level domain %(value)s, allowed TLD are %(required)s"
+        , domainPart_tooLong="Domain part %(value)s is too long (max %(max)s characters)"
+        , domainPart_format="Invalid domain name format (%(value)s)"
+        , domainPart_invalidSymbols="Domain part %(value)s contains invalid characters"
+        )
 
 
 
@@ -217,9 +206,8 @@ class NestedPostConverter( ValidatorBase ):
 
             while len(parts)>1:
                 part = parts.pop(0)
-                if part not in result:
-                    if not part in result:
-                        result[part] = {}
+                if not part in result:
+                    result[part] = {}
                 result = result[part]
  
             result[parts[0]] = val

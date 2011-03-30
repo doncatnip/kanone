@@ -127,19 +127,17 @@ except require.Invalid as e:
 # note: please take a look at require.validator.web.Email for a
 # more advanced real-world example
 
-class HelloSchema( require.Schema):
-
-    require.fieldset\
-        ( 'nick'
-            , require.String() & require.check.Len(max=20)
-        , 'email'
-            , require.web.Email()
-        , 'email_confirm'
-            , require.Match( require.Field('.email'), ignoreCase=True )
-        )
+HelloSchema = require.Schema\
+    ( 'nick'
+        , require.String() & require.check.Len(max=20)
+    , 'email'
+        , require.web.Email()
+    , 'email_confirm'
+        , require.Match( require.Field('.email'), ignoreCase=True )
+    )
 
 context = require.Context\
-    ( HelloSchema()
+    ( HelloSchema
     ,   { 'nick':'bob'
         , 'email':'Bob@Some.Domain.Org'
         , 'email_confirm': 'BOB@Some.domain.org'
@@ -168,32 +166,26 @@ pprint (context('email_confirm').result ) # 'jack@Some.domain.org'
 #  example 6: nested (and posted) schemas
 #_______
 
-# note: you could just remove NestedPost and use native nested dicts
-# as input, or you can set the values of childs manually - e.g.:
-#   context('people.0.nick').value = 'bob'
 
-class PostedSchema( require.Schema ):
-
-    require.pre_validate\
-        ( require.web.NestedPost()
-        , require.debug.Print('Nested: %(value)s')
-        )
-
-    require.fieldset\
+PostedSchema = \
+    ( require.web.NestedPost()
+    & require.debug.Print('Nested: %(value)s')
+    & require.Schema\
         ( 'people'
-            , require.ForEach( HelloSchema() )
+            , require.ForEach( HelloSchema )
         )
+    )
 
 # notes:
-# * using pre_validate or post_validate results in an And validator
-#   as you would have written
-#     SomePreValidators() & MyValidator() & SomePostValidators()
 # * ForEach creates new context childs ( as well as Schema )
 #   use ForEach( createContextChilds=False ) to disable this behaviour
+# * you could just remove NestedPost and use native nested dicts
+#   as input, or you can set the values of childs manually - e.g.:
+#   context('people.0.nick').value = 'bob'
 
 
 context = require.Context\
-    ( PostedSchema()
+    ( PostedSchema
     ,   { 'people.0.nick':'bob'
         , 'people.0.email':'Bob@Some.Domain.Org'
         , 'people.0.email_confirm': 'BOB@Some.domain.org'

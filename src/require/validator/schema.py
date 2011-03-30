@@ -31,9 +31,21 @@ class Schema( Validator ):
         )
 
     def setArguments( self, *_fieldset ):
-        assert len(_fieldset)%2==0
+        if not hasattr(self,'__fieldset__') and ((len(_fieldset)%2 != 0) or (len(_fieldset)<2)):
+            raise SyntaxError("Invalid number of fields supplied (%s). Use: %s(key, value, key, value, …)" % (len(_fieldset),self.__class__.__name__))
+
+        fieldpairs = []
+        pos = 0
+        for value in _fieldset:
+            if pos%2 != 0:
+                fieldpairs.append((name,value))
+            else:
+                name = value
+            pos += 1
+
         (self.validators,self.index,self.keyIndexRelation)\
-            = self.getValidators( _fieldset or self.__fieldset__ )
+            = self.getValidators( fieldpairs or self.__fieldset__ )
+
         if not self.validators:
             raise SyntaxError('No fieldset given')
 
@@ -50,6 +62,8 @@ class Schema( Validator ):
         self.on_value = createContextChilds\
             and self._createContextChilds_on_value\
             or self._on_value
+
+
 
     def appendSubValidators( self, subValidators ):
         for validator in self.validators.values():

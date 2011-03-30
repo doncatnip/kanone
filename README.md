@@ -13,7 +13,7 @@ Why another validation lib ?
 * You do not need to maintain a certain order for Fields which are depending
   on other fields, because validation takes place on demand.
   ( e.g. this will work:
-        fieldset\
+        Schema\
             ( 'email_confirm' , Match( Field('.email') )
             , 'email' , String()
             )
