@@ -31,18 +31,18 @@ class ResolveDomain( Validator ):
         return value
 
 
-CommonDomainPreValidaton\
-    = String.convert().tag('string')\
+CommonDomainPreValidaton =\
+    ( String.convert().tag('string')\
     & EliminateWhiteSpace().tag('eliminateWhiteSpace')\
     & Lower().tag('toLower')\
     & UpdateValue().tag('update')
-
+    ).tag('prevalidation')
 
 # We should propably implement a dedicated and therefore
 # faster validator.
 # ( nested And/Or with a few elements still slow things down )
 ComposedDomainLabel = Compose\
-    ( CommonDomainPreValidaton().tag('prevalidation')
+    ( CommonDomainPreValidaton
     & cache.Save(result='domainLabel')
     &   ( Match( re.compile(r'^xn--') )
         |   ( Encode('punycode').tag('encodePuny')
@@ -90,7 +90,7 @@ def __restrictToTLDSetter( alias, param ):
             }
 
 Domain = Compose\
-    ( CommonDomainPreValidaton().tag('prevalidation')
+    ( CommonDomainPreValidaton
     & Split('.').tag('split')
     & Len(min=2).tag('numSubdomains')
     & ForEach\

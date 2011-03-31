@@ -1,4 +1,4 @@
-from ..lib import messages, MISSING, Parameterized, inherit
+from ..lib import Context, messages, MISSING, Parameterized, inherit
 from ..error import Invalid
 
 import logging, copy
@@ -46,6 +46,8 @@ class ValidatorBase(object):
     def tag( self, tagName, enabled=True ):
         return Tag( self, tagName, enabled )
 
+    def context( self, value=MISSING ):
+        return Context( self, value )
 
 class Validator( ValidatorBase, Parameterized ):
 
@@ -399,12 +401,9 @@ class Not( Validator ):
         raise Invalid( value, self )
 
 
-class And( Validator ):
-    inherit\
-        ( 'validators'
-        )
+class And( ValidatorBase ):
 
-    def setArguments( self, *validators ):
+    def __init__( self, *validators ):
         assert len(validators)>=2
         self.validators = list(validators)
         self.validate = lambda context, value:\
@@ -431,17 +430,13 @@ class Or( ValidatorBase ):
             subValidators.append( validator )
 
     def validate(self, context, value):
-        errors = []
-        result = value
         lastError = None
 
         for validator in self.validators:
             try:
-                result = validator.validate( context, result )
+                return validator.validate( context, value )
             except Invalid as e:
                 lastError = e
-            else:
-                return result
 
         if lastError is not None:
             raise lastError

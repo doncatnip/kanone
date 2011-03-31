@@ -57,7 +57,7 @@ Hello = require.String().messages(type='This is not a string, it is a "%(value.t
             ) \
         & require.alter.Format('Hello %(value)s !')
 
-context = require.Context( Hello, 'there' )
+context = Hello.context( 'there' )
 
 try:
     result = context.result
@@ -107,7 +107,7 @@ myHello = Hello\
         , printInput_enabled=True
         ).messages(restrict='Please enter one of %(required)s')
 
-context = require.Context( myHello, 'there' ) 
+context = myHello.context( 'there' ) 
 
 pprint (context.result ) # 'Hey there !'
 
