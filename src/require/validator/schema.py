@@ -244,10 +244,9 @@ class ForEach( Validator ):
         else:
             key = context.key
 
-        context.value = schemaData.values[ key ]
         context.validator = self.validator
 
-        return context.validator.validate( context, context.value )
+        return context.validator.validate( context, schemaData.values[ key ] )
 
     def _on_value( self, context, value ):
         if self.returnList:

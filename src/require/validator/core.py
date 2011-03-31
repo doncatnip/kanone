@@ -1,10 +1,9 @@
-from ..lib import Context, messages, MISSING, Parameterized, inherit
+from ..lib import Context as __Context__, messages, MISSING, Parameterized, inherit
 from ..error import Invalid
 
 import logging, copy
 
 log = logging.getLogger(__name__)
-
 
 #### Basic stuff
 
@@ -47,7 +46,7 @@ class ValidatorBase(object):
         return Tag( self, tagName, enabled )
 
     def context( self, value=MISSING ):
-        return Context( self, value )
+        return __Context__( self, value )
 
 class Validator( ValidatorBase, Parameterized ):
 

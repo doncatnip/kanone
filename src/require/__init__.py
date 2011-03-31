@@ -1,6 +1,6 @@
 from .validator import *
-from .lib import pre_validate, post_validate, fieldset, MISSING, Context
-import pkg_resources
+from .lib import MISSING, Context
+import pkg_resources as __pkg_resources__
 
-__version__ = pkg_resources.require("require")[0].version
+__version__ = __pkg_resources__.require("require")[0].version
 

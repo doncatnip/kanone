@@ -192,6 +192,11 @@ class Context( dict ):
         if value is self.value:
             return
 
+        if self.root.isValidating:
+            self['value'] = value
+            self.root.updates.append( self.path )
+            return
+
         if (value == '') or value is [] or value is {}:
             value = None
 
