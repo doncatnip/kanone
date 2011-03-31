@@ -23,7 +23,7 @@ class TypeValidator( Validator ):
 class Dict( TypeValidator ):
 
     messages\
-        ( type="Invalid type (%(type)s), must be a dictionary"
+        ( type="Invalid type (%(value.type)s), must be a dictionary"
         , convert="Could not convert %s(type)s to dict"
         )
 
@@ -46,8 +46,8 @@ class Dict( TypeValidator ):
 class List( TypeValidator ):
 
     messages\
-        ( type="Invalid type (%(type)s), must be a list"
-        , convert="Could not convert %(type)s to list"
+        ( type="Invalid type (%(value.type)s), must be a list"
+        , convert="Could not convert %(value.type)s to list"
         )
 
     def on_value(self, context, value):
@@ -72,7 +72,7 @@ class List( TypeValidator ):
 class Boolean( TypeValidator):
 
     messages\
-        ( type="Invalid type (%(type)s), must be a bool"
+        ( type="Invalid type (%(value.type)s), must be a bool"
         )
 
     def on_value(self, context, value):
@@ -90,7 +90,7 @@ class Boolean( TypeValidator):
 class String( TypeValidator ):
 
     messages\
-        ( type="Invalid type (%(type)s), must be a string"
+        ( type="Invalid type (%(value.type)s), must be a string"
         , encoding='Could not decode "%(value)s" to %(encoding)s'
         )
 
@@ -121,8 +121,8 @@ class String( TypeValidator ):
 class Integer( TypeValidator ):
 
     messages\
-        ( type="Invalid type (%(type)s), must be a integer"
-        , convert="Could not convert %(type)s to integer"
+        ( type="Invalid type (%(value.type)s), must be a integer"
+        , convert="Could not convert %(value.type)s to integer"
         )
 
     def on_value(self, context, value):
@@ -139,8 +139,8 @@ class Integer( TypeValidator ):
 
 class Float( TypeValidator ):
     messages\
-        ( type="Invalid type (%(type)s), must be a floating point number"
-        , convert="Could not convert %(type)s to a floating point number"
+        ( type="Invalid type (%(value.type)s), must be a floating point number"
+        , convert="Could not convert %(value.type)s to a floating point number"
         )
 
     def on_value(self, context, value):

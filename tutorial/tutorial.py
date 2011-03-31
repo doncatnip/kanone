@@ -48,7 +48,7 @@ pprint( context.error )  # Invalid type (int), must be a string
 #  example 3: error messages
 #_______
 
-Hello = require.String().messages(type='This is not a string, it is a "%(type)s" !') \
+Hello = require.String().messages(type='This is not a string, it is a "%(value.type)s" !') \
         & require.Tmp\
             ( require.alter.Lower()
             & require.check.In\
@@ -66,7 +66,7 @@ except require.Invalid as e:
 
     # you can change the errorFormatter at any time
     context.errorFormatter \
-        = lambda context, error: (('Error (%(type)s): '+error.message) % error.extra)
+        = lambda context, error: (('Error (%(value.type)s): '+error.message) % error.extra)
     pprint (str(e))      # 'Error (unicode): Please enter "bob" or "world", not "there".' 
 
 

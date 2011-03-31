@@ -235,10 +235,11 @@ class Compose( Validator ):
             if tagIDs is None:
                 notFound.append( tagName )
             else:
-                enabled = args.pop('enabled',True)
+                enabled = args.pop('enabled',None)
                 for tagID in tagIDs:
-                    if not enabled:
-                        self.currentTaggedValidators[ tagID ] = False
+                    if enabled is not None:
+                        self.currentTaggedValidators[ tagID ] =\
+                            enabled and self.taggedValidators[ tagID ] or False
                     else:
                         if args:
                             self.taggedValidators[ tagID ] =\
@@ -399,7 +400,6 @@ class Not( Validator ):
 
 
 class And( Validator ):
-
     inherit\
         ( 'validators'
         )
@@ -407,39 +407,17 @@ class And( Validator ):
     def setArguments( self, *validators ):
         assert len(validators)>=2
         self.validators = list(validators)
-
-    def setParameters( self, chainResult=True ):
-        self.chainResult = chainResult
+        self.validate = lambda context, value:\
+            reduce( lambda val, validator: validator.validate(context, val), self.validators, value)
 
     def appendSubValidators( self, subValidators):
         for validator in self.validators:
             validator.appendSubValidators( subValidators )
             subValidators.append( validator )
 
-
-    def validate(self, context, value):
-        result = value
-
-        for validator in self.validators:
-            #try:
-
-            result = validator.validate( context, value )
-            #except Invalid as e:
-            #    e.value = value
-            #    if 'catchall' in self.__messages__:
-            #        e.data['message'] = self.__messages__['catchall']
-
-            #    raise e
-
-            if self.chainResult:
-                value = result
-
-        return result
-
     def __and__( self, other ):
         self.validators.append( other )
         return self
-
 
 class Or( ValidatorBase ):
 

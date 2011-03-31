@@ -131,7 +131,7 @@ class Match( Validator ):
 class Len( Validator ):
 
     messages\
-        ( type="Can not get len from values of type %(type)s"
+        ( type="Can not get len from values of type %(value.type)s"
         , min="Value must have at least%(min)i characters"
         , max="Value cannot have more than least%(max)i characters"
         )

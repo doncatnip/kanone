@@ -27,7 +27,7 @@ class Schema( Validator ):
     messages\
         ( fail=None
         , extraFields='No extra fields allowed (extra fields: %(extraFields)s)'
-        , type='Invalid input type (must be dict, list or tuple)'
+        , type='Invalid input type (%(value.type)s) - must be dict, list or tuple.'
         )
 
     def setArguments( self, *_fieldset ):
@@ -214,7 +214,7 @@ class ForEach( Validator ):
     messages\
         ( fail=None
         , numericKeys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
-        , type='Invalid input type (must be dict, list, tuple or set)'
+        , type='Invalid input type (%(value.type)s) - must be dict, list, tuple or set'
         , listType='Invalid input type (must be list, tuple or set)'
         )
 

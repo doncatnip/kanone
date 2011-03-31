@@ -177,14 +177,24 @@ class Context( dict ):
         return errorlist
 
     @property
+    def updates(self):
+        updates = self.get('updates',None)
+        if updates is None:
+            updates = self[ 'updates' ] = []
+        return updates
+
+    @property
     def value(self):
         return self.get('value',self.__value__)
 
     @value.setter
-    def value( self,value):
-        # lil bit faster this way ..
+    def value( self, value):
+        if value is self.value:
+            return
+
         if (value == '') or value is [] or value is {}:
             value = None
+
         self.__value__ = value
         self.clear()
 
@@ -277,25 +287,25 @@ class Context( dict ):
             self.__error__ = e
 
             e.context = self
-            extra = e.data['extra']
-
-            value = e.value
-            data = e.data
 
             message = e.validator.__messages__[e.key]
 
             if message is not None:
+                extra = e.data['extra']
+                value = e.value
+                data = e.data
+
                 data['message'] = message
                 if hasattr(e,'realkey'):
                     data['key'] = e.realkey
 
-                extra['context.value.type'] = getattr(value, '__class__', None) is not None \
+                extra['value.type'] = getattr(value, '__class__', None) is not None \
                     and getattr(value.__class__,'__name__', False) or 'unknown'
 
                 if isinstance(value,basestring):
-                    extra['context.value'] = value
+                    extra['value'] = value
                 else:
-                    extra['context.value'] = str(value)
+                    extra['value'] = str(value)
 
                 cache = getattr( self, 'cache', None)
                 if cache is not None:
