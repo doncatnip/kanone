@@ -125,8 +125,12 @@ class Tag( ValidatorBase ):
         if validator is False:
             return value
 
-        return validator.validate( context, value )
-
+        try:
+            return validator.validate( context, value )
+        except Invalid as e:
+            if e.validator is validator or getattr(e,'composer',None) is validator:
+                e.tagName = self.tagName
+            raise e
 
 def _setParsedKeywordArg( tagKwargs, key, value ):
     tagPath = key.split('_',1)
@@ -255,6 +259,12 @@ class Compose( Validator ):
         context.root.taggedValidators = self.currentTaggedValidators
         try:
             return self.validator.validate( context, value )
+        except Invalid as e:
+            if hasattr(e,'tagName'):
+                e.realkey = "%s_%s" % (e.tagName, getattr(e,'realkey',e.key))
+                e.composer = self
+                del e.tagName
+            raise e
         finally:
             context.root.taggedValidators = tmpTags
 

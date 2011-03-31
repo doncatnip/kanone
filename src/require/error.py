@@ -11,6 +11,10 @@ class Invalid(BaseException):
     def key(self):
         return self.data['key']
 
+    @key.setter
+    def key(self, value):
+        self.data['key'] = value
+
     @property
     def message(self):
         return self.data.get('message',None)

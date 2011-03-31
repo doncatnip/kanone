@@ -43,10 +43,9 @@ CommonDomainPreValidaton\
 # ( nested And/Or with a few elements still slow things down )
 ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton().tag('prevalidation')
-    & Len(max=63).tag('length')
     & cache.Save(result='domainLabel')
     &   ( Match( re.compile(r'^xn--') )
-        |   ( Encode('punycode')
+        |   ( Encode('punycode').tag('encodePuny')
             &   (   (   Match( re.compile(r'.*-$') )
                     &   cache.Restore('domainLabel')
                     )
@@ -62,14 +61,14 @@ ComposedDomainLabel = Compose\
         , updateValue='update_enabled'
         , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
         , toLower='toLower_enabled'
-        , convertToPunycode=('punycode_enabled','savePreEncode_enabled')
+        , convertToPunycode='punycode_enabled'
         , returnNonPuny='returnNonPuny_enabled'
     ).messageAlias\
         ( type='string_type'
         , tooLong='length_max'
         , tooShort='length_min'
         , invalidSymbols='validSymbols_fail'
-        , blank=("toLower_blank","string_blank","length_blank")
+        , blank=("toLower_blank","string_blank","encodePuny_blank")
         , missing="string_missing"
     ).messages\
         ( blank='Please provide a value'
@@ -143,7 +142,7 @@ EmailLocalPart = Compose\
         , updateValue='update_enabled'
         , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
     ).messageAlias\
-        ( blank=('string_blank','validSymbols_blank')
+        ( blank=('string_blank','validSymbols_blank','length_blank')
         , missing='string_missing'
         , tooLong='length_max'
         , type='string_type'

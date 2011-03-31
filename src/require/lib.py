@@ -286,9 +286,16 @@ class Context( dict ):
 
             if message is not None:
                 data['message'] = message
-                extra['value'] = str(value)
-                extra['type'] = getattr(value, '__class__', None) is not None \
+                if hasattr(e,'realkey'):
+                    data['key'] = e.realkey
+
+                extra['context.value.type'] = getattr(value, '__class__', None) is not None \
                     and getattr(value.__class__,'__name__', False) or 'unknown'
+
+                if isinstance(value,basestring):
+                    extra['context.value'] = value
+                else:
+                    extra['context.value'] = str(value)
 
                 cache = getattr( self, 'cache', None)
                 if cache is not None:
