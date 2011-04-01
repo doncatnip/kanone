@@ -417,6 +417,7 @@ class Context( dict ):
         return child(path)
 
 
+from .util import varargs2kwargs
 # Some kind of 'clonable' object -
 # we reinitialize child objects with inherited kwargs merged with new ones.
 # This allows us to alter just a few specific parameters in child objects.
@@ -442,7 +443,9 @@ class Parameterized:
         parent = kwargs.pop( '_parent', None )
 
         if not hasattr( self, 'setArguments') and args:
-            ( args, kwargs ) = self.__realargs__( args, kwargs )
+            func = getattr( self, 'setParameters', None)
+            if func is not None:
+                ( args, kwargs, shifted ) = varargs2kwargs( func, args, kwargs )
 
         if parent is not None:
             self.__isRoot__ = False
@@ -496,22 +499,3 @@ class Parameterized:
                 , names
                 )
         return klass.__parameterNames__
-
-
-    @classmethod
-    def __realargs__( klass, args, kwargs ):
-
-        names = klass.__getParameterNames__()
-
-        realargs = list(args)
-
-        for argpos in range(min(len( names ), len(args))):
-            if names[ argpos ] in kwargs:
-                raise SyntaxError('multiple kw args: %s' % names[ argpos ])
-            kwargs[ names[ argpos ] ] = args[argpos]
-            del realargs[0]
-
-        return (realargs,kwargs)
-
-
-

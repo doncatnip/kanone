@@ -1,8 +1,7 @@
 from pprint import pprint
-import require
+from require import *
 
 # require - stateful validation
-
 
 
 #*************
@@ -10,12 +9,12 @@ import require
 #_______
 
 # 1) create a Validator
-Hello = require.String() \
-        & require.Tmp( require.alter.Lower() & require.check.In( ['world', 'bob'] ) ) \
-        & require.alter.Format('Hello %(value)s !')
+Hello = String() \
+        & Tmp( alter.Lower() & In( ['world', 'bob'] ) ) \
+        & alter.Format('Hello %(value)s !')
 
 # 2) bring the validator and a value into a context
-context = require.Context( Hello, 'World' )
+context = Context( Hello, 'World' )
 
 # 3) get the result
 pprint ( context.result ) # Hello World !
@@ -36,7 +35,7 @@ context.value = 42
 
 try:
     result = context.result
-except require.Invalid as e:
+except Invalid as e:
     pprint (str(e))      # Invalid type (int), must be a string
 
 # the context now holds the error as string
@@ -48,20 +47,20 @@ pprint( context.error )  # Invalid type (int), must be a string
 #  example 3: error messages
 #_______
 
-Hello = require.String().messages(type='This is not a string, it is a "%(value.type)s" !') \
-        & require.Tmp\
-            ( require.alter.Lower()
-            & require.check.In\
+Hello = String().messages(type='This is not a string, it is a "%(value.type)s" !') \
+        & Tmp\
+            ( alter.Lower()
+            & In\
                 ( ['world', 'bob']
                 ).messages(fail='Please enter "bob" or "world", not "%(value)s".')
             ) \
-        & require.alter.Format('Hello %(value)s !')
+        & alter.Format('Hello %(value)s !')
 
 context = Hello.context( 'there' )
 
 try:
     result = context.result
-except require.Invalid as e:
+except Invalid as e:
     pprint (str(e))      # 'Please enter "bob" or "world", not "there".'
 
     # you can change the errorFormatter at any time
@@ -82,16 +81,16 @@ except require.Invalid as e:
 # tag usage, since DomainLabel, Domain, EmailLocalPart and
 # Email are all composed
 
-Hello = require.Compose\
-        ( require.String().tag('inputType') \
-        & require.debug.Print('Entered: %(value)s').tag('printInput',False) \
-        & require.Tmp\
-            ( require.alter.Lower()
-            & require.check.In\
+Hello = Compose\
+        ( String().tag('inputType') \
+        & debug.Print('Entered: %(value)s').tag('printInput',False) \
+        & Tmp\
+            ( alter.Lower()
+            & In\
                 ( ['world', 'bob']
                 ).tag('restrictInput')
             ) \
-        & require.alter.Format('Hello %(value)s !').tag('output')
+        & alter.Format('Hello %(value)s !').tag('output')
         ).paramAlias\
         ( restrict='restrictInput_required'
         ).messageAlias\
@@ -115,7 +114,7 @@ context.value = 'world'
 
 try:
     result = context.result
-except require.Invalid as e:
+except Invalid as e:
     pprint (str(e))      # 'Please enter one of ['there', 'bob']'
 
 
@@ -127,16 +126,16 @@ except require.Invalid as e:
 # note: please take a look at require.validator.web.Email for a
 # more advanced real-world example
 
-HelloSchema = require.Schema\
+HelloSchema = Schema\
     ( 'nick'
-        , require.String() & require.check.Len(max=20)
+        , String() & Len(max=20)
     , 'email'
-        , require.web.Email()
+        , web.Email()
     , 'email_confirm'
-        , require.Match( require.Field('.email'), ignoreCase=True )
+        , Match( Field('.email'), ignoreCase=True )
     )
 
-context = require.Context\
+context = Context\
     ( HelloSchema
     ,   { 'nick':'bob'
         , 'email':'Bob@Some.Domain.Org'
@@ -168,11 +167,11 @@ pprint (context('email_confirm').result ) # 'jack@Some.domain.org'
 
 
 PostedSchema = \
-    ( require.web.NestedPost()
-    & require.debug.Print('Nested: %(value)s')
-    & require.Schema\
+    ( web.NestedPost()
+    & debug.Print('Nested: %(value)s')
+    & Schema\
         ( 'people'
-            , require.ForEach( HelloSchema )
+            , ForEach( HelloSchema )
         )
     )
 
@@ -184,7 +183,7 @@ PostedSchema = \
 #   context('people.0.nick').value = 'bob'
 
 
-context = require.Context\
+context = Context\
     ( PostedSchema
     ,   { 'people.0.nick':'bob'
         , 'people.0.email':'Bob@Some.Domain.Org'
@@ -214,7 +213,7 @@ context.value = \
 
 try:
     result = context.result
-except require.Invalid as e:
+except Invalid as e:
     pprint(context.errorlist) # ['/people.0.nick', '/people.0.email_confirm' ]
     # note: errors will only be set if the message is not None
     # Schema and ForEach do have None set as 'fail' message, thus do
@@ -237,3 +236,47 @@ pprint( json.dumps( context ) ) # '{ lots of not so pretty printed stuff }'
 
 
 # TODO: there is much, much more to show :)
+
+
+
+#*************
+#  example 8.1: Using decorators - native python functions
+#_______
+
+
+from require.adapter.native import validate
+
+def onInvalid( error ):
+    pprint( error.context )
+    raise error
+
+@validate\
+    ( Schema\
+        ( 'someString', Missing('bob') | String()
+        , 'someInt', Integer()
+        , 'numbers', Blank([]) | Len(min=3) & ForEach( Integer() )
+        )
+    , onInvalid = onInvalid # optional - if not set, the error will just be raised
+    )
+def someFunc( someString, someInt, *numbers ):
+    pprint (someString)
+    pprint (someInt)
+    pprint (numbers)
+
+
+someFunc( someInt=1 )
+# 'bob'
+# 1
+# ()
+
+someFunc( 'jack', 42, 3, 2, 1 )
+# u'jack'
+# 42
+# (3, 2, 1)
+
+try:
+    someFunc( 'jack', 42, 3, 2 )
+except Invalid as e:
+    pprint ( e )
+    # Invalid({'someString': 'jack', 'someInt': 42, 'numbers': [3, 2]}, fail)
+
