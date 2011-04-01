@@ -1,16 +1,29 @@
 from ..validator.schema import Schema, ForEach
 from ..error import Invalid
-from ..util import varargs2kwargs, getArgSpec
+from ..util import varargs2kwargs, getArgSpec, getParameterNames
 
 def validate( validator, onInvalid=None ):
-    resultArgs = []
 
     def __validateDecorator( f ):
-        varargs = getArgSpec( f ).varargs
+        spec = getArgSpec( f )
+
+        hasVarargs = spec.varargs is not None
+        varargs =  '*%s' % (hasVarargs and spec.varargs or 'varargs')
+        keywords = spec.keywords is not None and '**%s' % spec.keywords or None
+        parameterNames = tuple(getParameterNames( f ))
+
 
         def __validateArgs(*args, **kwargs):
-            if varargs is not None:
-                (args, kwargs, shifted ) = varargs2kwargs( f, args, kwargs )
+            (args, kwargs, shifted ) = varargs2kwargs( f, args, kwargs )
+
+            if keywords is not None:
+                restKwargs = dict(\
+                    ( key, kwargs.pop(key))\
+                        for key in kwargs.keys() if key not in parameterNames
+                    )
+                kwargs[ keywords ] = restKwargs
+
+            if args or hasVarargs:
                 kwargs[ varargs ] = args
             try:
                 resultKwargs = validator.context( kwargs ).result
@@ -19,9 +32,15 @@ def validate( validator, onInvalid=None ):
                     return onInvalid( e )
                 else:
                     raise
-            if varargs is not None:
+
+            if args or hasVarargs:
                 resultArgs = resultKwargs.pop( varargs )
                 resultArgs = [ resultKwargs.pop(key) for key in shifted  ] + resultArgs
+            else:
+                resultArgs = []
+
+            if keywords is not None:
+                resultKwargs.update( resultKwargs.pop( keywords ) )
             return f( *resultArgs, **resultKwargs )
 
         return __validateArgs

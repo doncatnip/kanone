@@ -250,11 +250,12 @@ def onInvalid( error ):
     pprint( error.context )
     raise error
 
+# note: you could also use a Schema instead of ForEach, it just have to return a list
 @validate\
     ( Schema\
         ( 'someString', Missing('bob') | String()
         , 'someInt', Integer()
-        , 'numbers', Blank([]) | Len(min=3) & ForEach( Integer() )
+        , '*numbers', Blank([]) | Len(min=3) & ForEach( Integer() )
         )
     , onInvalid = onInvalid # optional - if not set, the error will just be raised
     )
@@ -278,5 +279,34 @@ try:
     someFunc( 'jack', 42, 3, 2 )
 except Invalid as e:
     pprint ( e )
-    # Invalid({'someString': 'jack', 'someInt': 42, 'numbers': [3, 2]}, fail)
+    # Invalid({'*numbers': [3, 2], 'someString': 'jack', 'someInt': 42}, fail)
+
+
+# does also work with **kwargs ..
+
+# note: you could also use a Schema instead of ForEach, it just have to return a dict
+@validate\
+    ( Schema\
+        ( 'someString', Missing('bob') | String()
+        , 'someInt', Missing(42) | Integer()
+        , '**params', Blank({}) | Len(min=3)\
+            & ForEach( Integer(), numericKeys=False, returnList=False )
+        )
+    , onInvalid = onInvalid # optional - if not set, the error will just be raised
+    )
+def someFunc( someString, someInt, **params ):
+    pprint (someString)
+    pprint (someInt)
+    pprint (params)
+
+
+someFunc( param1=1, param2=2, param3=3 )
+# 'bob'
+# 42
+# {'param1': 1, 'param2': 2, 'param3': 3}
+
+someFunc( 'jack', 22 )
+# u'jack'
+# 22
+# {}
 
