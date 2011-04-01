@@ -132,8 +132,8 @@ class Len( Validator ):
 
     messages\
         ( type="Can not get len from values of type %(value.type)s"
-        , min="Value must have at least%(min)i characters"
-        , max="Value cannot have more than least%(max)i characters"
+        , min="Value must have at least %(min)i elements/characters (has %(len)s)"
+        , max="Value cannot have more than least%(max)i elements/characters (has %(len)s)"
         )
 
     def setParameters(self, min=1, max=None, returnLen=False):

@@ -87,6 +87,7 @@ class Schema( Validator ):
                 , MISSING
                 )
 
+        context.__value__ = value
         return context.validator.validate( context, value )
 
     def _on_value( self, context, value ):
@@ -245,8 +246,9 @@ class ForEach( Validator ):
             key = context.key
 
         context.validator = self.validator
-
-        return context.validator.validate( context, schemaData.values[ key ] )
+        value = schemaData.values[ key ]
+        context.__value__ = value
+        return context.validator.validate( context, value )
 
     def _on_value( self, context, value ):
         if self.returnList:

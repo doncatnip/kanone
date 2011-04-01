@@ -240,7 +240,7 @@ pprint( json.dumps( context ) ) # '{ lots of not so pretty printed stuff }'
 
 
 #*************
-#  example 8.1: Using decorators - native python functions
+#  example 8: Using decorators to validate any python function
 #_______
 
 
@@ -250,7 +250,10 @@ def onInvalid( error ):
     pprint( error.context )
     raise error
 
-# note: you could also use a Schema instead of ForEach, it just have to return a list
+# notes:
+# * you could also use a Schema instead of ForEach, it just have to return a list
+# * the order does not matter in the root Schema, as the function will be inspected
+#   to convert any input *args, **kwargs into a dict
 @validate\
     ( Schema\
         ( 'someString', Missing('bob') | String()
@@ -259,6 +262,7 @@ def onInvalid( error ):
         )
     , onInvalid = onInvalid # optional - if not set, the error will just be raised
     )
+
 def someFunc( someString, someInt, *numbers ):
     pprint (someString)
     pprint (someInt)
@@ -282,15 +286,15 @@ except Invalid as e:
     # Invalid({'*numbers': [3, 2], 'someString': 'jack', 'someInt': 42}, fail)
 
 
-# does also work with **kwargs ..
+# does also work with **kwargs ( well, or both or only named args )..
 
 # note: you could also use a Schema instead of ForEach, it just have to return a dict
 @validate\
     ( Schema\
-        ( 'someString', Missing('bob') | String()
-        , 'someInt', Missing(42) | Integer()
-        , 'params', Blank({}) | Len(min=3)\
+        ( 'params', Blank({}) | Len(min=3)\
             & ForEach( Integer(), numericKeys=False, returnList=False )
+        , 'someString', Missing('bob') | String()
+        , 'someInt', Missing(42) | Integer()
         )
     , onInvalid = onInvalid # optional - if not set, the error will just be raised
     )
