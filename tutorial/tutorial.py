@@ -255,7 +255,7 @@ def onInvalid( error ):
     ( Schema\
         ( 'someString', Missing('bob') | String()
         , 'someInt', Integer()
-        , '*numbers', Blank([]) | Len(min=3) & ForEach( Integer() )
+        , 'numbers', Blank([]) | Len(min=3) & ForEach( Integer() )
         )
     , onInvalid = onInvalid # optional - if not set, the error will just be raised
     )
@@ -289,7 +289,7 @@ except Invalid as e:
     ( Schema\
         ( 'someString', Missing('bob') | String()
         , 'someInt', Missing(42) | Integer()
-        , '**params', Blank({}) | Len(min=3)\
+        , 'params', Blank({}) | Len(min=3)\
             & ForEach( Integer(), numericKeys=False, returnList=False )
         )
     , onInvalid = onInvalid # optional - if not set, the error will just be raised

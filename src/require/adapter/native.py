@@ -8,8 +8,8 @@ def validate( validator, onInvalid=None ):
         spec = getArgSpec( f )
 
         hasVarargs = spec.varargs is not None
-        varargs =  '*%s' % (hasVarargs and spec.varargs or 'varargs')
-        keywords = spec.keywords is not None and '**%s' % spec.keywords or None
+        varargs =  spec.varargs or '*varargs'
+        keywords = spec.keywords or None
         parameterNames = tuple(getParameterNames( f ))
 
 
