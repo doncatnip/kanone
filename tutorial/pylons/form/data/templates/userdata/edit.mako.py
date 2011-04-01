@@ -4,7 +4,7 @@ UNDEFINED = runtime.UNDEFINED
 __M_dict_builtin = dict
 __M_locals_builtin = locals
 _magic_number = 5
-_modified_time = 1301649657.547354
+_modified_time = 1301679866.52203
 _template_filename='/home/boo/devel/require2/tutorial/pylons/form/form/templates/userdata/edit.mako'
 _template_uri='/userdata/edit.mako'
 _template_cache=cache.Cache(__name__, _modified_time)
@@ -28,13 +28,13 @@ def render_body(context,**pageargs):
         __M_writer(escape(form('name').value))
         __M_writer(u'"/><br />\n    ')
         # SOURCE LINE 3
-        __M_writer(escape(form('name').error))
+        __M_writer(form('name').error)
         __M_writer(u'\n    Email: <input type="text" name="email" value="')
         # SOURCE LINE 4
         __M_writer(escape(form('email').value))
         __M_writer(u'"/><br />\n    ')
         # SOURCE LINE 5
-        __M_writer(escape(form('email').error))
+        __M_writer(form('email').error)
         __M_writer(u'\n    <input type="submit" value="Submit" />\n</form>\n')
         return ''
     finally:

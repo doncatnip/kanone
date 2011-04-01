@@ -1,9 +1,10 @@
 from require import Invalid
 
-class form():
+class validate():
 
-    def __init__( self, validator ):
+    def __init__( self, validator, errorFormatter=None ):
         self.validator = validator
+        self.errorFormatter = errorFormatter
 
     def __call__( self, origFunction ):
  
@@ -12,6 +13,8 @@ class form():
  
             context = self.validator.context( dict(request.params) )
             if request.params:
+                if self.errorFormatter is not None:
+                    context.errorFormatter = self.errorFormatter
                 try:
                     result = context.result
                 except Invalid:
