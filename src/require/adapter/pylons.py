@@ -1,44 +1,42 @@
 from require import Invalid
+from decorator import decorator
 
-class validate():
+def validate( validator, errorFormatter=None ):
 
-    def __init__( self, validator, errorFormatter=None ):
-        self.validator = validator
-        self.errorFormatter = errorFormatter
+    def __wrapper__( origFunction  ):
 
-    def __call__( self, origFunction ):
- 
-        def __formFunction__( nself, action, environ, start_response, controller, pylons, *args, **kwargs ):
-            request = nself._py_object.request
- 
-            context = self.validator.context( dict(request.params) )
+        def __formFunction__( f, self, *args, **kwargs ):
+            request = self._py_object.request
+            self.form_context = context = validator.context( dict(request.params) )
+
             if request.params:
-                if self.errorFormatter is not None:
-                    context.errorFormatter = self.errorFormatter
+                if errorFormatter is not None:
+                    context.errorFormatter = errorFormatter
                 try:
                     result = context.result
                 except Invalid:
                     pass
                 else:
-                    return self.__successFunc__( nself,  result, *args, **kwargs )
+                    return __formFunction__.__successFunc__( self,  result, *args, **kwargs )
             else:
-                self.__initFunc__( nself, context, *args, **kwargs )
-
-            return origFunction( nself, context, *args, **kwargs )
+                __formFunction__.__initFunc__( self, context, *args, **kwargs )
+        
+            return f( self, *args, **kwargs )
+       
+        resultFunc = decorator( __formFunction__, origFunction )
 
         def initFormFunction(  initFunc ):
-            self.__initFunc__ = initFunc
-
-            return __formFunction__
-
+            __formFunction__.__initFunc__ = initFunc
+        
+            return resultFunc
+        
         def successFormFunction(  successFunc ):
-            self.__successFunc__ = successFunc
+            __formFunction__.__successFunc__ = successFunc
+        
+            return resultFunc
 
-            return __formFunction__
+        resultFunc.init = initFormFunction
+        resultFunc.success = successFormFunction
+        return resultFunc
 
-        __formFunction__.init = initFormFunction
-        __formFunction__.success = successFormFunction
-
-        return __formFunction__
-
-
+    return __wrapper__

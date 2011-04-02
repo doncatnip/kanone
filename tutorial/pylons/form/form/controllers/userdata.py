@@ -23,12 +23,12 @@ class UserdataController(BaseController):
             )
         , errorFormatter = h.formErrorFormatter
         )
-    def edit( self, context ):
-        return render('/userdata/edit.mako', extra_vars={'form':context})
+    def edit( self ):
+        return render('/userdata/edit.mako', extra_vars={'form':self.form_context} )
 
     @edit.init
-    def edit( self, context ):
-        context( 'name' ).value = 'bob'
+    def edit( self, form ):
+        form( 'name' ).value = 'bob'
 
     @edit.success
     def edit( self, result ):
