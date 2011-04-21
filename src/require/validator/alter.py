@@ -36,6 +36,28 @@ class Format( Validator ):
         except Exception:
             raise Invalid( value, self )
 
+class DictUpdate( Validator ):
+
+    messages\
+        ( type = "Cannot update type %(value.type)s"
+        )
+
+    def setParameters( self, **parameters ):
+        self.parameters = parameters
+
+    def on_value(self, context, value ):
+        toUpdate = {}
+        for (key,param) in self.parameters.iteritems():
+            if isinstance(param,ValidatorBase):
+                param = param.validate( context, value )
+            toUpdate[key] = param
+        try:
+            value.update( toUpdate )
+        except Exception:
+            raise Invalid( value, self, 'type' )
+
+        return value
+
 """
 class Replace( Validator ):
 
@@ -71,6 +93,18 @@ class EliminateWhiteSpace( Validator ):
             raise Invalid( value, self, 'type' )
 
 
+class Strip( Validator ):
+
+    messages\
+        ( type = "Can not strip white spaces in values of type %(value.type)s"
+        )
+
+
+    def on_value( self, context, value):
+        try:
+            return (value.strip())
+        except AttributeError:
+            raise Invalid( value, self, 'type' )
 
 
 class Split( Validator ):

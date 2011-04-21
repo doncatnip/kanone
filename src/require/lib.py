@@ -238,15 +238,15 @@ class Context( dict ):
             raise SyntaxError('Context %s has no childs supporting indexing' % (self.path))
 
     def setSchemaData( self, data ):
-        self.clear()
+        self.clear( True )
         self.indexKeyRelation = {}
         self.currentSchemaData = data
 
     def resetSchemaData( self ):
         del self.currentSchemaData
 
-    def clear( self ):
-        if not self.isValidated:
+    def clear( self, force=False ):
+        if not self.isValidated and not force:
             return
 
         dict.clear( self )

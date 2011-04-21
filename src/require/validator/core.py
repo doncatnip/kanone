@@ -1,11 +1,42 @@
 from ..lib import Context as __Context__, messages, MISSING, Parameterized, inherit
 from ..error import Invalid
+from copy import copy
 
-import logging, copy
+import logging,  types
 
 log = logging.getLogger(__name__)
 
 #### Basic stuff
+
+def validator2parameter( hostValidator, name, param, force=False ):
+    paramWrapper =  getattr(hostValidator,'__paramWrapper__',None)
+    if paramWrapper is None:
+        class ParamWrapper():
+            def __init__( self, context, value ):
+                self.__context = context
+                self.__value = value
+
+        hostValidator.__paramWrapper__ =\
+            paramWrapper =\
+            ParamWrapper
+
+        validate = hostValidator.validate
+        def wrapped( context, value ):
+            context.params = paramWrapper( context, value )
+            return validate( context, value )
+
+        hostValidator.validate = wrapped
+
+    if isinstance(param, ValidatorBase ):
+        hostValidator.__paramValidators__.append( param )
+        prop = property(lambda self: param.validate( self.__context, self.__value ))
+    else:
+        if force is True:
+            raise SyntaxError('Parameter has to be a validator')
+        prop = param
+        
+    paramWrapper.__dict__[name] = prop
+
 
 # validators without messages and changeable parameters should derive from this
 class ValidatorBase(object):
@@ -62,19 +93,6 @@ class Validator( ValidatorBase, Parameterized ):
 
     def __init__( self, *args, **kwargs ):
         Parameterized.__init__( self, *args, **kwargs )
-        #self.validate = self.__wrapValidate__( self.validate )
-
-    def __wrapValidate__( self, origFunc ):
-        def __wrappedValidate__( context, value ):
-            try:
-                return origFunc( context, value )
-            except Invalid as e:
-                e.validators.append( self )
-                if not hasattr(e, 'value' ):
-                    e.value = value
-                raise e
-
-        return __wrappedValidate__
 
     def validate( self, context, value ):
         if value is MISSING:
@@ -83,7 +101,6 @@ class Validator( ValidatorBase, Parameterized ):
             self.on_blank( context, value )
 
         return self.on_value( context, value )
-
 
     def messages( self, **messages):
         self.__messages__ = dict( self.__messages__ )
@@ -188,6 +205,7 @@ class Compose( Validator ):
     """
 
     # stuff defined here will be inherited by childs of this Validator
+
     inherit\
         ( '__paramAlias__'
         , '__messageAlias__'
@@ -207,17 +225,21 @@ class Compose( Validator ):
         self.taggedValidators = {}
         self.currentTaggedValidators = {}
         self.tagIDs = {}
-
         subValidators = [ self.validator ]
         self.validator.appendSubValidators( subValidators )
 
         for validator in subValidators:
-            if isinstance( validator, Tag ):
-                if not validator.tagName in self.tagIDs:
-                    self.tagIDs[validator.tagName] = []
-                self.taggedValidators[ validator.tagID ] = validator.validator
-                self.currentTaggedValidators[ validator.tagID ] = validator.enabled and validator.validator
-                self.tagIDs[validator.tagName].append(validator.tagID)
+            if isinstance( validator, Tag):
+                tagName = validator.tagName
+                tagID = validator.tagID
+                enabled = validator.enabled
+                validator = validator.validator
+                if not tagName in self.tagIDs:
+                    self.tagIDs[tagName] = []
+                self.taggedValidators[ tagID ] = validator
+                self.currentTaggedValidators[ tagID ] = enabled and validator
+                self.tagIDs[tagName].append(tagID)
+
         if not self.tagIDs:
             raise SyntaxError('No tags found.')
 
@@ -233,10 +255,12 @@ class Compose( Validator ):
 
         for (tagName, args) in taggedKwargs.iteritems():
             tagIDs = self.tagIDs.get( tagName, None )
+
             if tagIDs is None:
                 notFound.append( tagName )
             else:
                 enabled = args.pop('enabled',None)
+
                 for tagID in tagIDs:
                     if enabled is not None:
                         self.currentTaggedValidators[ tagID ] =\
@@ -256,7 +280,7 @@ class Compose( Validator ):
         if notFound:
             raise SyntaxError('setParameters: Tags %s not found' % str(notFound))
 
-    def validate( self, context, value ):
+    def on_any( self, context, value ):
         tmpTags = context.root.taggedValidators
         context.root.taggedValidators = self.currentTaggedValidators
         try:
@@ -348,7 +372,7 @@ class Item( Validator ):
         subValidators.append( self.validator )
         self.validator.appendSubValidators( subValidators )
 
-    def validate( self, context, value ):
+    def on_any( self, context, value ):
         try:
             val = value[ self.key ]
         except TypeError:
@@ -369,8 +393,8 @@ class Item( Validator ):
 
 class Pass( ValidatorBase ):
 
-    def __init__( self ):
-        self.validate = lambda context, value: value
+    def validate( self, context, value ):
+        return value
 
 
 class Not( Validator ):
@@ -405,8 +429,9 @@ class And( ValidatorBase ):
     def __init__( self, *validators ):
         assert len(validators)>=2
         self.validators = list(validators)
-        self.validate = lambda context, value:\
-            reduce( lambda val, validator: validator.validate(context, val), self.validators, value)
+
+    def validate( self, context, value ):
+        return reduce( lambda val, validator: validator.validate(context, val), self.validators, value)
 
     def appendSubValidators( self, subValidators):
         for validator in self.validators:

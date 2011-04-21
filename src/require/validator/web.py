@@ -3,8 +3,8 @@ import re
 from ..lib import messages
 
 from .core import ValidatorBase, Validator, Compose, Pass, Tmp, Item
-from .basic import String, Dict
-from .alter import Encode, Lower, EliminateWhiteSpace, Split, Join, UpdateValue, Insert
+from .basic import String, Dict, DateTime
+from .alter import Encode, Lower, EliminateWhiteSpace, Split, Join, UpdateValue, Insert, Format,Strip
 from .check import Match, Blank, In, Len
 from .schema import Schema, ForEach, Field
 from .debug import Print
@@ -43,11 +43,11 @@ CommonDomainPreValidaton =\
 # ( nested And/Or with a few elements still slow things down )
 ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton
-    & cache.Save(result='domainLabel')
+    & cache.Set('domainLabel')
     &   ( Match( re.compile(r'^xn--') )
         |   ( Encode('punycode').tag('encodePuny')
             &   (   (   Match( re.compile(r'.*-$') )
-                    &   cache.Restore('domainLabel')
+                    &   cache.Get('domainLabel')
                     )
                 |   Insert('xn--',0)
                 )
@@ -55,7 +55,7 @@ ComposedDomainLabel = Compose\
         ).tag('punycode')
     & Len(min=2, max=63).tag('length')
     & Match(re.compile(r'^(xn--)?[a-z0-9]+[\-a-z0-9]+$')).tag('validSymbols')
-    & cache.Restore('domainLabel').tag('returnNonPuny', False)
+    & cache.Get('domainLabel').tag('returnNonPuny', False)
     ).paramAlias\
         ( convertToString='string_convert'
         , updateValue='update_enabled'
@@ -164,9 +164,9 @@ Email = Compose\
         ).tag('lowerDomainPart')
     & Schema\
         ( 'localPart'
-            ,  cache.Save('localPart') & EmailLocalPart( prevalidation_enabled=False ).tag('localPart')
+            ,  cache.Set('localPart') & EmailLocalPart( prevalidation_enabled=False ).tag('localPart')
         , 'domainPart'
-            ,  cache.Save('domainPart') & Domain( prevalidation_enabled=False ).tag('domainPart')
+            ,  cache.Set('domainPart') & Domain( prevalidation_enabled=False ).tag('domainPart')
         , createContextChilds=False
         , returnList=True
         )
@@ -196,6 +196,65 @@ Email = Compose\
         )
 
 
+"""
+def defaultMonthByNameGetter( context, monthName ):
+
+
+DateSchema = Compose\
+    ( Schema\
+        ( 'year'
+            , If( String(), EliminateWhiteSpace() )
+            & Integer.convert()
+            & ( Len(min=4 max=4 ) | Len( min=2, max=2 ) )
+        , 'month'
+            , If\
+                ( String()
+                , EliminateWhiteSpace()
+                    & Lower()
+                    & Call( defaultMonthNameGetter ).tag('monthNameGetter')
+                )
+            & Integer.convert()
+            & Len( min=1, max=2 )
+            
+        , 'day'
+            , If( String(), EliminateWhiteSpace() )
+            & Integer.convert()
+            & Len( min=1, max=2 )
+        )
+    )
+    
+DateField = Compose\
+    ( String.convert()
+    & Strip()
+    & cache.Set('value')
+    & cache.Get('formats',[]).tag('getFormats')
+    & ForEach\
+        ( cache.Set('currentFormat')
+        & cache.Get('value')
+        , createContextChilds=False
+        , until=Extract( cache.Get('currentFormat') )
+        ).tag('extract')
+    & DateSchema( createContextChilds=False ).tag('dateSchema')
+    & Format( '%(Y)s-%(m)s-%(d)s', **{'Y':Item('year'),'m':Item('month'),'d':Item('day')} )
+    &   ( DateTime.convert( '%Y-%m-%d' )
+        | DateTime.convert( '%y-%m-%d' ).tag('DateTimeConverter')
+        )
+    & Tmp ( If( cache.Has('minDate'), ( cache.Get('minDate') > CurrentValue() ).tag('checkMinDate') ) )
+    & Tmp ( If( cache.Has('maxDate'), ( cache.Get('maxDate') < CurrentValue() ).tag('checkMaxDate') ) )
+    ).paramAlias\
+        ( formats='getFormats_default'
+    ).messageAlias\
+        ( monthName='monthNameGetter_fail'
+        )
+
+DateField = DateField(
+    formats =\
+        [ re.compile(r'^(?P<Y>([0-9]{2}|[0-9]{4})\-(?P<m>([0-9]+|[^0-9\-]+))\-(?P<d>[0-9]+)$')
+        , re.compile(r'^(?P<Y>[0-9]{2,4})\-(?P<m>([0-9]+|[^0-9\-]+))\-(?P<d>[0-9]+)$')
+        , re.compile(r'^(?P<Y>[0-9]{2,4})\-(?P<m>([0-9]+|[^0-9\-]+))\-(?P<d>[0-9]+)$')
+        ]
+"""
+
 
 class NestedPostConverter( ValidatorBase ):
 
@@ -216,6 +275,7 @@ class NestedPostConverter( ValidatorBase ):
             result[parts[0]] = val
 
         return resultset
+
 
 
 NestedPost = Compose\

@@ -23,11 +23,11 @@ def getArgSpec( function ):
         function.__spec__ = spec = inspect.getargspec( function )
     return spec
 
-def getParameterNames( function ):
+def getParameterNames( function, skipSelf=True ):
     function = getattr( function, '__func__', function )
     names = getattr( function, '__parameterNames__', None)
     if names is None:
         spec = getArgSpec( function )
-        function.__parameterNames__ = names = spec.args[0] is 'self' and spec.args[1:] or spec.args
+        function.__parameterNames__ = names = skipSelf and spec.args[0] is 'self' and spec.args[1:] or spec.args
     return names
 

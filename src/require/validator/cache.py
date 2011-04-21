@@ -1,13 +1,7 @@
 from .core import ValidatorBase
-from ..lib import MISSING, PASS
+from ..lib import Invalid, MISSING, PASS
 
 class CacheBase( ValidatorBase ):
-
-    def __init__( self, result=None, value=None ):
-        if not (result or value):
-            raise SyntaxError("You need to specify at least either result='location' or value='location'")
-        self.result = result
-        self.value = value
 
     def getCache( self, context, isGlobal=False ):
         if isGlobal:
@@ -20,25 +14,32 @@ class CacheBase( ValidatorBase ):
 
         return cache
 
-class Save( CacheBase ):
+class Set( CacheBase ):
+
+    def __init__( self, key, value=MISSING ):
+        self.key = key
+        self.value = value
 
     def validate( self, context, value ):
 
         cache = self.getCache( context )
-        if self.result:
-            cache[self.result] = value
-        if self.value:
-            cache[self.value] = context.get('value',context.__value__)
+        val = value
+        if self.value is not MISSING:
+            val = self.value
+        cache[self.key] = val
 
         return value
 
-
-class Restore( CacheBase ):
+class Get( CacheBase ):
     def __init__( self, key ):
         self.key = key
 
     def validate( self, context, value ):
         cache = self.getCache( context )
+        result = cache.get(self.key, MISSING)
+        if result is MISSING:
+            raise Invalid( value, self )
 
-        return cache.get(self.key, value)
+        return result
+
 

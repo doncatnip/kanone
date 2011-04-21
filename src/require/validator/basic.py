@@ -1,6 +1,9 @@
-from .core import Validator
+from .core import Validator, validator2parameter
+
 from ..lib import messages
 from ..error import Invalid
+
+from datetime import datetime
 
 import logging
 log = logging.getLogger(__name__)
@@ -14,9 +17,10 @@ class TypeValidator( Validator ):
         self._convert = convert
 
     @classmethod
-    def convert( klass ):
+    def convert( klass, *args, **kwargs ):
         if not klass.converter:
-            klass.converter = klass( convert = True )
+            kwargs['convert'] = True
+            klass.converter = klass( *args, **kwargs )
         return klass.converter
 
 
@@ -96,24 +100,25 @@ class String( TypeValidator ):
 
     def setParameters( self, convert=False, encoding='utf-8' ):
         TypeValidator.setParameters( self, convert )
-        self.encoding = encoding
+        validator2parameter( self, 'encoding', encoding )
 
     def on_value(self, context, value):
-
         if isinstance( value, str):
+            encoding = context.params.encoding
             try:
-                value = value.decode( self.encoding )
+                value = value.decode( encoding )
             except UnicodeDecodeError:
-                raise Invalid( value, self,'encoding', encoding=self.encoding )
+                raise Invalid( value, self, 'encoding', encoding=encoding )
 
         elif not isinstance( value, unicode):
+            encoding = context.params.encoding
             if not self._convert:
-                raise Invalid( value, self,'type', encoding=self.encoding )
+                raise Invalid( value, self,'type', encoding=encoding )
             else:
                 try:
-                    value = str(value).decode( self.encoding )
+                    value = str(value).decode( encoding )
                 except UnicodeDecodeError:
-                    raise Invalid( value, self,'encoding', encoding=self.encoding )
+                    raise Invalid( value, self,'encoding', encoding=encoding )
 
         return value
 
@@ -153,3 +158,29 @@ class Float( TypeValidator ):
                 raise Invalid( value, self,'convert' )
 
         return value
+
+
+class DateTime( TypeValidator ):
+
+    messages\
+        ( type="Invalid type (%(value.type)s), must be a datetime"
+        , convert='Could not convert "%(value)s"(%(value.type)s) to a datetime'
+        )
+
+    def setParameters( self, convert=False, formatter="%Y-%m-%d" ):
+        TypeValidator.setParameters( self, convert )
+        validator2parameter(self, 'formatter', formatter)
+
+    def on_value(self, context, value ):
+
+        if not isinstance( value, datetime):
+            if not self._convert:
+                raise Invalid( value, self, 'type' )
+            else:
+                try:
+                    return datetime.strptime( value, context.params.formatter )
+                except ValueError:
+                    raise Invalid( value, self, 'convert' )
+            
+        return value
+

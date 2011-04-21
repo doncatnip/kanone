@@ -119,7 +119,7 @@ class Schema( Validator ):
                 else:
                     val = MISSING
             else:
-                val = value.get( key, MISING)
+                val = value.get( key, MISSING)
                 if not self.allowExtraFields and val is not MISSING:
                     try: extraFields.remove(key)
                     except: pass
@@ -381,10 +381,11 @@ class Field( FieldValidator ):
         ( noResult='Field %(path)s has no result'
         )
 
-    def setParameters(self, path, criteria=None, useResult=False, copy=False):
+    def setParameters(self, path, criteria=None, useResult=False, copy=False, writeToContext=False):
         self.path = path
         self.copy = copy
         self.useResult = useResult
+        self.writeToContext = writeToContext
 
         if criteria is None:
             self.copy = True
@@ -415,7 +416,13 @@ class Field( FieldValidator ):
             if result is not PASS:
                 result = self.validator.validate( fieldcontext, result )
 
+        if self.writeToContext is True:
+            fieldcontext.__result__ = result
+
         if self.copy:
+            if result is PASS:
+                return value
+
             return result
 
         return value

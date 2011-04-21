@@ -16,6 +16,6 @@ setup(
     packages = find_packages('src'),
     package_dir={'':'src'},
     install_requires = [ "zope.interface" ],
-#    namespace_packages=['require' ],
+    #namespace_packages=['require' ],
     include_package_data=True,
 )

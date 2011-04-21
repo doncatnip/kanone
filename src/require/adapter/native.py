@@ -1,6 +1,11 @@
 from ..validator.schema import Schema, ForEach
 from ..error import Invalid
 from ..util import varargs2kwargs, getArgSpec, getParameterNames
+from decorator import decorator
+
+import logging
+
+log = logging.getLogger(__name__)
 
 def validate( validator, onInvalid=None ):
 
@@ -10,11 +15,16 @@ def validate( validator, onInvalid=None ):
         hasVarargs = spec.varargs is not None
         varargs =  spec.varargs or '*varargs'
         keywords = spec.keywords or None
-        parameterNames = tuple(getParameterNames( f ))
+        parameterNames = tuple(getParameterNames( f, skipSelf=False ))
 
 
-        def __validateArgs(*args, **kwargs):
+        def __validateArgs(func, *args, **kwargs):
             (args, kwargs, shifted ) = varargs2kwargs( f, args, kwargs )
+
+            log.debug('parameterNames: %s' % str(parameterNames))
+            log.debug('args: %s' % str(args))
+            log.debug('kwargs: %s' % str(kwargs))
+            log.debug('shifted %s' % str(shifted))
 
             if keywords is not None:
                 restKwargs = dict(\
@@ -41,9 +51,12 @@ def validate( validator, onInvalid=None ):
 
             if keywords is not None:
                 resultKwargs.update( resultKwargs.pop( keywords ) )
-            return f( *resultArgs, **resultKwargs )
 
-        return __validateArgs
+            log.debug('resultArgs: %s' % resultArgs)
+            log.debug('resultKwargs: %s' % resultKwargs)
+            return func( *resultArgs, **resultKwargs )
+
+        return decorator( __validateArgs, f )
 
     return __validateDecorator
 
