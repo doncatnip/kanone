@@ -20,7 +20,6 @@ def validate( validator, onInvalid=None ):
 
         def __validateArgs(func, *args, **kwargs):
             (args, kwargs, shifted ) = varargs2kwargs( f, args, kwargs )
-
             log.debug('parameterNames: %s' % str(parameterNames))
             log.debug('args: %s' % str(args))
             log.debug('kwargs: %s' % str(kwargs))
@@ -54,6 +53,7 @@ def validate( validator, onInvalid=None ):
 
             log.debug('resultArgs: %s' % resultArgs)
             log.debug('resultKwargs: %s' % resultKwargs)
+
             return func( *resultArgs, **resultKwargs )
 
         return decorator( __validateArgs, f )

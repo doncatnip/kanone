@@ -12,7 +12,7 @@ setup(
     description='a validation library',
     author = 'don`catnip',
     author_email = 'don dot t at pan1 dot cc',
-    url = '',
+    url = 'git@github.com:doncatnip/require.git',
     packages = find_packages('src'),
     package_dir={'':'src'},
     install_requires = [ "zope.interface" ],
