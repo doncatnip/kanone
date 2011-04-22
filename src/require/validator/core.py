@@ -280,7 +280,7 @@ class Compose( Validator ):
         if notFound:
             raise SyntaxError('setParameters: Tags %s not found' % str(notFound))
 
-    def on_any( self, context, value ):
+    def validate( self, context, value ):
         tmpTags = context.root.taggedValidators
         context.root.taggedValidators = self.currentTaggedValidators
         try:
@@ -372,7 +372,7 @@ class Item( Validator ):
         subValidators.append( self.validator )
         self.validator.appendSubValidators( subValidators )
 
-    def on_any( self, context, value ):
+    def validate( self, context, value ):
         try:
             val = value[ self.key ]
         except TypeError:

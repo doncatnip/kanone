@@ -238,7 +238,8 @@ class Context( dict ):
             raise SyntaxError('Context %s has no childs supporting indexing' % (self.path))
 
     def setSchemaData( self, data ):
-        self.clear( True )
+        self.__result__ = MISSING
+        self.__error__ = MISSING
         self.indexKeyRelation = {}
         self.currentSchemaData = data
 

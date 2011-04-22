@@ -18,7 +18,7 @@ def validate( validator, onInvalid=None ):
         parameterNames = tuple(getParameterNames( f, skipSelf=False ))
 
 
-        def __validateArgs(func, *args, **kwargs):
+        def __validateArgs( *args, **kwargs):
             (args, kwargs, shifted ) = varargs2kwargs( f, args, kwargs )
             log.debug('parameterNames: %s' % str(parameterNames))
             log.debug('args: %s' % str(args))
@@ -54,9 +54,9 @@ def validate( validator, onInvalid=None ):
             log.debug('resultArgs: %s' % resultArgs)
             log.debug('resultKwargs: %s' % resultKwargs)
 
-            return func( *resultArgs, **resultKwargs )
+            return f( *resultArgs, **resultKwargs )
 
-        return decorator( __validateArgs, f )
+        return __validateArgs
 
     return __validateDecorator
 
