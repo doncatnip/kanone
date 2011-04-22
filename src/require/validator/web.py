@@ -54,7 +54,7 @@ ComposedDomainLabel = Compose\
             )
         ).tag('punycode')
     & Len(min=2, max=63).tag('length')
-    & Match(re.compile(r'^(xn--)?[a-z0-9]+[\-a-z0-9]+$')).tag('validSymbols')
+    & Match(re.compile(r'^((([a-z][0-9])|([0-9][a-z])|([a-z0-9][a-z0-9\-]{1,2}[a-z0-9])|([a-z0-9][a-z0-9\-](([a-z0-9\-][a-z0-9])|([a-z0-9][a-z0-9\-]))[a-z0-9\-]*[a-z0-9]))|([a-z0-9]{2})|(xn\-\-[\-a-z0-9]*[a-z0-9]))$')).tag('validSymbols')
     & cache.Get('domainLabel').tag('returnNonPuny', False)
     ).paramAlias\
         ( convertToString='string_convert'
