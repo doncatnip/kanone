@@ -196,64 +196,20 @@ Email = Compose\
         )
 
 
-"""
-def defaultMonthByNameGetter( context, monthName ):
-
-
-DateSchema = Compose\
-    ( Schema\
-        ( 'year'
-            , If( String(), EliminateWhiteSpace() )
-            & Integer.convert()
-            & ( Len(min=4 max=4 ) | Len( min=2, max=2 ) )
-        , 'month'
-            , If\
-                ( String()
-                , EliminateWhiteSpace()
-                    & Lower()
-                    & Call( defaultMonthNameGetter ).tag('monthNameGetter')
-                )
-            & Integer.convert()
-            & Len( min=1, max=2 )
-            
-        , 'day'
-            , If( String(), EliminateWhiteSpace() )
-            & Integer.convert()
-            & Len( min=1, max=2 )
-        )
-    )
     
 DateField = Compose\
     ( String.convert()
-    & Strip()
-    & cache.Set('value')
-    & cache.Get('formats',[]).tag('getFormats')
-    & ForEach\
-        ( cache.Set('currentFormat')
-        & cache.Get('value')
-        , createContextChilds=False
-        , until=Extract( cache.Get('currentFormat') )
-        ).tag('extract')
-    & DateSchema( createContextChilds=False ).tag('dateSchema')
-    & Format( '%(Y)s-%(m)s-%(d)s', **{'Y':Item('year'),'m':Item('month'),'d':Item('day')} )
-    &   ( DateTime.convert( '%Y-%m-%d' )
-        | DateTime.convert( '%y-%m-%d' ).tag('DateTimeConverter')
+    & EliminateWhiteSpace()
+    &   ( DateTime.convert( '%y-%m-%d' )
+        | DateTime.convert( '%Y-%m-%d' )
+        | DateTime.convert( '%d.%m.%y' )
+        | DateTime.convert( '%d.%m.%Y' ).tag('dateTimeConverter')
         )
-    & Tmp ( If( cache.Has('minDate'), ( cache.Get('minDate') > CurrentValue() ).tag('checkMinDate') ) )
-    & Tmp ( If( cache.Has('maxDate'), ( cache.Get('maxDate') < CurrentValue() ).tag('checkMaxDate') ) )
-    ).paramAlias\
-        ( formats='getFormats_default'
     ).messageAlias\
-        ( monthName='monthNameGetter_fail'
+        ( format='dateTimeConverter_convert'
+    ).messages\
+        ( format='Invalid date format ( try YY(YY)-MM-DD or DD.MM.YY(YY) )'
         )
-
-DateField = DateField(
-    formats =\
-        [ re.compile(r'^(?P<Y>([0-9]{2}|[0-9]{4})\-(?P<m>([0-9]+|[^0-9\-]+))\-(?P<d>[0-9]+)$')
-        , re.compile(r'^(?P<Y>[0-9]{2,4})\-(?P<m>([0-9]+|[^0-9\-]+))\-(?P<d>[0-9]+)$')
-        , re.compile(r'^(?P<Y>[0-9]{2,4})\-(?P<m>([0-9]+|[^0-9\-]+))\-(?P<d>[0-9]+)$')
-        ]
-"""
 
 
 class NestedPostConverter( ValidatorBase ):

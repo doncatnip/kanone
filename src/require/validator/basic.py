@@ -160,15 +160,15 @@ class Float( TypeValidator ):
         return value
 
 
-class DateTime( TypeValidator ):
+class DateTime( Validator ):
 
     messages\
         ( type="Invalid type (%(value.type)s), must be a datetime"
         , convert='Could not convert "%(value)s"(%(value.type)s) to a datetime'
         )
 
-    def setParameters( self, convert=False, formatter="%Y-%m-%d" ):
-        TypeValidator.setParameters( self, convert )
+    def setParameters( self, formatter="%Y-%m-%d", convert=False ):
+        self._convert = convert
         validator2parameter(self, 'formatter', formatter)
 
     def on_value(self, context, value ):
@@ -184,3 +184,6 @@ class DateTime( TypeValidator ):
             
         return value
 
+    @classmethod
+    def convert( klass, formatter ):
+        return klass( formatter=formatter, convert=True )
