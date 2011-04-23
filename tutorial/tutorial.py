@@ -286,7 +286,7 @@ except Invalid as e:
     # Invalid({'*numbers': [3, 2], 'someString': 'jack', 'someInt': 42}, fail)
 
 
-# does also work with **kwargs ( well, or both or only named args )..
+# does also work with **kwargs ( well, or both, *args and **kwargs )..
 
 # note: you could also use a Schema instead of ForEach, it just have to return a dict
 @validate\
