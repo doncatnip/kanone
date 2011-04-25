@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from zope.interface.advice import addClassAdvisor
 import sys
 

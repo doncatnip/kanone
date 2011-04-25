@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from ..lib import PASS, MISSING, messages, inherit
 from ..error import Invalid
 
