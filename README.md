@@ -1,5 +1,5 @@
-require - validation library
-============================
+require - a validation library
+==============================
 
 Aims to provide a comfortable way to validate any kind of input by defining
 a clonable base ( similar to what formencode does ), implementing a set of
@@ -11,6 +11,7 @@ process which allows storing of input dependant metadata and provides
 "validation on demand".
 The Context can also be used to populate forms or to set request specific
 parameters.
+
 
 # Why Bother ?
 
@@ -25,8 +26,6 @@ parameters.
             ( 'email_confirm' , Match( Field('.email') )
             , 'email' , String()
             )
-
-  ( errors and results are cached )
 
 * Relative access by path of Fields during validation
   ( Field('..someChild') retrieves the value from a child called someChild
@@ -43,6 +42,7 @@ parameters.
   should be re-populated ( e.g. when your domain validator lowers the input ).
 
 * Punycode-aware DomainLabel, Domain, and Email validator.
+
 
 # Getting started
 
@@ -76,6 +76,7 @@ re-validate
 
     >>> pprint ( context.result )
     u'Hello Bob !'
+
 
 ##  Errors
 
@@ -112,6 +113,7 @@ or retrieves messages by a certain error ID.
         ("Error at %s: %s" % (context.path, error.message ) ) % error.extra
     >>> context.error
     'Error at /: Invalid type (int), must be a string'
+
 
 ## Composing
 
@@ -155,6 +157,7 @@ returning a list of them.
     Traceback (most recent call last):
     ...
     require.error.Invalid: Invalid type (int), must be a string
+
 
 ## Schemas
 
@@ -214,7 +217,7 @@ you can disable this behaviour with Email(domainPart_toLower=False)
             , ForEach( HelloSchema ) & Len( max=2 )
         )
 
-*Note: ForEach creates new context childs ( as well as Schema ),
+*Note*: ForEach creates new context childs ( as well as Schema ),
 use ForEach( createContextChilds=False ) to disable this behaviour.
 
     >>> context = NestedSchema.context\
@@ -275,6 +278,7 @@ populate the context with an error by default.
                  'email_confirm': 'JACK@Some.domain.org',
                 'nick': u'jack'}]}
 
+
 ##  (json) serialization
 
 This is farly easy, since a context is a native dict.
@@ -285,8 +289,8 @@ This is farly easy, since a context is a native dict.
     >>> json.dumps( context )
     {{{ lots of not so pretty printed stuff }}}
 
-## Using decorators to validate Python functions
 
+## Using decorators to validate Python functions
 
     >>> from require.adapter.native import validate
     >>> @validate\
@@ -305,10 +309,11 @@ This is farly easy, since a context is a native dict.
     ...     pprint (params)
 
 *Notes*:
- * You could also use a Schema instead of ForEach, it just have to return a list
-   when used with *varargs or a dict when used with **kwargs
- * The order does not matter in the root Schema, as the function will be inspected
-   to convert any input *args, **kwargs into a dict.
+* You could also use a Schema instead of ForEach, it just have to return a list
+  when used with *varargs or a dict when used with **kwargs
+* The order does not matter in the root Schema, as the function will be inspected
+  to convert any input *args, **kwargs into a dict.
+
     >>> someFunc( someInt=1 )
     'bob'
     1
