@@ -65,7 +65,7 @@ for `alter.Format` remains unmodified.
 
 3) get the result
 
-    >>> pprint ( context.result )
+    >>> context.result
     u'Hello World !'
 
 set another value
@@ -74,7 +74,7 @@ set another value
 
 re-validate
 
-    >>> pprint ( context.result )
+    >>> context.result
     u'Hello Bob !'
 
 
@@ -293,6 +293,7 @@ This is farly easy, since a context is a native dict.
 ## Using decorators to validate Python functions
 
     >>> from require.adapter.native import validate
+    >>> from pprint import pprint
     >>> @validate\
     ...     ( Schema\
     ...         ( 'someString', Missing('bob') | String()
@@ -332,7 +333,7 @@ This is farly easy, since a context is a native dict.
     ()
     {'param1': u'p1', 'param2': u'p2'}
 
-    someFunc( 'jack', 42, 3, 2 )
+    >>> someFunc( 'jack', 42, 3, 2 )
     Traceback (most recent call last):
     ...
     require.error.Invalid: Invalid(
