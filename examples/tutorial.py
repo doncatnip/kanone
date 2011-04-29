@@ -258,7 +258,7 @@ def onInvalid( error ):
     ( Schema\
         ( 'someString', Missing('bob') | String()
         , 'someInt', Integer()
-        , 'numbers', Blank([]) | Len(min=3) & ForEach( Integer() )
+        , 'numbers', Empty([]) | Len(min=3) & ForEach( Integer() )
         )
     , onInvalid = onInvalid # optional - if not set, the error will just be raised
     )
@@ -291,7 +291,7 @@ except Invalid as e:
 # note: you could also use a Schema instead of ForEach, it just have to return a dict
 @validate\
     ( Schema\
-        ( 'params', Blank({}) | Len(min=3)\
+        ( 'params', Empty({}) | Len(min=3)\
             & ForEach( Integer(), numericKeys=False, returnList=False )
         , 'someString', Missing('bob') | String()
         , 'someInt', Missing(42) | Integer()

@@ -13,7 +13,7 @@ The Context can also be used to populate forms or to set request specific
 parameters.
 
 
-# Why Bother ?
+# Why bother ?
 
 * Navigation through your data is easily done using
   `context( 'my.child.context' )` once you have created a Context.
@@ -302,38 +302,44 @@ This is farly easy, since a context is a native dict.
     ...         , 'params', Blank({}) | Len(max=3)\
     ...             & ForEach( String(), numericKeys=False, returnList=False )
     ...         )
+    ...     , skip=('skipMe',)
     ...     )
-    ... def someFunc( someString, someInt, *numbers, **params ):
+    ... def someFunc( skipMe, someString, someInt, *numbers, **params ):
     ...     pprint (someString)
     ...     pprint (someInt)
     ...     pprint (numbers)
     ...     pprint (params)
 
 *Notes*:
-* You could also use a Schema instead of ForEach, it just have to return a list
-  when used with *varargs or a dict when used with **kwargs
-* The order does not matter in the root Schema, as the function will be inspected
-  to convert any input *args, **kwargs into a dict.
 
-    >>> someFunc( someInt=1 )
+- You could also use a Schema instead of ForEach, it just have to return a list
+  when used with *varargs or a dict when used with **kwargs
+- The order does not matter in the root Schema, as the function will be inspected
+  to convert any input *args, **kwargs into a dict.
+- Use `skip` to exclude an argument from being validated. *varargs and **kwargs
+  can also be skipped.
+- Use `onInvalid` to specify an error callback. The signature of the error
+  function is ( context, error ). It should raise an error or return a value.
+
+    >>> someFunc( 'skipped', someInt=1 )
     'bob'
     1
     ()
     {}
 
-    >>> someFunc( 'jack', 42, 3, 2, 1 )
+    >>> someFunc( 'skipped', 'jack', 42, 3, 2, 1 )
     u'jack'
     42
     (3, 2, 1)
     {}
 
-    >>> someFunc( someInt=42, param1='p1', param2='p2' )
+    >>> someFunc( 'skipped', someInt=42, param1='p1', param2='p2' )
     'bob'
     42
     ()
     {'param1': u'p1', 'param2': u'p2'}
 
-    >>> someFunc( 'jack', 42, 3, 2 )
+    >>> someFunc( 'skipped', 'jack', 42, 3, 2 )
     Traceback (most recent call last):
     ...
     require.error.Invalid: Invalid(
