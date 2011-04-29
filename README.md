@@ -312,14 +312,16 @@ This is farly easy, since a context is a native dict.
 
 *Notes*:
 
-- You could also use a Schema instead of ForEach, it just have to return a list
+* You could also use a Schema instead of ForEach, it just have to return a list
   when used with *varargs or a dict when used with **kwargs
-- The order does not matter in the root Schema, as the function will be inspected
+* The order does not matter in the root Schema, as the function will be inspected
   to convert any input *args, **kwargs into a dict.
-- Use `skip` to exclude an argument from being validated. *varargs and **kwargs
+* Use `skip` to exclude an argument from being validated. *varargs and **kwargs
   can also be skipped.
-- Use `onInvalid` to specify an error callback. The signature of the error
+* Use `onInvalid` to specify an error callback. The signature of the error
   function is ( context, error ). It should raise an error or return a value.
+
+Test that function:
 
     >>> someFunc( 'skipped', someInt=1 )
     'bob'
