@@ -9,6 +9,7 @@ log = logging.getLogger(__name__)
 
 class ValidateDecorator:
     def __init__( self, validator, method, skip, onInvalid ):
+        self.__name__ = method.__name__
         self.validator = validator
         self.method = method
         self.onInvalid = onInvalid
@@ -27,7 +28,7 @@ class ValidateDecorator:
 
     def __call__( self, *fargs, **fkwargs):
 
-        (fargs, fkwargs, shifted ) = varargs2kwargs( self.method, fargs, fkwargs )
+        (fargs, fkwargs, shifted ) = varargs2kwargs( self.method, fargs, fkwargs, skipSelf=False )
         origKwargs = dict(fkwargs)
 
         if self.keywords is not False:

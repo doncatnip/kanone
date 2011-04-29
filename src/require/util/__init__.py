@@ -1,7 +1,7 @@
 import inspect
 
-def varargs2kwargs( function, args, kwargs ):
-    names = getParameterNames( function )
+def varargs2kwargs( function, args, kwargs, skipSelf=True ):
+    names = getParameterNames( function, skipSelf )
 
     realargs = list(args)
     shifted = []

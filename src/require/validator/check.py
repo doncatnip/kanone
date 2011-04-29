@@ -4,6 +4,7 @@ from ..error import Invalid
 from .core import Validator, ValidatorBase
 
 import re
+from copy import copy
 
 import logging
 log = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ class Missing( Validator ):
         raise Invalid( value, self )
 
     def on_missing( self, context ):
-        return (self.default is PASS) and MISSING or self.default
+        return (self.default is PASS) and MISSING or copy(self.default)
 
 class Blank( Validator ):
 
@@ -61,7 +62,7 @@ class Blank( Validator ):
         raise Invalid( value, self )
 
     def on_blank( self, context, value ):
-        return (self.default is PASS) and None or self.default
+        return (self.default is PASS) and None or copy(self.default)
 
 
 class Empty( Blank, Missing ):
