@@ -23,7 +23,9 @@ class Missing( Validator ):
         raise Invalid( value, self )
 
     def on_missing( self, context ):
-        return (self.default is PASS) and MISSING or copy(self.default)
+        if self.default is PASS
+            return MISSING
+        return copy(self.default)
 
 class Blank( Validator ):
 
@@ -62,7 +64,9 @@ class Blank( Validator ):
         raise Invalid( value, self )
 
     def on_blank( self, context, value ):
-        return (self.default is PASS) and None or copy(self.default)
+        if self.default is PASS:
+            return value
+        return copy(self.default)
 
 
 class Empty( Blank, Missing ):
