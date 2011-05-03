@@ -23,7 +23,7 @@ class Missing( Validator ):
         raise Invalid( value, self )
 
     def on_missing( self, context ):
-        if self.default is PASS
+        if self.default is PASS:
             return MISSING
         return copy(self.default)
 
