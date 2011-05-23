@@ -302,7 +302,7 @@ This is farly easy, since a context is a native dict.
     ...         , 'params', Blank({}) | Len(max=3)\
     ...             & ForEach( String(), numericKeys=False, returnList=False )
     ...         )
-    ...     , skip=('skipMe',)
+    ...     , exclude=('skipMe',)
     ...     )
     ... def someFunc( skipMe, someString, someInt, *numbers, **params ):
     ...     pprint (someString)
@@ -316,8 +316,8 @@ This is farly easy, since a context is a native dict.
   when used with *varargs or a dict when used with **kwargs
 * The order does not matter in the root Schema, as the function will be inspected
   to convert any input *args, **kwargs into a dict.
-* Use `skip` to exclude an argument from being validated. *varargs and **kwargs
-  can also be skipped.
+* Use `exclude`/`include` to exclude/include arguments from being validated.
+  *vararg and **kwarg names can also be specified here.
 * Use `onInvalid` to specify an error callback. The signature of the error
   function is ( context, error ). It should raise an error or return a value.
 

@@ -3,12 +3,16 @@ from ..error import Invalid
 from ..util import varargs2kwargs, getArgSpec, getParameterNames
 from decorator import decorator
 
-import logging
+import logging, types
 
 log = logging.getLogger(__name__)
 
 class ValidateDecorator:
-    def __init__( self, validator, method, skip, onInvalid ):
+
+    def __init__( self, validator, method, include, exclude, onInvalid ):
+        if include and exclude:
+            raise SyntaxError("'include' and 'exclude' cannot be used at the same time")
+
         self.__name__ = method.__name__
         self.validator = validator
         self.method = method
@@ -19,8 +23,14 @@ class ValidateDecorator:
         varargs =  spec.varargs or '*varargs'
         keywords = spec.keywords or False
 
-        self.methodParameterNames = spec.args
-        self.skip = skip or ()
+        self.methodParameterNames = getParameterNames( method, skipSelf=False )
+
+        self.skip = ()
+        if exclude:
+            self.skip = exclude
+        if include:
+            self.skip = set(methodParameterNames) - set(include)
+
         self.varargs    = varargs
 
         self.hasVarargs = spec.varargs not in self.skip and hasVarargs
@@ -62,9 +72,9 @@ class ValidateDecorator:
         return self.method( *resultArgs, **resultKwargs )
 
 
-def validate( validator, skip=None, onInvalid=None ):
+def validate( validator, include=None, exclude=None, onInvalid=None ):
     def __validateDecorator( method ):
-        return ValidateDecorator( validator, method, skip, onInvalid)
+        return ValidateDecorator( validator, method, include, exclude, onInvalid)
     return __validateDecorator
 
 """
