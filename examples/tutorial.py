@@ -193,6 +193,7 @@ context = Context\
         , 'people.1.email_confirm': 'JACK@Some.domain.org'
         }
     )
+
 pprint (context('people.0.nick').result ) # 'bob'
 pprint (context('people.0.email').result ) # 'Bob@some.domain.org'
 pprint (context('people.0.email_confirm').result ) # 'BOB@Some.domain.org'

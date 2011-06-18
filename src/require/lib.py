@@ -224,29 +224,30 @@ class Context( dict ):
         self.__validator__ = value
         self.clear()
 
+    def setIndexFunc( self, func ):
+        self.__result__ = MISSING
+        self.__error__ = MISSING
+        self.indexKeyRelation = {}
+
+        if func is not None:
+            self.indexFunc = func
+        elif hasattr( self, 'indexFunc'):
+            del self.indexFunc
+
     def getKeyByIndex( self, index ):
         key = self.indexKeyRelation.get( index, None )
         if key is not None:
             return key
 
-        schemaData = getattr(self,'currentSchemaData',None)
-
-        if schemaData and schemaData.indexFunc:
+        indexFunc = getattr(self,'indexFunc',None)
+        if indexFunc:
             if not self.indexKeyRelation:
-                self.numValues = len(schemaData.values)
-            self.indexKeyRelation[ index ] = schemaData.indexFunc( index, schemaData )
+                self.numValues = len(self.childs)
+
+            self.indexKeyRelation[ index ] = indexFunc( index )
             return self.indexKeyRelation[ index ]
         else:
             raise SyntaxError('Context %s has no childs supporting indexing' % (self.path))
-
-    def setSchemaData( self, data ):
-        self.__result__ = MISSING
-        self.__error__ = MISSING
-        self.indexKeyRelation = {}
-        self.currentSchemaData = data
-
-    def resetSchemaData( self ):
-        del self.currentSchemaData
 
     def clear( self, force=False ):
         if not self.isValidated and not force:
@@ -264,7 +265,7 @@ class Context( dict ):
         self.__result__ = MISSING
         self.__error__ = MISSING
 
-    def validate(self ):
+    def validate( self ):
         if self.isValidated:
             if self.__error__ is not MISSING:
                 raise self.__error__
@@ -272,24 +273,18 @@ class Context( dict ):
 
         self.isValidating = True
 
-        schemaData = None
         if self.parent is not None:
 
             if not self.parent.isValidated and not self.parent.isValidating:
                 res = self.parent.validate()
                 return self.result
 
-            schemaData = getattr(self.parent,'currentSchemaData',None)
-
-        if (self.validator is None and not self.isValidating ) and schemaData is None:
+        if self.validator is None and not self.isValidating:
             raise AttributeError("No validator set for context '%s'" % self.path )
 
         result = PASS
         try:
-            if schemaData:
-                result = schemaData.validationFunc( self, schemaData )
-            else:
-                result = self.validator.validate( self, self.__value__)
+            result = self.validator.validate( self, self.__value__)
 
         except Invalid as e:
             self.__error__ = e

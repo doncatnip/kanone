@@ -72,25 +72,6 @@ class Schema( Validator ):
             validator.appendSubValidators( subValidators )
             subValidators.append(validator)
 
-    def validateField( self, context, schemaData ):
-        try:
-            context.validator = self.validators[ context.key ]
-        except KeyError:
-            raise SyntaxError("No validator set for %s" % context.path)
-
-        if schemaData.isList:
-            try:
-                value = schemaData.values[ self.keyIndexRelation[ context.key ] ]
-            except IndexError:
-                value = MISSING
-        else:
-            value = schemaData.values.get\
-                ( context.key
-                , MISSING
-                )
-
-        context.__value__ = value
-        return context.validator.validate( context, value )
 
     def _on_value( self, context, value ):
         isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
@@ -141,32 +122,53 @@ class Schema( Validator ):
 
 
     def _createContextChilds_on_value( self, context, value ):
-        data = SchemaData( self.validateField, lambda index, schemaData: self.index[index] )
-        data.isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
-        if not data.isList and not isinstance( value, dict ):
+        isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
+
+        if not isList and not isinstance( value, dict ):
             raise Invalid( value, self, 'type')
 
         extraFields = None
         if not self.allowExtraFields:
-            if data.isList:
+            if isList:
                 extraFields = max( len(value), len(self.index) )
             else:
                 extraFields = value.keys()
 
         errors = []
 
-        data.values = value
-        context.setSchemaData( data )
 
         if self.returnList:
             result = []
         else:
             result = {}
 
-        for pos in range(len(self.index)):
+        len_value = len(value)
+        len_index = len(self.index)
+
+        # populate
+        for pos in xrange(len_index):
             key = self.index[pos]
+            childContext = context( key )
             try:
-                res = context( pos ).result
+                childContext.validator = self.validators[ key ]
+            except KeyError:
+                raise SyntaxError("No validator set for %s" % childContext.path)
+
+            if isList:
+                if len_value<=pos:
+                    childContext.__value__ = MISSING
+                else:
+                    childContext.__value__ = value[ pos ]
+            else:
+                childContext.__value__ = value.get( key, MISSING )
+
+        context.setIndexFunc( lambda index: self.index[index] )
+
+        # validate
+        for key in self.index:
+
+            try:
+                res = context( key ).result
             except Invalid as e:
                 errors.append( e.context.key )
             else:
@@ -176,13 +178,11 @@ class Schema( Validator ):
                     result[ key ] = res
 
             if not self.allowExtraFields:
-                if data.isList:
+                if isList:
                     extraFields-=1
                 else:
                     try: extraFields.remove(key)
                     except: pass
-
-        context.resetSchemaData()
 
         if extraFields:
             raise Invalid( value, self, 'extraFields',extraFields=extraFields)
@@ -241,17 +241,6 @@ class ForEach( Validator ):
         self.validator.appendSubValidators( subValidators )
         subValidators.append( self.validator )
 
-    def validateItem( self, context, schemaData ):
-        if schemaData.isList:
-            key = int(context.key)
-        else:
-            key = context.key
-
-        context.validator = self.validator
-        value = schemaData.values[ key ]
-        context.__value__ = value
-        return context.validator.validate( context, value )
-
     def _on_value( self, context, value ):
         if self.returnList:
             result = []
@@ -296,10 +285,9 @@ class ForEach( Validator ):
         return result
 
     def _createContextChilds_on_value( self, context, value ):
-        data = SchemaData( self.validateItem )
-        data.isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
+        isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
 
-        if not data.isList:
+        if not isList:
             if not isinstance(value, dict ):
                 raise Invalid( value, self,'type' )
 
@@ -309,37 +297,48 @@ class ForEach( Validator ):
             result = {}
         errors = []
 
-        data.values = value
-        context.setSchemaData( data )
+        # populate
+        childs = []
+        if isList or self.numericKeys:
+            context.setIndexFunc( lambda index: str(index) )
 
-        if data.isList or self.numericKeys:
-            data.indexFunc = lambda index, schemaData: str(index)
-
-            for pos in range( len( value ) ):
-                if not data.isList:
+            for pos in xrange( len( value ) ):
+                if not isList:
+                    val = value.get(str(pos),MISSING)
                     if value.get(str(pos),MISSING) is MISSING:
-                        context.resetSchemaData()
+                        context.setIndexFunc( None )
                         raise Invalid( value, self, 'numericKeys',keys=value.keys())
 
-                try:
-                    res = context( pos ).result
-                except Invalid as e:
-                    errors.append( context.key )
                 else:
-                    if self.returnList:
-                        result.append( res )
-                    else:
-                        result[ contextKey ] =  res
+                    val = value[ pos ]
+
+                contextChild = context( str( pos ) )
+                contextChild.validator = self.validator
+                contextChild.__value__ = val
+                childs.append( contextChild )
+
         else:
+            context.setIndexFunc( None )
+
             if self.returnList:
                 raise Invalid( value, self, 'listType' )
-            for key in value.keys():
-                try:
-                    result[ key ] = context( key ).result
-                except Invalid as e:
-                    errors.append( key )
+            for (key,val) in value.iteritems():
+                contextChild = context( key )
+                contextChild.validator = self.validator
+                contextChild.__value__ = val
+                childs.append( contextChild )
 
-        context.resetSchemaData()
+        #validate
+        for childContext in childs:
+            try:
+                res = childContext.result
+            except Invalid as e:
+                errors.append( childContext.key )
+            else:
+                if self.returnList:
+                    result.append( res )
+                else:
+                    result[ childContext.key ] =  res
 
         if errors:
             raise Invalid( value, self, errors=errors )
