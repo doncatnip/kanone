@@ -55,6 +55,13 @@ def monkeyPatch( ):
 
         if self.__error__ is not MISSING:
             raise self.__error__
+        else:
+            if result is not PASS:
+                self.__result__ = result
+            else:
+                self.__result__ = self.__value__
+
+            self.__result__ = result
 
         defer.returnValue( result )
 
@@ -94,13 +101,7 @@ def monkeyPatch( ):
             self['error'] = self.__error__.data
 
             self.root.errorlist.append( self.__error__.context.path )
-        else:
-            if result is not PASS:
-                self.__result__ = result
-            else:
-                self.__result__ = self.__value__
 
-            self.__result__ = result
 
     def tag_gotResult( result, d, validator, tagName ):
         if isinstance( result, Failure ):
@@ -248,7 +249,7 @@ def monkeyPatch( ):
             d.errback( e )
         else:
             if validators:
-                or_tryNext( validators, context, result, d )
+                and_tryNext( validators, context, result, d )
             else:
                 d.callback( result )
 
