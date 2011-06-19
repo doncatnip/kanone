@@ -68,7 +68,7 @@ ComposedDomainLabel = Compose\
         , tooLong='length_max'
         , tooShort='length_min'
         , invalidSymbols='validSymbols_fail'
-        , blank=("toLower_blank","string_blank","encodePuny_blank")
+        , blank=("toLower_blank","string_blank","encodePuny_blank","length_blank")
         , missing="string_missing"
     ).messages\
         ( blank='Please provide a value'

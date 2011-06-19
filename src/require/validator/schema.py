@@ -66,7 +66,6 @@ class Schema( Validator ):
             or self._on_value
 
 
-
     def appendSubValidators( self, subValidators ):
         for validator in self.validators.values():
             validator.appendSubValidators( subValidators )
@@ -92,7 +91,7 @@ class Schema( Validator ):
 
         numValues = len(value)
 
-        for pos in range(len(self.index)):
+        for pos in xrange(len(self.index)):
             key = self.index[pos]
             if isList is True:
                 if numValues>pos:
@@ -112,8 +111,6 @@ class Schema( Validator ):
                 result.append( res )
             else:
                 result[ key ] = res
-
-            pos += 1
 
         if extraFields:
             raise Invalid( value, self, 'extraFields',extraFields=extraFields)
@@ -162,6 +159,16 @@ class Schema( Validator ):
             else:
                 childContext.__value__ = value.get( key, MISSING )
 
+            if not self.allowExtraFields:
+                if isList:
+                    extraFields-=1
+                else:
+                    try: extraFields.remove(key)
+                    except: pass
+
+        if extraFields:
+            raise Invalid( value, self, 'extraFields',extraFields=extraFields)
+
         context.setIndexFunc( lambda index: self.index[index] )
 
         # validate
@@ -177,15 +184,6 @@ class Schema( Validator ):
                 else:
                     result[ key ] = res
 
-            if not self.allowExtraFields:
-                if isList:
-                    extraFields-=1
-                else:
-                    try: extraFields.remove(key)
-                    except: pass
-
-        if extraFields:
-            raise Invalid( value, self, 'extraFields',extraFields=extraFields)
 
         if errors:
             raise Invalid( value, self, errors=errors )
@@ -250,7 +248,7 @@ class ForEach( Validator ):
         isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
 
         if isList or self.numericKeys:
-            for pos in range( len( value ) ):
+            for pos in xrange( len( value ) ):
                 if isList is False:
                     val = value.get(str(pos),MISSING)
                     if val is MISSING:
@@ -258,11 +256,7 @@ class ForEach( Validator ):
                 else:
                     val = value[pos]
 
-                #try:
                 res = self.validator.validate( context, val )
-                #except Invalid as e:
-                #    e.value = val
-                #    raise e
 
                 if self.returnList is True:
                     result.append( res )
@@ -271,11 +265,7 @@ class ForEach( Validator ):
         else:
             for (key, val) in value.iteritems():
 
-                #try:
                 res = self.validator.validate( context, val )
-                #except Invalid as e:
-                #    e.value = val
-                #    raise e
 
                 if self.returnList is True:
                     result.append( res )

@@ -1,0 +1,3 @@
+INFO:twisted:using set_wakeup_fd
+INFO:twisted:Received SIGINT, shutting down.
+INFO:twisted:Main loop terminated.
