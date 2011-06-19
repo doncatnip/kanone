@@ -37,9 +37,8 @@ def monkeyPatch( ):
                 yield defer.maybeDeferred\
                     ( self.parent.validate
                     )
-                defer.returnValue( self.result )
 
-        if self.validator is None and not self.isValidating:
+        if self.validator is None:
             raise AttributeError("No validator set for context '%s'" % self.path )
 
         result = defer.maybeDeferred\
@@ -123,7 +122,7 @@ def monkeyPatch( ):
             validator = self.enabled and self.validator
 
         if validator is False:
-            defer.returnValue( value )
+            return value
 
         d = defer.Deferred()
         result = defer.maybeDeferred\
@@ -134,7 +133,7 @@ def monkeyPatch( ):
         result.addBoth( tag_gotResult, d, validator, self.tagName )
         return d
 
-    def compose_gotResult( result, d, tmpTags ):
+    def compose_gotResult( result, d, context, tmpTags ):
         context.root.taggedValidators = tmpTags
 
         if isinstance( result, Failure ):
@@ -164,28 +163,42 @@ def monkeyPatch( ):
             , context
             , value
             )
-        result.addBoth( compose_gotResult, d, tmpTags )
+        result.addBoth( compose_gotResult, d, context, tmpTags )
         return d
 
+    def tmp_gotReslt( result, d, raiseError, value ):
+        if isinstance( result, Failure ):
+            if not isinstance(result.value, Invalid):
+                d.errback( result )
+                return
 
-    @defer.inlineCallbacks
+            if raiseError is True:
+                d.errback( result.value )
+
+        d.callback( value )
+
     def tmp_validate( self, context, value ):
-        try:
-            yield defer.maybeDeferred\
+        d = defer.Deferred()
+        result = defer.maybeDeferred\
                 ( self.validator.validate
                 , context
                 , value
                 )
-        except Failure as e:
-            if not isinstance(e.value, Invalid):
-                raise
-            e = e.value
-            if self.raiseError is True:
-                raise
+        result.addBoth( tmp_gotReslt, d, self.raiseError, value )
+        return d
 
-        defer.returnValue( value )
+    def item_gotResult( result, d, value, key, alter ):
+        if isinstance( result, Failure ):
+            if not isinstance(result.value, Invalid):
+                d.errback( result )
+                return
+            d.errback( result.value )
+        else:
+            if alter:
+                value[key] = result
 
-    @defer.inlineCallbacks
+            d.callback( value )
+
     def item_validate( self, context, value ):
         try:
             val = value[ self.key ]
@@ -196,26 +209,25 @@ def monkeyPatch( ):
             raise Invalid( value, self, 'notFound', key=self.key )
         else:
             if self.validator is not None:
-                val = yield defer.maybeDeferred\
+                d = defer.Deferred()
+                result = defer.maybeDeferred\
                     ( self.validator.validate
                     , context
                     , val
                     )
-                if self.alter:
-                    value[self.key] = val
-
-                defer.returnValue( value )
+                result.addBoth( item_gotResult, d , value, self.key, self.alter )
+                return d
             else:
-                defer.returnValue( val )
+                return val
 
-    def not_gotResult( result, d, value ):
+    def not_gotResult( result, d, value, validator ):
         if isinstance( result, Failure ):
             if not isinstance( result.value, Invalid ):
                 d.errback( result )
                 return
             d.callback( value )
         else:
-            d.errback( Invalid( value, self ) )
+            d.errback( Invalid( value, validator ) )
 
     def not_validate(self, context, value ):
         d = defer.Deferred()
@@ -224,7 +236,7 @@ def monkeyPatch( ):
             , context
             , value
             )
-        d.addCallback( not_gotResult, d, value )
+        result.addBoth( not_gotResult, d, value, self )
         return d
 
     def and_doTryNext( result, validators, context, value, d ):

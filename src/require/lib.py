@@ -277,9 +277,8 @@ class Context( dict ):
 
             if not self.parent.isValidated and not self.parent.isValidating:
                 res = self.parent.validate()
-                return self.result
 
-        if self.validator is None and not self.isValidating:
+        if self.validator is None:
             raise AttributeError("No validator set for context '%s'" % self.path )
 
         result = PASS
