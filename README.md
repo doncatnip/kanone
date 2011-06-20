@@ -387,7 +387,7 @@ You can find a Pylons example app in examples/pylons.
 
 ## Twisted
 
-    >>> from require.adapeter import tx
+    >>> from require.adapter import tx
     >>> tx.monkeyPatch()
 
 From now on, context.validate() and context.result are returning Deferreds.
