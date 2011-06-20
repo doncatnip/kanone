@@ -2,11 +2,9 @@
 * javascript context reconstruction ( deserialize the result of
   json.dumps( context ) to a javascript obj which should behave
   similar to Context )
+* validators as parameters
 * (propably) remove pre_validate, post_validate, fieldset
   - using pre and post_validate is exactly the same as using &
   - defining a Schema with a fieldset is exactly the same as using
     mySchema = Schema( 'field1', Validator(), 'field2', Validator())
-* check how much core functionality could be ported to c/c++ without
-  sacrifiyng an easy API - mainly to make composed Validators faster
-  bottleneck atm is chaining alot with nested And/Or
 * unit tests

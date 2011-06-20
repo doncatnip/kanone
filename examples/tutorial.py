@@ -1,6 +1,15 @@
 from pprint import pprint
 from require import *
 
+## use this to test twisted 'mode'
+## it should work even without a running reactor or callbacks
+## Except that results are encapsuled in Deferreds and errors
+## are not catched, but printed as unhandled Faults instead.
+#
+# from require.adapter import tx
+# tx.monkeyPatch()
+
+
 # require - stateful validation
 
 

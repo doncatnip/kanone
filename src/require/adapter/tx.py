@@ -7,11 +7,16 @@ import logging
 log = logging.getLogger( __name__ )
 
 # hacky and redundant, but it'll do for now ..
+# TODO: return deferred only when a result actually is a deferred, thus not
+#       breaking existing non-twisted code which makes use of validators
+#       after patching
+#   or: come up with a better way than patching while still avoiding the need of
+#       redefining every validator and keeping twisted as decoupled as possible
 
 def monkeyPatch( ):
     """
     Patches require so that any validation returns a Deferred, thus
-    one can write asynchrone validators using Twisted's non-blocking API.
+    one can write asynchronous validators using Twisted's non-blocking API.
     Schema and ForEach fields are validated concurrently.
     """
 
@@ -20,6 +25,8 @@ def monkeyPatch( ):
     from ..validator.core import Tag, Compose, Tmp, Item, Not, And, Or, Call
     from ..validator.check import Match
     from ..validator.schema import Schema, ForEach, Field
+    from .native import ValidateDecorator
+    from ..util import varargs2kwargs
 
     @defer.inlineCallbacks
     def context_validate( self ):
@@ -711,6 +718,41 @@ def monkeyPatch( ):
 
         defer.returnValue( value )
 
+    @defer.inlineCallbacks
+    def validateDecorator___call__( self, *fargs, **fkwargs):
+        (fargs, fkwargs, shifted ) = varargs2kwargs( self.method, fargs, fkwargs, skipSelf=False )
+        origKwargs = dict(fkwargs)
+
+        if self.keywords is not False:
+            restKwargs = dict(\
+                ( key, fkwargs.pop(key))\
+                    for key in fkwargs.keys() if key not in self.methodParameterNames
+                )
+            fkwargs[ self.keywords ] = restKwargs
+
+        if fargs or self.hasVarargs:
+            fkwargs[ self.varargs ] = list(fargs)
+
+        try:
+            resultKwargs = yield self.validator.context\
+                ( dict( ( key, fkwargs[ key] ) for key in fkwargs if key not in self.skip ) ).result
+        except Invalid as e:
+            if self.onInvalid is not None:
+                defer.returnValue( self.onInvalid( e ) )
+            else:
+                raise
+
+        origKwargs.update( resultKwargs )
+        resultKwargs = origKwargs
+
+        resultArgs = resultKwargs.pop( self.varargs, fargs )
+        resultArgs = [ resultKwargs.pop(key) for key in shifted  ] + resultArgs
+
+        if self.keywords is not False:
+            resultKwargs.update( resultKwargs.pop( self.keywords ) )
+
+        defer.returnValue( self.method( *resultArgs, **resultKwargs ) )
+
 
     Context.validate = context_validate
     Tag.validate = tag_validate
@@ -727,4 +769,5 @@ def monkeyPatch( ):
     ForEach._on_value = forEach__on_value
     ForEach._createContextChilds_on_value = forEach__createContextChilds_on_value
     Field.validate = field_validate
+    ValidateDecorator.__call__ = validateDecorator___call__
 
