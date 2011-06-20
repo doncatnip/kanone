@@ -60,10 +60,8 @@ class Schema( Validator ):
 
         self.returnList = returnList
 
+        self.createContextChilds = createContextChilds
         self.allowExtraFields = allowExtraFields
-        self.on_value = createContextChilds\
-            and self._createContextChilds_on_value\
-            or self._on_value
 
 
     def appendSubValidators( self, subValidators ):
@@ -71,6 +69,13 @@ class Schema( Validator ):
             validator.appendSubValidators( subValidators )
             subValidators.append(validator)
 
+    def on_value( self, context, value ):
+        if self.createContextChilds:
+            self.on_value = self._createContextChilds_on_value
+        else:
+            self.on_value = self._on_value
+
+        return self.on_value( context, value )
 
     def _on_value( self, context, value ):
         isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
@@ -232,8 +237,15 @@ class ForEach( Validator ):
         self.returnList = returnList
         self.numericKeys = numericKeys
         self.validator = criteria
-        self.validate = createContextChilds and self._createContextChilds_on_value \
-            or self._on_value
+        self.createContextChilds = createContextChilds
+
+    def on_value( self, context, value ):
+        if self.createContextChilds:
+            self.on_value = self._createContextChilds_on_value
+        else:
+            self.on_value = self._on_value
+
+        return self.on_value( context, value )
 
     def appendSubValidators( self, subValidators ):
         self.validator.appendSubValidators( subValidators )
@@ -246,6 +258,9 @@ class ForEach( Validator ):
             result = {}
 
         isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
+        if not isList:
+            if not isinstance(value, dict ):
+                raise Invalid( value, self,'type' )
 
         if isList or self.numericKeys:
             for pos in xrange( len( value ) ):

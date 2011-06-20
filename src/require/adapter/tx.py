@@ -65,6 +65,7 @@ def monkeyPatch( ):
 
         defer.returnValue( result )
 
+
     def context_gotError( error, self ):
 
         e = error.value 
@@ -175,6 +176,7 @@ def monkeyPatch( ):
 
             if raiseError is True:
                 d.errback( result.value )
+                return
 
         d.callback( value )
 
@@ -323,11 +325,11 @@ def monkeyPatch( ):
             d.errback( Invalid( value, self, matchType=self.type, criteria=e ) )
         else:
             if self.ignoreCase:
-                compare = str(compare).lower()
+                result = str(result).lower()
                 val = str(value).lower()
 
-            if val != compare:
-                d.errback( Invalid( value, self, matchType=self.type, criteria=compare ) )
+            if val != result:
+                d.errback( Invalid( value, self, matchType=self.type, criteria=result ) )
             else:
                 d.callback( value )
            
@@ -360,8 +362,8 @@ def monkeyPatch( ):
 
         return value
 
-    def schema_gotResult( result, resultset, key, isList ):
-        if self.returnList:
+    def schema_gotResult( result, resultset, key, isList, returnList ):
+        if returnList:
             resultset.append( result )
         else:
             resultset[ key ] = result
@@ -369,10 +371,26 @@ def monkeyPatch( ):
         return result
 
     def schema_gotError( error, errorset, key ):
-        errors.append( error.context.key )
+        if isinstance( error, Failure ):
+            if not isinstance(error.value, Invalid):
+                raise error
 
+            error = error.value
 
-    @defer.inlineCallbacks
+        errorset.append( error )
+
+    def schema__on_value_done( waste, d, schema, value, result, errors ):
+        if not errors:
+            d.callback( result )
+        else:
+            d.errback( errors.pop(0) )
+
+    def schema__createContextChilds_on_value_done( waste, d, schema, value, result, errors ):
+        if not errors:
+            d.callback( result )
+        else:
+            d.errback( Invalid( value, schema ) )
+
     def schema__on_value( self, context, value ):
         isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
         if not isList and not isinstance( value, dict ):
@@ -393,6 +411,7 @@ def monkeyPatch( ):
         numValues = len(value)
         jobs = []
 
+        errorset = []
         for pos in xrange(len(self.index)):
             key = self.index[pos]
             if isList is True:
@@ -414,16 +433,27 @@ def monkeyPatch( ):
                 , val
                 )
 
-            jobs.append( job.addCallback( schema_gotResult, result, key, isList ) )
-
-        yield defer.DeferredList( jobs )
+            jobs.append\
+                ( job.addCallback( schema_gotResult, result, key, isList, self.returnList )\
+                    .addErrback( schema_gotError, errorset, key )
+                )
 
         if extraFields:
             raise Invalid( value, self, 'extraFields',extraFields=extraFields)
 
-        defer.returnValue( result )
+        d = defer.Deferred()
+        jobs =defer.DeferredList( jobs )
+        jobs.addCallback\
+            ( schema__on_value_done
+            , d
+            , self
+            , value
+            , result
+            , errorset
+            )
 
-    @defer.inlineCallbacks
+        return d
+
     def schema__createContextChilds_on_value( self, context, value ):
         isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
 
@@ -482,19 +512,24 @@ def monkeyPatch( ):
         for key in self.index:
 
             jobs.append\
-                ( defer.maybeDeferred( context( key ).result )\
-                    .addCallback( schema_gotResult, result, key, isList )\
+                ( context( key ).result\
+                    .addCallback( schema_gotResult, result, key, isList, self.returnList )\
                     .addErrback( schema_gotError, errors, key )
                 )
 
-        yield defer.DeferredList( jobs )
+        d = defer.Deferred()
+        jobs = defer.DeferredList( jobs )
+        jobs.addCallback\
+            ( schema__createContextChilds_on_value_done
+            , d
+            , self
+            , value
+            , result
+            , errors
+            )
 
-        if errors:
-            raise Invalid( value, self, errors=errors )
+        return d
 
-        defer.returnValue( result )
-
-    @defer.inlineCallbacks
     def forEach__on_value( self, context, value ):
         if self.returnList:
             result = []
@@ -502,7 +537,7 @@ def monkeyPatch( ):
             result = {}
 
         isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
-
+        errorset = []
         jobs = []
         if isList or self.numericKeys:
             for pos in xrange( len( value ) ):
@@ -512,12 +547,23 @@ def monkeyPatch( ):
                         raise Invalid( value, self, 'numericKeys', keys=value.keys() )
                 else:
                     val = value[pos]
-
+                key = str(pos)
                 jobs.append\
                     ( defer.maybeDeferred\
                         ( self.validator.validate
                         , context, val
-                        ).addCallback( schema_gotResult, result, str(pos), isList )
+                        ).addCallback\
+                            ( schema_gotResult
+                            , result
+                            , key
+                            , isList
+                            , self.returnList
+                            )\
+                        .addErrback\
+                            ( schema_gotError
+                            , errorset
+                            , key
+                            )
                     )
         else:
             for (key, val) in value.iteritems():
@@ -526,14 +572,34 @@ def monkeyPatch( ):
                     ( defer.maybeDeferred\
                         ( self.validator.validate
                         , context, val
-                        ).addCallback( schema_gotResult, result, key, isList )
+                        ).addCallback\
+                            ( schema_gotResult
+                            , result
+                            , key
+                            , isList
+                            , self.returnList
+                            )\
+                        .addErrback\
+                            ( schema_gotError
+                            , errorset
+                            , key
+                            )
                     )
 
-        yield defer.DeferredList( jobs )
-        defer.returnValue( result )
+        d = defer.Deferred()
+        jobs = defer.DeferredList( jobs )
+        jobs.addCallback\
+            ( schema__on_value_done
+            , d
+            , self
+            , value
+            , result
+            , errorset
+            )
+
+        return d
 
 
-    @defer.inlineCallbacks
     def forEach__createContextChilds_on_value( self, context, value ):
         isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
 
@@ -582,24 +648,34 @@ def monkeyPatch( ):
         #validate
         for childContext in childs:
             jobs.append\
-                ( defer.maybeDeferred( childContext.result )\
+                ( childContext.validate()\
                     .addCallback\
-                        ( result
+                        ( schema_gotResult
+                        , result
                         , childContext.key
                         , isList
+                        , self.returnList
                         )\
                     .addErrback\
-                        ( errors
+                        ( schema_gotError
+                        , errors
                         , childContext.key
                         )
                 )
 
-        yield defer.DeferredList( jobs )
+        d = defer.Deferred()
+        jobs = defer.DeferredList( jobs )
+        jobs.addCallback\
+            ( schema__createContextChilds_on_value_done
+            , d
+            , self
+            , value
+            , result
+            , errors
+            )
 
-        if errors:
-            raise Invalid( value, self, errors=errors )
+        return d
 
-        defer.returnValue( result )
 
 
     @defer.inlineCallbacks
@@ -613,10 +689,8 @@ def monkeyPatch( ):
 
         else:
             try:
-                result = fieldcontext.result
-            except Failure as e:
-                if not isinstance(e.value, Invalid):
-                    raise
+                result = yield fieldcontext.result
+            except Invalid as e:
                 result = PASS
 
         if self.validator is not None:

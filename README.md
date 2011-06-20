@@ -40,9 +40,13 @@ parameters.
 
 * Easy serialization of the whole context, containing errors and values which
   should be re-populated ( e.g. when your domain validator lowers the input ).
+  Quite handy if you have some RPC service which validates raw Form data
+  submitted by an ajax call.
 
 * Punycode-aware DomainLabel, Domain, and Email validator.
 
+* experimental Twisted support via monkey patching: write asynchronous
+  validators by simply returning Deferreds.
 
 # Getting started
 
@@ -117,8 +121,9 @@ or retrieves messages by a certain error ID.
 
 ## Composing
 
-Composing is useful if you want to reuse a certain validator with different
-parameters or messages.
+Composing is useful if you want to create reusable Validators from existing ones.
+You can *tag* the containing validators to make them adjustable.
+Set parameter/message aliases to combine different tags.
 
 *Note*: Please take a look at `require.validator.web` for advanced
 tag usage, since `DomainLabel`, `Domain`, `EmailLocalPart`, `Email` and `DateField`
@@ -140,8 +145,9 @@ are all composed.
         ( restrict='restrictInput_fail'
         )
 
-*Note*: An alias is a [tagName]_[parameterName] or a list of them or a function
-returning a list of them.
+*Note*: An alias points to a [tagName]_[parameterName] or to a list of them or to
+a function returning a list of them. Every tag has an 'enabled' parameter. You can
+set a tag to be disabled by default with .tag('tagName',False)
 
     >>> myHello = Hello\
         ( restrict=['there','bob']
@@ -157,6 +163,33 @@ returning a list of them.
     Traceback (most recent call last):
     ...
     require.error.Invalid: Invalid type (int), must be a string
+
+
+## Custom Validators
+
+    >>> class Quiz( Validator ):
+    ...     messages( wrong='Wrong answer ! %(question)s' )
+    ...
+    ...     def setParameters( self, question, answer ):
+    ...         self.question = question
+    ...         self.answer = answer
+    ...
+    ...     def on_value( self, context, value ):
+    ...         if value != self.answer:
+    ...             raise Invalid( value, self, 'wrong', question=self.question )
+    ...         return value
+    ...
+    >>> q = Quiz( 'Life, the Universe and Everything ?', 42 )
+    >>> q.context( 43 ).result
+    Traceback (most recent call last): 
+    ...
+    require.error.Invalid: Wrong answer ! Life, the Universe and Everything ?
+    >>> cheat = q( answer=43 )
+    >>> cheat.context( 43 ).result
+    43
+
+*Note*: Parameters which are defined in setParameters are adjustable when tagged
+or cloned. Use setArguments to set immutable arguments.
 
 
 ## Schemas
@@ -257,7 +290,6 @@ populate the context with an error by default.
     >>> context( 'people.0.email_confirm' ).error
     'Value must match bob@some.domain.org'
 
-
 ### HTTP POST friendly Schemas
 
     >>> NestedForm = web.NestedPost() & NestedSchema
@@ -348,7 +380,16 @@ Test that function:
         { 'someString': 'jack', 'someInt': 42, 'numbers': [3, 2]
         , 'params': {}}, fail )
 
-
 ### Decorate Pylons actions
 
 You can find a Pylons example app in examples/pylons.
+
+
+## Twisted
+
+    >>> from require.adapeter import tx
+    >>> tx.monkeyPatch()
+
+From now on, context.validate() and context.result are returning Deferreds.
+Schema and ForEach are validating their fields concurrently if possible.
+
