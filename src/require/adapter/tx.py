@@ -7,11 +7,8 @@ import logging
 log = logging.getLogger( __name__ )
 
 # hacky and redundant, but it'll do for now ..
-# TODO: return deferred only when a result actually is a deferred, thus not
-#       breaking existing non-twisted code which makes use of validators
-#       after patching
-#   or: come up with a better way than patching while still avoiding the need of
-#       redefining every validator and keeping twisted as decoupled as possible
+# TODO: move to proper twisted specific classes under .tx.*
+#       and get rid of the monkey
 
 def monkeyPatch( ):
     """
