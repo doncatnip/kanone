@@ -53,8 +53,8 @@ ComposedDomainLabel = Compose\
                 )
             )
         ).tag('punycode')
-    & Len(min=2, max=63).tag('length')
-    & Match(re.compile(r'^((([a-z][0-9])|([0-9][a-z])|([a-z0-9][a-z0-9\-]{1,2}[a-z0-9])|([a-z0-9][a-z0-9\-](([a-z0-9\-][a-z0-9])|([a-z0-9][a-z0-9\-]))[a-z0-9\-]*[a-z0-9]))|([a-z0-9]{2})|(xn\-\-[\-a-z0-9]*[a-z0-9]))$')).tag('validSymbols')
+    & Len(max=63).tag('length')
+    & Match(re.compile(r'^((([a-z][0-9])|([0-9][a-z])|([a-z0-9][a-z0-9\-]{1,2}[a-z0-9])|([a-z0-9][a-z0-9\-](([a-z0-9\-][a-z0-9])|([a-z0-9][a-z0-9\-]))[a-z0-9\-]*[a-z0-9]))|([a-z0-9]{1,2})|(xn\-\-[\-a-z0-9]*[a-z0-9]))$')).tag('validSymbols')
     & cache.Get('domainLabel').tag('returnNonPuny', False)
     ).paramAlias\
         ( convertToString='string_convert'
@@ -66,14 +66,12 @@ ComposedDomainLabel = Compose\
     ).messageAlias\
         ( type='string_type'
         , tooLong='length_max'
-        , tooShort='length_min'
         , invalidSymbols='validSymbols_fail'
         , blank=("toLower_blank","string_blank","encodePuny_blank","length_blank")
         , missing="string_missing"
     ).messages\
         ( blank='Please provide a value'
         , tooLong='A domain label can have max %(max)i characters'
-        , tooShort='A domain label must have at least %(min)i characters'
         , invalidSymbols='The domain name contains invalid symbols'
         )
 
