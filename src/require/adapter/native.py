@@ -32,9 +32,7 @@ def validateDecorator( validator, method, include, exclude, onInvalid ):
 
     def __wrap( *fargs, **fkwargs):
 
-        log.debug( ('preshift',fargs,fkwargs) )
         (fargs, fkwargs, shifted ) = varargs2kwargs( method, fargs, fkwargs, skipSelf=False )
-        log.debug( ('postshft',fargs,fkwargs,shifted) )
         origKwargs = dict(fkwargs)
 
         if keywords is not False:

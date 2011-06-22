@@ -739,9 +739,6 @@ def monkeyPatch( ):
 from ..util import varargs2kwargs, getArgSpec, getParameterNames
 from decorator import decorator
 
-import logging, types
-
-log = logging.getLogger(__name__)
 
 def validateDecorator( validator, method, include, exclude, onInvalid ):
 
@@ -770,9 +767,7 @@ def validateDecorator( validator, method, include, exclude, onInvalid ):
     @defer.inlineCallbacks
     def __wrap( *fargs, **fkwargs):
 
-        log.debug( ('preshift',fargs,fkwargs) )
         (fargs, fkwargs, shifted ) = varargs2kwargs( method, fargs, fkwargs, skipSelf=False )
-        log.debug( ('postshft',fargs,fkwargs,shifted) )
         origKwargs = dict(fkwargs)
 
         if keywords is not False:
