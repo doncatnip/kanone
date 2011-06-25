@@ -23,9 +23,10 @@ def monkeyPatch( ):
 
     from ..lib import Context, PASS, MISSING
 
-    from ..validator.core import Tag, Compose, Tmp, Item, Not, And, Or, Call
+    from ..validator.core import Tag, Compose, Tmp, Item, Not, And, Or, Call, If
     from ..validator.check import Match
     from ..validator.schema import Schema, ForEach, Field
+    from ..validator.web import MXLookup
 
     @defer.inlineCallbacks
     def context_validate( self ):
@@ -252,9 +253,9 @@ def monkeyPatch( ):
         if isinstance( result, Failure ):
             if not isinstance(result.value, Invalid):
                 d.errback( result )
-
-            e = result.value
-            d.errback( e )
+            else:
+                e = result.value
+                d.errback( e )
         else:
             if validators:
                 and_tryNext( validators, context, result, d )
@@ -281,6 +282,7 @@ def monkeyPatch( ):
         
             if not isinstance(err.value, Invalid):
                 d.errback( err )
+                return
 
             e = err.value
             if not validators:
@@ -367,6 +369,35 @@ def monkeyPatch( ):
             raise Invalid( value, self, matchType=self.type, criteria=compare )
 
         return value
+
+    def if_gotResult( result, d, context, value ):
+        if isinstance( result, Failure ):
+            if not isinstance(result.value, Invalid):
+                d.errback( result )
+            else:
+                d.errback( result.value )
+        else:
+            d.callback( result )
+
+    def if_gotResultExpression( result, validator, d, context, value ):
+        if isinstance( result, Failure ):
+            if not isinstance( result.value, Invalid):
+                raise
+            value = defer.maybeDeferred\
+                ( validator._else.validate, context, value
+                )
+        else:
+            value = defer.maybeDeferred\
+                ( validator._then.validate, context, result
+                )
+
+        value.addBoth( if_gotResult, d, context, value )
+
+    def if_validate( self, context, value ):
+        d = defer.Deferred()
+        result = defer.maybeDeferred( self.criteria.validate, context, value )
+        result.addBoth( if_gotResultExpression, self, d, context, value )
+        return d
 
     def schema_gotResult( result, resultset, key, isList, returnList ):
         if returnList:
@@ -717,6 +748,37 @@ def monkeyPatch( ):
 
         defer.returnValue( value )
 
+    from twisted.names import client
+    from twisted.names.dns import Record_MX
+    from twisted.names.error import DNSNameError
+
+    def mxLookup_gotResult(result, d, value, validator):
+        if isinstance( result, Failure ):
+            if not isinstance(result.value, DNSNameError):
+                d.errback( result )
+            else:
+                d.errback( Invalid( value, validator ) )
+            return
+
+        (answers, auth, add) = result
+        if not len(answers):
+            d.errback( Invalid( value, validator ) )
+        else:
+            for record in answers:
+                if isinstance(record.payload,Record_MX):
+                    d.callback( value )
+                    return
+
+            d.errback( Invalid( value, validator ) )
+
+    mxLookup_resolver = client.Resolver('/etc/resolv.conf')
+    def mxLookup_onValue( self, context, value ):
+        d = defer.Deferred()
+        mxLookup_resolver.lookupMailExchange( value, [3] )\
+            .addBoth( mxLookup_gotResult, d, value, self )
+
+        return d
+
 
     Context.validate = context_validate
     Tag.validate = tag_validate
@@ -728,17 +790,69 @@ def monkeyPatch( ):
     Or.validate = or_validate
     Call.validate = call_validate
     Match.on_value = match_on_value
+    If.validate = if_validate
     Schema._on_value = schema__on_value
     Schema._createContextChilds_on_value = schema__createContextChilds_on_value
     ForEach._on_value = forEach__on_value
     ForEach._createContextChilds_on_value = forEach__createContextChilds_on_value
     Field.validate = field_validate
+    MXLookup.on_value = mxLookup_onValue
 
     monkeyPatch._isMonkeyPatched = True
 
 from ..util import varargs2kwargs, getArgSpec, getParameterNames
 from decorator import decorator
 
+
+def validateDecorator_gotResult( result, d ):
+    if isinstance( result, Failure ):
+        if not isinstance(result.value, Invalid):
+            d.errback( result )
+        else:
+            d.errback( result.value )
+    else:
+        d.callback( result )
+
+
+def validateDecorator_gotValidationResult\
+        ( result
+        , d
+        , origArgs
+        , origKwargs
+        , method
+        , varargs
+        , keywords
+        , shifted
+        , onInvalid
+        ):
+
+    if isinstance( result, Failure ):
+        if not isinstance(result.value, Invalid):
+            d.errback( result )
+        elif onInvalid is not None:
+            try:
+                result = onInvalid( result.value )
+            except Exception as e:
+                d.errback( e )
+            else:
+                d.callback( result )
+        else:
+            d.errback( result.value )
+
+    else:
+        origKwargs.update( result )
+        
+        resultArgs = origKwargs.pop( varargs, origArgs )
+        resultArgs = [ origKwargs.pop(key) for key in shifted  ] + resultArgs
+        
+        if keywords is not False:
+            origKwargs.update( origKwargs.pop( keywords ) )
+        
+ 
+        result = defer.maybeDeferred( method, *resultArgs, **origKwargs )
+        result.addCallback( validateDecorator_gotResult, d )
+
+   
 
 def validateDecorator( validator, method, include, exclude, onInvalid ):
 
@@ -764,8 +878,9 @@ def validateDecorator( validator, method, include, exclude, onInvalid ):
 
     keywords   = keywords not in skip and keywords
 
-    @defer.inlineCallbacks
     def __wrap( *fargs, **fkwargs):
+
+        d = defer.Deferred()
 
         (fargs, fkwargs, shifted ) = varargs2kwargs( method, fargs, fkwargs, skipSelf=False )
         origKwargs = dict(fkwargs)
@@ -780,24 +895,13 @@ def validateDecorator( validator, method, include, exclude, onInvalid ):
         if fargs or hasVarargs:
             fkwargs[ varargs ] = list(fargs)
 
-        try:
-            resultKwargs = yield validator.context\
-                ( dict( ( key, fkwargs[ key] ) for key in fkwargs if key not in skip ) ).result
-        except Invalid as e:
-            if onInvalid is not None:
-                defer.returnValue( onInvalid( e ) )
-            else:
-                raise
+        result = validator.context\
+            ( dict( ( key, fkwargs[ key] ) for key in fkwargs if key not in skip )
+            ).result
 
-        origKwargs.update( resultKwargs )
+        result.addBoth( validateDecorator_gotValidationResult, d, fargs, origKwargs, method, varargs, keywords, shifted, onInvalid )
 
-        resultArgs = origKwargs.pop( varargs, fargs )
-        resultArgs = [ origKwargs.pop(key) for key in shifted  ] + resultArgs
-
-        if keywords is not False:
-            origKwargs.update( origKwargs.pop( keywords ) )
-
-        defer.returnValue( method( *resultArgs, **origKwargs ) )
+        return d
 
     return __wrap
 

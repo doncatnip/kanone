@@ -1,4 +1,4 @@
-from ..lib import Context as __Context__, messages, MISSING, Parameterized, inherit
+from ..lib import Context as __Context__, messages, MISSING, PASS, Parameterized, inherit
 from ..error import Invalid
 from copy import copy
 
@@ -390,11 +390,41 @@ class Item( Validator ):
                 return val
 
 
+class If( ValidatorBase ):
 
-class Pass( ValidatorBase ):
+    def __init__( self, criteria, _then, _else=None):
+
+        self.criteria = criteria
+        self._then = _then
+        self._else = _else
+
+    def appendSubValidators( self, subValidators ):
+        self.criteria.appendSubValidators( subValidators )
+        self._then.appendSubValidators( subValidators )
+        self._else.appendSubValidators( subValidators )
+        subValidators.append( self.criteria )
+        subValidators.append( self._then )
+        subValidators.append( self._else )
 
     def validate( self, context, value ):
+        try:
+            value = self.criteria.validate( context, value )
+        except Invalid as e:
+            value = self._else.validate( context, value)
+        else:
+            value = self._then.validate( context, value )
+
         return value
+
+class Pass( Validator ):
+
+    def setParameters( self, default=PASS):
+        self.default = PASS
+
+    def validate( self, context, value ):
+        if self.default is PASS:
+            return value
+        return self.default
 
 
 class Not( Validator ):

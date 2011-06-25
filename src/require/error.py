@@ -27,6 +27,9 @@ class Invalid(BaseException):
         return 'Invalid(%s, %s)' % (self.value, self.key)
 
     def __str__(self):
+        return self.__unicode__().encode('utf8')
+
+    def __unicode__(self):
         if self.context is not None and self.message is not None:
             return self.context.root.errorFormatter( self.context, self )
         else:

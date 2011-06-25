@@ -16,6 +16,8 @@ class __MISSING__( str ):
     def __str__(self):
         return ''
 
+    __unicode__ = __str__
+
 MISSING = __MISSING__()
 
 def _append_list(klass, key, data):
@@ -211,7 +213,7 @@ class Context( dict ):
 
     @property
     def error(self):
-        return str(self.__error__)
+        return self.__error__.__unicode__()
 
     @property
     def validator(self):

@@ -1,31 +1,26 @@
 import re
 
-from ..lib import messages
+from ..lib import messages, Invalid
 
-from .core import ValidatorBase, Validator, Compose, Pass, Tmp, Item, Call
+from .core import ValidatorBase, Validator, Compose, Pass, Tmp, Item, Call, If
 from .basic import String, Dict, DateTime
-from .alter import Encode, Lower, EliminateWhiteSpace, Split, Join, UpdateValue, Insert, Format,Strip
+from .alter import Encode, Decode, Lower, EliminateWhiteSpace, Split, Join, UpdateValue, Insert, Format,Strip
 from .check import Match, Blank, In, Len
 from .schema import Schema, ForEach, Field
 from .debug import Print
 
 from . import cache
 
-class ResolveDomain( Validator ):
+class MXLookup( Validator ):
 
     messages\
-        ( fail='Domain not found'
+        ( fail='Domain offers no mailserver'
         )
 
     def on_value( self, context, value ):
         import DNS
 
-        a=DNS.DnsRequest(value, qtype='mx').req().answers
-        if not a:
-            a=DNS.DnsRequest(value, qtype='a').req().answers
-
-        dnsdomains=[x['data'] for x in a]
-        if not dnsdomains:
+        if not DNS.mxlookup(value):
             raise Invalid( value, self )
 
         return value
@@ -44,35 +39,38 @@ CommonDomainPreValidaton =\
 ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton
     & cache.Set('domainLabel')
-    &   ( Match( re.compile(r'^xn--') )
-        |   ( Encode('punycode').tag('encodePuny')
-            &   (   (   Match( re.compile(r'.*-$') )
-                    &   cache.Get('domainLabel')
-                    )
-                |   Insert('xn--',0)
-                )
-            )
-        ).tag('punycode')
+    &   If  ( Match( re.compile(r'^xn--') )
+            , Tmp( Decode('idna').tag('decodeIdna') & cache.Set('domainLabelUnicode') )
+            , cache.Set('domainLabelUnicode') & Encode('idna').tag('encodeIdna')
+            ).tag('idna')
+    & cache.Set('domainLabel')
     & Len(max=63).tag('length')
     & Match(re.compile(r'^((([a-z][0-9])|([0-9][a-z])|([a-z0-9][a-z0-9\-]{1,2}[a-z0-9])|([a-z0-9][a-z0-9\-](([a-z0-9\-][a-z0-9])|([a-z0-9][a-z0-9\-]))[a-z0-9\-]*[a-z0-9]))|([a-z0-9]{1,2})|(xn\-\-[\-a-z0-9]*[a-z0-9]))$')).tag('validSymbols')
-    & cache.Get('domainLabel').tag('returnNonPuny', False)
+    #& create.List( cache.Get('domainLabel'), cache.Get('domainLabelUnicode') )
+    & cache.Get('domainLabelUnicode').tag('returnUnicode')
     ).paramAlias\
         ( convertToString='string_convert'
         , updateValue='update_enabled'
         , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
         , toLower='toLower_enabled'
-        , convertToPunycode='punycode_enabled'
-        , returnNonPuny='returnNonPuny_enabled'
+        , extractIdna='idna_enabled'
+        , returnUnicode='returnUnicode_enabled'
     ).messageAlias\
         ( type='string_type'
         , tooLong='length_max'
-        , invalidSymbols='validSymbols_fail'
-        , blank=("toLower_blank","string_blank","encodePuny_blank","length_blank")
+        , invalidSymbols=('validSymbols_fail','encodeIdna_fail','decodeIdna_fail')
+        , blank=
+            ("toLower_blank"
+            ,"string_blank"
+            ,"encodeIdna_blank"
+            ,"decodeIdna_blank"
+            ,"length_blank"
+            )
         , missing="string_missing"
     ).messages\
-        ( blank='Please provide a value'
-        , tooLong='A domain label can have max %(max)i characters'
-        , invalidSymbols='The domain name contains invalid symbols'
+        ( blank=u'Please provide a value'
+        , tooLong=u'A domain label can have max %(max)i characters'
+        , invalidSymbols=u'The domain name contains invalid symbols'
         )
 
 
@@ -103,11 +101,11 @@ Domain = Compose\
         , alter=False
         ).tag('restrictToTLDValidator', False)
     & Join('.')
-    & ResolveDomain().tag('resolve',False)
+    & MXLookup().tag('resolve',False)
     ).paramAlias\
         ( convertToString='string_convert'
-        , convertToPunycode='domainLabel_convertToPunycode'
-        , returnNonPuny='domainLabel_returnNonPuny'
+        , extractIdna='domainLabel_extractIdna'
+        , returnUnicode='domainLabel_returnUnicode'
         , updateValue='update_enabled'
         , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
         , toLower='toLower_enabled'
@@ -121,10 +119,10 @@ Domain = Compose\
         , restrictToTLD= 'restrictToTLD_fail'
         , invalidSymbols='domainLabel_invalidSymbols'
     ).messages\
-        ( blank="Please provide a value"
-        , format='Invalid domain name format, try my.domain.com'
-        , restrictToTLD= 'TLD not allowed. Allowed TLDs are %(required)s'
-        , tooLong="A domain label cannot exceed %(max)i characters"
+        ( blank=u"Please provide a value"
+        , format=u'Invalid domain name format, try my.domain.com'
+        , restrictToTLD= u'TLD not allowed. Allowed TLDs are %(required)s'
+        , tooLong=u"A domain label cannot exceed %(max)i characters"
         )
 
 
@@ -146,8 +144,8 @@ EmailLocalPart = Compose\
         , type='string_type'
         , invalidSymbols='validSymbols_fail'
     ).messages\
-        ( tooLong='Email local-part only may be up do %(max)i characters long'
-        , invalidSymbols='Localpart contains invalid symbols'
+        ( tooLong=u'Email local-part only may be up do %(max)i characters long'
+        , invalidSymbols=u'Localpart contains invalid symbols'
         )
 
 
@@ -184,13 +182,13 @@ Email = Compose\
             , 'domainPart_blank'
             )
     ).messages\
-        ( blank = 'Please enter an email address'
-        , format = 'Invalid email format ( try my.email@address.com )'
-        , localPart_invalidSymbols = "The part before @ (%(localPart)s) contains invalid symbols"
-        , domainPart_restrictToTLD="Invalid top level domain %(domainLabel)s, allowed TLD are %(required)s"
-        , domainPart_tooLong="Domain part %(domainLabel)s is too long (max %(max)s characters)"
-        , domainPart_format="Invalid domain name format (%(domainPart)s)"
-        , domainPart_invalidSymbols="Domain part %(domainLabel)s contains invalid characters"
+        ( blank = u'Please enter an email address'
+        , format = u'Invalid email format ( try my.email@address.com )'
+        , localPart_invalidSymbols = u"The part before @ (%(localPart)s) contains invalid symbols"
+        , domainPart_restrictToTLD=u"Invalid top level domain %(domainLabel)s, allowed TLD are %(required)s"
+        , domainPart_tooLong=u"Domain part %(domainLabel)s is too long (max %(max)s characters)"
+        , domainPart_format=u"Invalid domain name format (%(domainPart)s)"
+        , domainPart_invalidSymbols=u"Domain part %(domainLabel)s contains invalid characters"
         )
 
 
@@ -206,7 +204,7 @@ DateField = Compose\
     ).messageAlias\
         ( format='dateTimeConverter_convert'
     ).messages\
-        ( format='Invalid date format ( try YY(YY)-MM-DD or DD.MM.YY(YY) )'
+        ( format=u'Invalid date format ( try YY(YY)-MM-DD or DD.MM.YY(YY) )'
         )
 
 
