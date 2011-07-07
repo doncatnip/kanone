@@ -850,7 +850,7 @@ def validateDecorator_gotValidationResult\
         
  
         result = defer.maybeDeferred( method, *resultArgs, **origKwargs )
-        result.addCallback( validateDecorator_gotResult, d )
+        result.addBoth( validateDecorator_gotResult, d )
 
    
 

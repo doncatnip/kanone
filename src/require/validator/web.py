@@ -85,6 +85,17 @@ def __restrictToTLDSetter( alias, param ):
             { 'restrictToTLDValidator_enabled': False
             }
 
+def __domain_save_nonidna( context, value ):
+    domainName = context.cache.get('domainName',None)
+    if domainName is None:
+        context.cache['domainName'] = domainName = ''
+    else:
+        domainName += '.'
+
+    domainName += context.cache.get('domainLabel')
+    context.cache['domainName'] = domainName
+    return value
+
 Domain = Compose\
     ( CommonDomainPreValidaton
     & Split('.').tag('split')
@@ -92,7 +103,7 @@ Domain = Compose\
     & ForEach\
         ( ComposedDomainLabel\
             ( prevalidation_enabled=False
-            ).tag('domainLabel')
+            ).tag('domainLabel') & Call(__domain_save_nonidna)
         , createContextChilds=False
         )
     & Item\
@@ -100,8 +111,8 @@ Domain = Compose\
         , In([]).tag('restrictToTLD')
         , alter=False
         ).tag('restrictToTLDValidator', False)
-    & Join('.')
-    & MXLookup().tag('resolve',False)
+    & Join('.')\
+    & Tmp( cache.Get('domainName') & MXLookup().tag('mxLookup') ).tag('resolve',False)\
     ).paramAlias\
         ( convertToString='string_convert'
         , extractIdna='domainLabel_extractIdna'
@@ -109,6 +120,7 @@ Domain = Compose\
         , updateValue='update_enabled'
         , eliminateWhiteSpace='eliminateWhiteSpace_enabled'
         , toLower='toLower_enabled'
+        , resolve='resolve_enabled'
         , restrictToTLD= __restrictToTLDSetter
     ).messageAlias\
         ( blank=('string_blank','toLower_blank')
@@ -118,6 +130,7 @@ Domain = Compose\
         , format = ('numSubdomains_min','domainLabel_blank')
         , restrictToTLD= 'restrictToTLD_fail'
         , invalidSymbols='domainLabel_invalidSymbols'
+        , resolve='mxLookup_fail'
     ).messages\
         ( blank=u"Please provide a value"
         , format=u'Invalid domain name format, try my.domain.com'
