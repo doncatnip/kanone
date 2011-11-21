@@ -1,4 +1,4 @@
-from require import Invalid
+from kanone import Invalid
 from decorator import decorator
 
 def validate( validator, errorFormatter=None ):

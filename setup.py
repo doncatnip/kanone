@@ -4,7 +4,7 @@ import glob
 import subprocess, shlex
 
 setup(
-    name = 'require',
+    name = 'kanone',
     version = '0.2',
     description='a validation library',
     author = 'don`catnip',

@@ -1,4 +1,4 @@
-* docs for validators
+* docs
 * javascript context reconstruction ( deserialize the result of
   json.dumps( context ) to a javascript obj which should behave
   similar to Context )
@@ -7,6 +7,5 @@
   - using pre and post_validate is exactly the same as using &
   - defining a Schema with a fieldset is exactly the same as using
     mySchema = Schema( 'field1', Validator(), 'field2', Validator())
-* return Invalid instances instead of raising them for improved
-  performance
+* return Invalid instances instead of raising them for improved performance
 * unit tests

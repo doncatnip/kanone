@@ -1,4 +1,4 @@
-""" Twisted adapter for require """
+""" Twisted adapter for Kanone """
 
 from twisted.python.failure import Failure
 from twisted.internet import defer
@@ -16,7 +16,7 @@ def monkeyPatch( ):
     if getattr( monkeyPatch,'_isMonkeyPatched',False):
         return
     """
-    Patches require so that any validation returns a Deferred, thus
+    Patches Kanone so that any validation returns a Deferred, thus
     one can write asynchronous validators using Twisted's non-blocking API.
     Schema and ForEach fields are validated concurrently.
     """
