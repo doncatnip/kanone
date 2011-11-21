@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 def validator2parameter( hostValidator, name, param, force=False ):
     paramWrapper =  getattr(hostValidator,'__paramWrapper__',None)
-    if paramWrapper is None:
+    if not paramWrapper:
         class ParamWrapper():
             def __init__( self, context, value ):
                 self.__context = context
@@ -31,7 +31,7 @@ def validator2parameter( hostValidator, name, param, force=False ):
         hostValidator.__paramValidators__.append( param )
         prop = property(lambda self: param.validate( self.__context, self.__value ))
     else:
-        if force is True:
+        if force:
             raise SyntaxError('Parameter has to be a validator')
         prop = param
         
@@ -137,10 +137,10 @@ class Tag( ValidatorBase ):
 
     def validate( self, context, value ):
         validator = context.root.taggedValidators.get(self.tagID, None)
-        if validator is None:
+        if not validator:
             validator = self.enabled and self.validator
 
-        if validator is False:
+        if not validator:
             return value
 
         try:
@@ -347,7 +347,7 @@ class Tmp( ValidatorBase ):
         try:
             self.validator.validate( context, value )
         except Invalid:
-            if self.raiseError is True:
+            if self.raiseError:
                 raise
 
         return value
@@ -366,7 +366,10 @@ class Item( Validator ):
 
         self.key = key
         self.validator = validator
-        self.alter = alter is None and validator is not None or alter
+        if alter is not None:
+            self.alter = alter
+        else:
+            self.alter = validator is not None
 
     def appendSubValidators( self, subValidators ):
         subValidators.append( self.validator )

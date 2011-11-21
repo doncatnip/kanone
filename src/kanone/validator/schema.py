@@ -92,7 +92,7 @@ class Schema( Validator ):
 
         for pos in xrange(len(self.index)):
             key = self.index[pos]
-            if isList is True:
+            if isList:
                 if numValues>pos:
                     val = value[ pos ]
                     if not self.allowExtraFields:
@@ -258,7 +258,7 @@ class ForEach( Validator ):
 
         if isList or self.numericKeys:
             for pos in xrange( len( value ) ):
-                if isList is False:
+                if not isList:
                     val = value.get(str(pos),MISSING)
                     if val is MISSING:
                         raise Invalid( value, self, 'numericKeys', keys=value.keys() )
@@ -267,7 +267,7 @@ class ForEach( Validator ):
 
                 res = self.validator.validate( context, val )
 
-                if self.returnList is True:
+                if self.returnList:
                     result.append( res )
                 else:
                     result[pos] = res
@@ -276,7 +276,7 @@ class ForEach( Validator ):
 
                 res = self.validator.validate( context, val )
 
-                if self.returnList is True:
+                if self.returnList:
                     result.append( res )
                 else:
                     result[key] = res
@@ -416,7 +416,7 @@ class Field( FieldValidator ):
             if result is not PASS:
                 result = self.validator.validate( fieldcontext, result )
 
-        if self.writeToContext is True:
+        if self.writeToContext:
             fieldcontext.__result__ = result
 
         if self.copy:

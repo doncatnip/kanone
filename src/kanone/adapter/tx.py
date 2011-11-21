@@ -45,7 +45,7 @@ def monkeyPatch( ):
                     ( self.parent.validate
                     )
 
-        if self.validator is None:
+        if not self.validator:
             raise AttributeError("No validator set for context '%s'" % self.path )
 
         result = defer.maybeDeferred\
@@ -127,10 +127,10 @@ def monkeyPatch( ):
 
     def tag_validate( self, context, value ):
         validator = context.root.taggedValidators.get(self.tagID, None)
-        if validator is None:
+        if not validator:
             validator = self.enabled and self.validator
 
-        if validator is False:
+        if not validator:
             return value
 
         d = defer.Deferred()
@@ -181,7 +181,7 @@ def monkeyPatch( ):
                 d.errback( result )
                 return
 
-            if raiseError is True:
+            if raiseError:
                 d.errback( result.value )
                 return
 
@@ -452,7 +452,7 @@ def monkeyPatch( ):
         errorset = []
         for pos in xrange(len(self.index)):
             key = self.index[pos]
-            if isList is True:
+            if isList:
                 if numValues>pos:
                     val = value[ pos ]
                     if not self.allowExtraFields:
@@ -579,7 +579,7 @@ def monkeyPatch( ):
         jobs = []
         if isList or self.numericKeys:
             for pos in xrange( len( value ) ):
-                if isList is False:
+                if not isList:
                     val = value.get(str(pos),MISSING)
                     if val is MISSING:
                         raise Invalid( value, self, 'numericKeys', keys=value.keys() )
@@ -738,7 +738,7 @@ def monkeyPatch( ):
                     , fieldcontext, result
                     )
 
-        if self.writeToContext is True:
+        if self.writeToContext:
             fieldcontext.__result__ = result
 
         if self.copy:
