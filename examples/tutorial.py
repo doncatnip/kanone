@@ -1,5 +1,5 @@
 from pprint import pprint
-from require import *
+from kanone import *
 
 ## use this to test twisted 'mode'
 ## it should work even without a running reactor or callbacks

@@ -6,8 +6,8 @@ from pylons.controllers.util import abort, redirect
 from form.lib.base import BaseController, render
 from form.lib import helpers as h
 
-from require import *
-from require.adapter.pylons import validate
+from kanone import *
+from kanone.adapter.pylons import validate
 
 log = logging.getLogger(__name__)
 
