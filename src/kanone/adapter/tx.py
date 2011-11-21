@@ -142,7 +142,7 @@ def monkeyPatch( ):
         result.addBoth( tag_gotResult, d, validator, self.tagName )
         return d
 
-    def compose_gotResult( result, d, context, tmpTags ):
+    def compose_gotResult( result, d, context, tmpTags, composer ):
         context.root.taggedValidators = tmpTags
 
         if isinstance( result, Failure ):
@@ -154,7 +154,7 @@ def monkeyPatch( ):
 
             if hasattr(e,'tagName'):
                 e.realkey = "%s_%s" % (e.tagName, getattr(e,'realkey',e.key))
-                e.composer = self
+                e.composer = composer
                 del e.tagName
             d.errback( e )
         else:
@@ -172,7 +172,7 @@ def monkeyPatch( ):
             , context
             , value
             )
-        result.addBoth( compose_gotResult, d, context, tmpTags )
+        result.addBoth( compose_gotResult, d, context, tmpTags, self )
         return d
 
     def tmp_gotReslt( result, d, raiseError, value ):
@@ -327,10 +327,10 @@ def monkeyPatch( ):
 
     def match_gotResult( result, self, value, d ):
         if isinstance( result, Failure ):
-            if not isinstance(e.value, Invalid):
+            if not isinstance(result.value, Invalid):
                 raise
-            e = e.value
-            d.errback( Invalid( value, self, matchType=self.type, criteria=e ) )
+
+            d.errback( Invalid( value, self, matchType=self.type, criteria=result.value ) )
         else:
             if self.ignoreCase:
                 result = str(result).lower()

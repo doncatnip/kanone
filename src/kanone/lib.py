@@ -218,9 +218,9 @@ class Context( dict ):
     @error.setter
     def error( self, error ):
         self.__error__ = error
-        e.context = self
+        error.context = self
 
-        message = e.validator.__messages__[e.key]
+        message = error.validator.__messages__[error.key]
 
         if message is not None:
             extra = error.data['extra']
