@@ -127,11 +127,17 @@ class Match( Validator ):
 
         return value
 
-    def on_missing(self, context, value=MISSING ):
+    def on_missing(self, context ):
         if self.type is Match.VALIDATOR:
-            return self.on_value( self, context, context.value )
+            return self.on_value( self, context, MISSING )
+        return Validator.on_missing( self, context )
 
-    on_blank = on_missing
+    def on_blank(self, context, value ):
+        if self.type is Match.VALIDATOR:
+            return self.on_value( self, context, value )
+        return Validator.on_blank( self, context, value )
+
+
 
 class Len( Validator ):
 

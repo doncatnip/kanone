@@ -370,6 +370,7 @@ def monkeyPatch( ):
 
         return value
 
+
     def if_gotResult( result, d, context, value ):
         if isinstance( result, Failure ):
             if not isinstance(result.value, Invalid):
@@ -751,10 +752,13 @@ def monkeyPatch( ):
     from twisted.names import client
     from twisted.names.dns import Record_MX
     from twisted.names.error import DNSNameError
+    from twisted.internet.defer import TimeoutError
 
-    def mxLookup_gotResult(result, d, value, validator):
+    def mxLookup_gotResult(result, d, value, validator, context ):
         if isinstance( result, Failure ):
-            if not isinstance(result.value, DNSNameError):
+            if isinstance(result.value, TimeoutError):
+                d.errback( Invalid( value, validator ) )
+            elif not isinstance(result.value, DNSNameError):
                 d.errback( result )
             else:
                 d.errback( Invalid( value, validator ) )
@@ -772,10 +776,10 @@ def monkeyPatch( ):
             d.errback( Invalid( value, validator ) )
 
     mxLookup_resolver = client.Resolver('/etc/resolv.conf')
-    def mxLookup_onValue( self, context, value ):
+    def mxLookup_on_value( self, context, value ):
         d = defer.Deferred()
-        mxLookup_resolver.lookupMailExchange( value, [3] )\
-            .addBoth( mxLookup_gotResult, d, value, self )
+        mxLookup_resolver.lookupMailExchange( value, [2,4,6,8,10] )\
+            .addBoth( mxLookup_gotResult, d, value, self, context )
 
         return d
 
@@ -796,7 +800,7 @@ def monkeyPatch( ):
     ForEach._on_value = forEach__on_value
     ForEach._createContextChilds_on_value = forEach__createContextChilds_on_value
     Field.validate = field_validate
-    MXLookup.on_value = mxLookup_onValue
+    MXLookup.on_value = mxLookup_on_value
 
     monkeyPatch._isMonkeyPatched = True
 

@@ -424,6 +424,7 @@ class Pass( Validator ):
     def validate( self, context, value ):
         if self.default is PASS:
             return value
+
         return self.default
 
 

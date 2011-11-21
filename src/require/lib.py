@@ -215,6 +215,39 @@ class Context( dict ):
     def error(self):
         return self.__error__.__unicode__()
 
+    @error.setter
+    def error( self, error ):
+        self.__error__ = error
+        e.context = self
+
+        message = e.validator.__messages__[e.key]
+
+        if message is not None:
+            extra = error.data['extra']
+            value = error.value
+            data = error.data
+
+            data['message'] = message
+            if hasattr(error,'realkey'):
+                data['key'] = error.realkey
+
+            extra['value.type'] = getattr(value, '__class__', None) is not None \
+                and getattr(value.__class__,'__name__', False) or 'unknown'
+
+            if isinstance(value,basestring):
+                extra['value'] = value
+            else:
+                extra['value'] = str(value)
+
+            cache = getattr( self, 'cache', None)
+            if cache is not None:
+                extra.update( cache )
+
+            self['error'] = self.__error__.data
+
+            if self.__error__.context.path not in self.root.errorlist:
+                self.root.errorlist.append( self.__error__.context.path )
+
     @property
     def validator(self):
         if not hasattr(self, '__validator__'):
@@ -288,37 +321,7 @@ class Context( dict ):
             result = self.validator.validate( self, self.__value__)
 
         except Invalid as e:
-            self.__error__ = e
-
-            e.context = self
-
-            message = e.validator.__messages__[e.key]
-
-            if message is not None:
-                extra = e.data['extra']
-                value = e.value
-                data = e.data
-
-                data['message'] = message
-                if hasattr(e,'realkey'):
-                    data['key'] = e.realkey
-
-                extra['value.type'] = getattr(value, '__class__', None) is not None \
-                    and getattr(value.__class__,'__name__', False) or 'unknown'
-
-                if isinstance(value,basestring):
-                    extra['value'] = value
-                else:
-                    extra['value'] = str(value)
-
-                cache = getattr( self, 'cache', None)
-                if cache is not None:
-                    extra.update( cache )
-
-                self['error'] = self.__error__.data
-
-                self.root.errorlist.append( self.__error__.context.path )
-
+            self.error = e
             raise e
         else:
             if result is not PASS:
@@ -330,6 +333,7 @@ class Context( dict ):
         finally:
             self.isValidated = True
             self.isValidating = False
+
 
 
 

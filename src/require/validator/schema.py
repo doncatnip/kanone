@@ -11,12 +11,6 @@ import re
 import logging
 log = logging.getLogger(__name__)
 
-class SchemaData:
-
-    def __init__(self, validationFunc, indexFunc=None):
-        self.validationFunc = validationFunc
-        self.indexFunc = indexFunc
-        self.values = None
 
 class Schema( Validator ):
 
