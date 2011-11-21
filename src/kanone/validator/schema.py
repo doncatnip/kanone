@@ -400,7 +400,7 @@ class Field( FieldValidator ):
 
     def validate(self, context, value):
         fieldcontext = self.getField( context, self.path )
-
+        print('fieldcontext: %s' % (fieldcontext,))
         result = PASS
 
         if not self.useResult:
@@ -412,6 +412,7 @@ class Field( FieldValidator ):
             except Invalid:
                 result = PASS
 
+        print('fieldcontext.value: %s' % (result) )
         if self.validator is not None:
             if result is not PASS:
                 result = self.validator.validate( fieldcontext, result )

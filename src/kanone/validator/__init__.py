@@ -6,3 +6,4 @@ from .schema import *
 from . import web
 from . import cache
 from . import alter
+from . import debug

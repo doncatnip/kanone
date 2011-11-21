@@ -151,7 +151,6 @@ context = Context\
         , 'email_confirm': 'BOB@Some.domain.org'
         }
     )
-
 pprint (context('nick').result ) # 'bob'
 # note: the domain part will be lowered ( local part is case-sensitive acc. to specs )
 # you can disable this behaviour by Email(domainPart_toLower=False)
@@ -254,7 +253,7 @@ pprint( json.dumps( context ) ) # '{ lots of not so pretty printed stuff }'
 #_______
 
 
-from require.adapter.native import validate
+from kanone.adapter.native import validate
 
 def onInvalid( error ):
     pprint( error.context )
