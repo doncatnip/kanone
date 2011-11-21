@@ -1,5 +1,5 @@
-require - a validation library
-==============================
+kanone - a validation library
+=============================
 
 Aims to provide a comfortable way to validate any kind of input by defining
 a clonable base ( similar to what formencode does ), implementing a set of
@@ -54,7 +54,7 @@ parameters.
 
 1) create a Validator
 
-    >>> from require import *
+    >>> from kanone import *
     >>> Hello = String() \
         & Tmp( alter.Lower() & In( ['world', 'bob'] ) ) \
         & alter.Format('Hello %(value)s !')
@@ -88,7 +88,7 @@ re-validate
     >>> context.result
     Traceback ( most recent call last):
     ...
-    require.error.Invalid: Invalid type (int), must be a string
+    kanone.error.Invalid: Invalid type (int), must be a string
     >>> context.error
     'Invalid type (int), must be a string'
 
@@ -105,7 +105,7 @@ re-validate
     >>> Hello.context( 42 ).result
     Traceback (most recent call last):
     ...
-    require.error.Invalid: This is not a string, it is a "int" !
+    kanone.error.Invalid: This is not a string, it is a "int" !
 
 ### The errorFormatter
 
@@ -125,7 +125,7 @@ Composing is useful if you want to create reusable Validators from existing ones
 You can *tag* the containing validators to make them adjustable.
 Set parameter/message aliases to combine different tags.
 
-*Note*: Please take a look at `require.validator.web` for advanced
+*Note*: Please take a look at `kanone.validator.web` for advanced
 tag usage, since `DomainLabel`, `Domain`, `EmailLocalPart`, `Email` and `DateField`
 are all composed.
 
@@ -162,7 +162,7 @@ set a tag to be disabled by default with .tag('tagName',False)
     >>> context.result
     Traceback (most recent call last):
     ...
-    require.error.Invalid: Invalid type (int), must be a string
+    kanone.error.Invalid: Invalid type (int), must be a string
 
 
 ## Custom Validators
@@ -183,7 +183,7 @@ set a tag to be disabled by default with .tag('tagName',False)
     >>> q.context( 43 ).result
     Traceback (most recent call last): 
     ...
-    require.error.Invalid: Wrong answer ! Life, the Universe and Everything ?
+    kanone.error.Invalid: Wrong answer ! Life, the Universe and Everything ?
     >>> cheat = q( answer=43 )
     >>> cheat.context( 43 ).result
     43
@@ -197,7 +197,7 @@ or cloned. Use setArguments to set immutable arguments.
 A `Schema` takes dicts or list-likes as input and will return a dict or a list
 if used with returnList=True.
 
-*Note*: please take a look at require.validator.web.Email for some real-world
+*Note*: please take a look at kanone.validator.web.Email for some real-world
 example
 
     >>> HelloSchema = Schema\
@@ -324,7 +324,7 @@ This is farly easy, since a context is a native dict.
 
 ## Using decorators to validate Python functions
 
-    >>> from require.adapter.native import validate
+    >>> from kanone.adapter.native import validate
     >>> from pprint import pprint
     >>> @validate\
     ...     ( Schema\
@@ -376,7 +376,7 @@ Test that function:
     >>> someFunc( 'skipped', 'jack', 42, 3, 2 )
     Traceback (most recent call last):
     ...
-    require.error.Invalid: Invalid(
+    kanone.error.Invalid: Invalid(
         { 'someString': 'jack', 'someInt': 42, 'numbers': [3, 2]
         , 'params': {}}, fail )
 
@@ -387,7 +387,7 @@ You can find a Pylons example app in examples/pylons.
 
 ## Twisted
 
-    >>> from require.adapter import tx
+    >>> from kanone.adapter import tx
     >>> tx.monkeyPatch()
 
 From now on, context.validate() and context.result are returning Deferreds.
