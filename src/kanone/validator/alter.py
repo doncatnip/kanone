@@ -1,4 +1,4 @@
-from ..lib import messages, MISSING, Invalid
+from ..lib import messages, Invalid
 
 from .core import Validator, ValidatorBase
 
@@ -11,7 +11,7 @@ class Lower( Validator ):
     def on_value(self, context, value):
         try:
             return value.lower()
-        except Exception as e:
+        except Exception:
             raise Invalid( value, self, 'type' )
 
 
@@ -120,7 +120,7 @@ class Split( Validator ):
     def on_value( self, context, value):
         try:
             return value.split( self.separator, self.limit )
-        except Exception as e:
+        except Exception:
             raise Invalid( value, self, 'type' )
 
 
@@ -136,7 +136,7 @@ class Join( Validator):
     def on_value( self, context, value):
         try:
             return self.separator.join( value )
-        except Exception as e:
+        except Exception:
             raise Invalid( value, self, 'type' )
 
 class Encode( Validator ):
@@ -193,7 +193,6 @@ class Insert( Validator ):
         self.where = where
 
     def on_value( self, context, value ):
-        result = value
         if ( isinstance( value, basestring ) and isinstance(value,basestring) )\
         or ( isinstance( value, list ) and isinstance( value, list ) ):
             if self.where is 0:

@@ -1,8 +1,7 @@
 from ..error import Invalid
 from ..util import varargs2kwargs, getArgSpec, getParameterNames
-from decorator import decorator
 
-import logging, types
+import logging
 
 log = logging.getLogger(__name__)
 

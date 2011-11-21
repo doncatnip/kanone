@@ -1,8 +1,7 @@
 from ..lib import Context as __Context__, messages, MISSING, PASS, Parameterized, inherit
 from ..error import Invalid
-from copy import copy
 
-import logging,  types
+import logging
 
 log = logging.getLogger(__name__)
 
@@ -412,7 +411,7 @@ class If( ValidatorBase ):
     def validate( self, context, value ):
         try:
             value = self.criteria.validate( context, value )
-        except Invalid as e:
+        except Invalid:
             value = self._else.validate( context, value)
         else:
             value = self._then.validate( context, value )
@@ -450,7 +449,7 @@ class Not( Validator ):
 
     def validate(self, context, value ):
         try:
-            result = self.validator.validate\
+            self.validator.validate\
                 ( context, value )
         except Invalid:
             return value

@@ -6,7 +6,6 @@ from ..error import Invalid
 from .core import ValidatorBase, Validator
 from .check import Match
 
-import re
 
 import logging
 log = logging.getLogger(__name__)
@@ -32,6 +31,7 @@ class Schema( Validator ):
 
         fieldpairs = []
         pos = 0
+        name = None
         for value in _fieldset:
             if pos%2 != 0:
                 fieldpairs.append((name,value))
@@ -331,7 +331,7 @@ class ForEach( Validator ):
         for childContext in childs:
             try:
                 res = childContext.result
-            except Invalid as e:
+            except Invalid:
                 errors.append( childContext.key )
             else:
                 if self.returnList:
@@ -409,7 +409,7 @@ class Field( FieldValidator ):
         else:
             try:
                 result = fieldcontext.result
-            except Invalid as e:
+            except Invalid:
                 result = PASS
 
         if self.validator is not None:

@@ -5,7 +5,7 @@ import sys
 
 from .error import  Invalid
 
-import copy, logging, inspect
+import logging, inspect
 log = logging.getLogger(__name__)
 
 
@@ -311,7 +311,7 @@ class Context( dict ):
         if self.parent is not None:
 
             if not self.parent.isValidated and not self.parent.isValidating:
-                res = self.parent.validate()
+                self.parent.validate()
 
         if self.validator is None:
             raise AttributeError("No validator set for context '%s'" % self.path )

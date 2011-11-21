@@ -728,7 +728,7 @@ def monkeyPatch( ):
         else:
             try:
                 result = yield fieldcontext.result
-            except Invalid as e:
+            except Invalid:
                 result = PASS
 
         if self.validator is not None:
@@ -804,8 +804,7 @@ def monkeyPatch( ):
 
     monkeyPatch._isMonkeyPatched = True
 
-from ..util import varargs2kwargs, getArgSpec, getParameterNames
-from decorator import decorator
+from ..util import getArgSpec, getParameterNames
 
 
 def validateDecorator_gotResult( result, d ):

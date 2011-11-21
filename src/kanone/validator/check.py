@@ -3,7 +3,6 @@ from ..error import Invalid
 
 from .core import Validator, ValidatorBase
 
-import re
 from copy import copy
 
 import logging
