@@ -18,7 +18,7 @@ parameters.
 * Navigation through your data is easily done using
   `context( 'my.child.context' )` once you have created a Context.
 
-* You do not need to maintain a certain order for Fields which are depending
+* You do not need to maintain a certain order for fields which are depending
   on other fields, because validation takes place on demand.
   E.g. this will work:
 
@@ -27,12 +27,12 @@ parameters.
             , 'email' , String()
             )
 
-* Relative access by path of Fields during validation
+* Relative access by path of fields during validation
   ( Field('..someChild') retrieves the value from a child called someChild
     relative to the parent context; root can be addressed by using '/' ).
 
-* Access fields by index during validation ( `Field('.(0)')` will retrieve the
-  value of the first field while `Field('.(-1)')` retrieves the last )
+* Access to fields by index during validation ( `Field('.(0)')` will retrieve
+  the value of the first field while `Field('.(-1)')` retrieves the last )
 
 * Schemas can handle lists natively, because defined fields do have an order.
   One could use them to validate the \*varargs of a function or in chain after
@@ -40,10 +40,10 @@ parameters.
 
 * Easy serialization of the whole context, containing errors and values which
   should be re-populated ( e.g. when your domain validator lowers the input ).
-  Quite handy if you have some RPC service which validates raw Form data
+  Quite handy if you have some RPC service which validates raw form data
   submitted by an ajax call.
 
-* Punycode-aware DomainLabel, Domain, and Email validator.
+* IDNA-aware DomainLabel, Domain, and Email validator.
 
 * experimental Twisted support via monkey patching: write asynchronous
   validators by simply returning Deferreds.
@@ -94,13 +94,17 @@ re-validate
 
 ### Custom error messages
 
-    >>> Hello = String().messages(type='This is not a string, it is a "%(value.type)s" !') \
+    >>> Hello = String().messages\
+            ( type='This is not a string, it is a "%(value.type)s" !'
+            )\
         & Tmp\
             ( alter.Lower()
             & In\
                 ( ['world', 'bob']
-                ).messages(fail='Please enter "bob" or "world", not "%(value)s".')
-            ) \
+                ).messages\
+                    ( fail='Please enter "bob" or "world", not "%(value)s".'
+                    )
+            )\
         & alter.Format('Hello %(value)s !')
     >>> Hello.context( 42 ).result
     Traceback (most recent call last):
@@ -109,9 +113,9 @@ re-validate
 
 ### The errorFormatter
 
-Errors messages are generated on demand and after the validation process, using an
-`errorFormatter`. One can use his own function - which, for example, does the l13n stuff,
-or retrieves messages by a certain error ID.
+Error messages are generated on demand and after the validation process,
+using an `errorFormatter`. One can use his own function - which, for example,
+does the l13n stuff, or retrieves messages by a certain error ID.
 
     >>> context.errorFormatter = lambda context, error:\
         ("Error at %s: %s" % (context.path, error.message ) ) % error.extra
@@ -121,33 +125,34 @@ or retrieves messages by a certain error ID.
 
 ## Composing
 
-Composing is useful if you want to create reusable Validators from existing ones.
-You can *tag* the containing validators to make them adjustable.
+Composing is useful if you want to create reusable Validators from existing
+ones. You can *tag* the containing validators to make them adjustable.
 Set parameter/message aliases to combine different tags.
 
 *Note*: Please take a look at `kanone.validator.web` for advanced
-tag usage, since `DomainLabel`, `Domain`, `EmailLocalPart`, `Email` and `DateField`
-are all composed.
+tag usage, since `DomainLabel`, `Domain`, `EmailLocalPart`, `Email` and
+`DateField` are all composed.
 
     >>> Hello = Compose\
-        ( String().tag('inputType') \
-        & debug.Print('Entered: %(value)s').tag('printInput',False) \
+        ( String().tag('inputType')
+        & debug.Print('Entered: %(value)s').tag('printInput',False)
         & Tmp\
             ( alter.Lower()
             & In\
                 ( ['world', 'bob']
                 ).tag('restrictInput')
-            ) \
+            )
         & alter.Format('Hello %(value)s !').tag('output')
         ).paramAlias\
-        ( restrict='restrictInput_required'
-        ).messageAlias\
-        ( restrict='restrictInput_fail'
-        )
+            ( restrict='restrictInput_required'
+            )\
+         .messageAlias\
+            ( restrict='restrictInput_fail'
+            )
 
-*Note*: An alias points to a [tagName]_[parameterName] or to a list of them or to
-a function returning a list of them. Every tag has an 'enabled' parameter. You can
-set a tag to be disabled by default with .tag('tagName',False)
+*Note*: An alias points to a [tagName]_[parameterName] or to a list of them or
+to a function returning a list of them. Every tag has an 'enabled' parameter.
+You can set a tag to be disabled by default with .tag('tagName',False)
 
     >>> myHello = Hello\
         ( restrict=['there','bob']
@@ -158,11 +163,11 @@ set a tag to be disabled by default with .tag('tagName',False)
     >>> context.result
     Entered: there
     u'Hey there !
-    >>> context.value = 42
+    >>> context.value = 'world'
     >>> context.result
     Traceback (most recent call last):
     ...
-    kanone.error.Invalid: Invalid type (int), must be a string
+    Invalid: Please enter one of ['there', 'bob']
 
 
 ## Custom Validators
@@ -176,7 +181,8 @@ set a tag to be disabled by default with .tag('tagName',False)
     ...
     ...     def on_value( self, context, value ):
     ...         if value != self.answer:
-    ...             raise Invalid( value, self, 'wrong', question=self.question )
+    ...             raise Invalid\
+    ...                 ( value, self, 'wrong', question=self.question )
     ...         return value
     ...
     >>> q = Quiz( 'Life, the Universe and Everything ?', 42 )
@@ -194,7 +200,7 @@ or cloned. Use setArguments to set immutable arguments.
 
 ## Schemas
 
-A `Schema` takes dicts or list-likes as input and will return a dict or a list
+A `Schema` takes dicts or list-likes as input and will return a dict, or a list
 if used with returnList=True.
 
 *Note*: please take a look at kanone.validator.web.Email for some real-world
@@ -346,8 +352,8 @@ This is farly easy, since a context is a native dict.
 
 * You could also use a Schema instead of ForEach, it just have to return a list
   when used with *varargs or a dict when used with **kwargs
-* The order does not matter in the root Schema, as the function will be inspected
-  to convert any input *args, **kwargs into a dict.
+* The order does not matter in the root Schema, as the function will be
+  inspected to convert any input *args, **kwargs into a dict.
 * Use `exclude`/`include` to exclude/include arguments from being validated.
   *vararg and **kwarg names can also be specified here.
 * Use `onInvalid` to specify an error callback. The signature of the error
