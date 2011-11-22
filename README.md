@@ -165,6 +165,7 @@ You can set a tag to be disabled by default with .tag('tagName',False)
     u'Hey there !
     >>> context.value = 'world'
     >>> context.result
+    Entered: world
     Traceback (most recent call last):
     ...
     Invalid: Please enter one of ['there', 'bob']

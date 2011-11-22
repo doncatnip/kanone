@@ -32,9 +32,6 @@ CommonDomainPreValidaton =\
     & UpdateValue().tag('update')
     ).tag('prevalidation')
 
-# We should propably implement a dedicated and therefore
-# faster validator.
-# ( nested And/Or with a few elements still slow things down )
 ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton
     & cache.Set('domainLabel')
@@ -156,7 +153,7 @@ EmailLocalPart = Compose\
         , type='string_type'
         , invalidSymbols='validSymbols_fail'
     ).messages\
-        ( tooLong=u'Email local-part only may be up do %(max)i characters long'
+        ( tooLong=u'Email local-part may only be up to %(max)i characters long'
         , invalidSymbols=u'Localpart contains invalid symbols'
         )
 
@@ -198,9 +195,9 @@ Email = Compose\
         , format = u'Invalid email format ( try my.email@address.com )'
         , localPart_invalidSymbols = u"The part before @ (%(localPart)s) contains invalid symbols"
         , domainPart_restrictToTLD=u"Invalid top level domain %(domainLabel)s, allowed TLD are %(required)s"
-        , domainPart_tooLong=u"Domain part %(domainLabel)s is too long (max %(max)s characters)"
-        , domainPart_format=u"Invalid domain name format (%(domainPart)s)"
-        , domainPart_invalidSymbols=u"Domain part %(domainLabel)s contains invalid characters"
+        , domainPart_tooLong=u"Domain part is too long. Max %(max)s characters allowed per domain label"
+        , domainPart_format=u"Invalid domain name format: %(domainPart)s"
+        , domainPart_invalidSymbols=u"Domain part contains invalid characters: %(domainLabel)s"
         )
 
 
