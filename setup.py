@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name = 'kanone',
-    version = '0.3',
+    version = '0.3.1',
     description='a validation library',
     description_long=open('README.txt').read(),
     author = 'don`catnip',
