@@ -1,12 +1,13 @@
-from .core import Validator, validator2parameter
+from .core import Validator, validator2parameter, messages
 
-from ..lib import messages
 from ..error import Invalid
 
 from datetime import datetime
 
-import logging
+import logging, sys
 log = logging.getLogger(__name__)
+
+_python3 = sys.version_info[0]>=3
 
 class TypeValidator( Validator ):
     __ignoreClassParameters__ = 'convert'
@@ -23,13 +24,11 @@ class TypeValidator( Validator ):
             klass.converter = klass( *args, **kwargs )
         return klass.converter
 
-
+@messages\
+    ( type="Invalid type (%(value.type)s), must be a dictionary"
+    , convert="Could not convert %s(type)s to dict"
+    )
 class Dict( TypeValidator ):
-
-    messages\
-        ( type="Invalid type (%(value.type)s), must be a dictionary"
-        , convert="Could not convert %s(type)s to dict"
-        )
 
     def on_value(self, context, value):
 
@@ -46,13 +45,11 @@ class Dict( TypeValidator ):
 
         return value
 
-
+@messages\
+    ( type="Invalid type (%(value.type)s), must be a list"
+    , convert="Could not convert %(value.type)s to list"
+    )
 class List( TypeValidator ):
-
-    messages\
-        ( type="Invalid type (%(value.type)s), must be a list"
-        , convert="Could not convert %(value.type)s to list"
-        )
 
     def on_value(self, context, value):
         if isinstance(value,set) or isinstance(value,tuple):
@@ -72,12 +69,10 @@ class List( TypeValidator ):
 
         return value
 
-
+@messages\
+    ( type="Invalid type (%(value.type)s), must be a bool"
+    )
 class Boolean( TypeValidator):
-
-    messages\
-        ( type="Invalid type (%(value.type)s), must be a bool"
-        )
 
     def on_value(self, context, value):
         if isinstance(value, int )\
@@ -91,47 +86,51 @@ class Boolean( TypeValidator):
         return value
 
 
+@messages\
+    ( type="Invalid type (%(value.type)s), must be a string"
+    , convert="Could not convert %(value.type)s to string"
+    )
 class String( TypeValidator ):
 
-    messages\
-        ( type="Invalid type (%(value.type)s), must be a string"
-        , encoding='Could not decode "%(value)s" to %(encoding)s'
-        )
-
-    def setParameters( self, convert=False, encoding='utf-8' ):
+    def setParameters( self, convert=False ):
         TypeValidator.setParameters( self, convert )
-        validator2parameter( self, 'encoding', encoding )
 
-    def on_value(self, context, value):
-        if isinstance( value, str):
-            encoding = context.params.encoding
-            try:
-                value = value.decode( encoding )
-            except UnicodeDecodeError:
-                raise Invalid( value, self, 'encoding', encoding=encoding )
-
-        elif not isinstance( value, unicode):
-            encoding = context.params.encoding
+    def on_value_py2( self, context, value ):
+        if not isinstance( value, basestring):
             if not self._convert:
-                raise Invalid( value, self,'type', encoding=encoding )
+                raise Invalid( value, self, 'type' )
             else:
                 try:
-                    value = str(value).decode( encoding )
-                except UnicodeDecodeError:
-                    raise Invalid( value, self,'encoding', encoding=encoding )
+                    value = value.__str__()
+                except AttributeError:
+                    raise Invalid( value, self, 'convert' )
 
         return value
 
+    def on_value(self, context, value):
+        if not isinstance( value, str):
+            if not self._convert:
+                raise Invalid( value, self, 'type' )
+            else:
+                try:
+                    value = value.__str__()
+                except AttributeError:
+                    raise Invalid( value, self, 'convert' )
 
+
+        return value
+
+if not _python3:
+    String.on_value = String.on_value_py2
+
+@messages\
+    ( type="Invalid type (%(value.type)s), must be a integer"
+    , convert="Could not convert %(value.type)s to integer"
+    )
 class Integer( TypeValidator ):
 
-    messages\
-        ( type="Invalid type (%(value.type)s), must be a integer"
-        , convert="Could not convert %(value.type)s to integer"
-        )
-
     def on_value(self, context, value):
-        if not isinstance( value, int ) and not isinstance( value, long):
+        if not isinstance( value, int ) and not isinstance( value, int):
             if not self._convert:
                 raise Invalid( value, self,'type' )
             try:
@@ -141,12 +140,11 @@ class Integer( TypeValidator ):
 
         return value
 
-
+@messages\
+    ( type="Invalid type (%(value.type)s), must be a floating point number"
+    , convert="Could not convert %(value.type)s to a floating point number"
+    )
 class Float( TypeValidator ):
-    messages\
-        ( type="Invalid type (%(value.type)s), must be a floating point number"
-        , convert="Could not convert %(value.type)s to a floating point number"
-        )
 
     def on_value(self, context, value):
         if not isinstance(value,float):
@@ -159,13 +157,11 @@ class Float( TypeValidator ):
 
         return value
 
-
+@messages\
+    ( type="Invalid type (%(value.type)s), must be a datetime"
+    , convert='Could not convert "%(value)s"(%(value.type)s) to a datetime'
+    )
 class DateTime( Validator ):
-
-    messages\
-        ( type="Invalid type (%(value.type)s), must be a datetime"
-        , convert='Could not convert "%(value)s"(%(value.type)s) to a datetime'
-        )
 
     def setParameters( self, formatter="%Y-%m-%d", convert=False ):
         self._convert = convert

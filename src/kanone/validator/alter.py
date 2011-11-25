@@ -1,12 +1,12 @@
-from ..lib import messages, Invalid
+from ..lib import Invalid
 
-from .core import Validator, ValidatorBase
+from .core import Validator, ValidatorBase, messages
 
+@messages\
+    ( type = "Values of type %(value.type)s can not be lowered"
+    )
 class Lower( Validator ):
 
-    messages\
-        ( type = u"Values of type %(value.type)s can not be lowered"
-        )
 
     def on_value(self, context, value):
         try:
@@ -14,12 +14,11 @@ class Lower( Validator ):
         except Exception:
             raise Invalid( value, self, 'type' )
 
-
+@messages\
+    ( type = "Cannot format type %(value.type)s"
+    )
 class Format( Validator ):
 
-    messages\
-        ( type = u"Cannot format type %(value.type)s"
-        )
 
     def setParameters( self, formatter, **parameters ):
         self.formatter = formatter
@@ -29,25 +28,23 @@ class Format( Validator ):
         parameters = dict(self.parameters)
         parameters['value'] = value
 
-        if not isinstance( self.formatter, basestring ):
+        if not isinstance( self.formatter, str ):
             raise Invalid( value, self, 'type' )
         try:
             return self.formatter % parameters
         except Exception:
             raise Invalid( value, self )
-
+@messages\
+    ( type = "Cannot update type %(value.type)s"
+    )
 class DictUpdate( Validator ):
-
-    messages\
-        ( type = u"Cannot update type %(value.type)s"
-        )
 
     def setParameters( self, **parameters ):
         self.parameters = parameters
 
     def on_value(self, context, value ):
         toUpdate = {}
-        for (key,param) in self.parameters.iteritems():
+        for (key,param) in self.parameters.items():
             if isinstance(param,ValidatorBase):
                 param = param.validate( context, value )
             toUpdate[key] = param
@@ -78,13 +75,10 @@ class Replace( Validator ):
         except AttributeError:
             raise self.invalid(context,'type',type=value.__class__.__name__)
 """
-
+@messages\
+    ( type = "Can not eliminate white spaces in values of type %(value.type)s"
+    )
 class EliminateWhiteSpace( Validator ):
-
-    messages\
-        ( type = u"Can not eliminate white spaces in values of type %(value.type)s"
-        )
-
 
     def on_value( self, context, value):
         try:
@@ -92,13 +86,10 @@ class EliminateWhiteSpace( Validator ):
         except AttributeError:
             raise Invalid( value, self, 'type' )
 
-
+@messages\
+    ( type = "Can not strip white spaces in values of type %(value.type)s"
+    )
 class Strip( Validator ):
-
-    messages\
-        ( type = u"Can not strip white spaces in values of type %(value.type)s"
-        )
-
 
     def on_value( self, context, value):
         try:
@@ -106,12 +97,10 @@ class Strip( Validator ):
         except AttributeError:
             raise Invalid( value, self, 'type' )
 
-
+@messages\
+    ( type = "Can not split values of type %(value.type)s"
+    )
 class Split( Validator ):
-
-    messages\
-        ( type = u"Can not split values of type %(value.type)s"
-        )
 
     def setParameters(self, separator=None, limit=-1):
         self.separator = separator
@@ -123,12 +112,10 @@ class Split( Validator ):
         except Exception:
             raise Invalid( value, self, 'type' )
 
-
+@messages\
+    ( type = "Can not join values of type %(value.type)s"
+    )
 class Join( Validator):
-
-    messages\
-        ( type = u"Can not join values of type %(value.type)s"
-        )
 
     def setParameters(self, separator=''):
         self.separator = separator
@@ -139,12 +126,11 @@ class Join( Validator):
         except Exception:
             raise Invalid( value, self, 'type' )
 
+@messages\
+    ( type = "Can not encode %(value.type)s to %(format)s"
+    , fail = "%(value)s cannot be encoded to %(format)s"
+    )
 class Encode( Validator ):
-
-    messages\
-        ( type = u"Can not encode %(value.type)s to %(format)s"
-        , fail = u"%(value)s cannot be encoded to %(format)s"
-        )
 
     def setParameters( self, format ):
         self.format = format
@@ -160,12 +146,11 @@ class Encode( Validator ):
 
         return value
 
+@messages\
+    ( type = "Can not decode %(value.type)s to %(format)s"
+    , fail = "%(value)s cannot be decoded to %(format)s"
+    )
 class Decode( Validator ):
-
-    messages\
-        ( type = u"Can not decode %(value.type)s to %(format)s"
-        , fail = u"%(value)s cannot be decoded to %(format)s"
-        )
 
     def setParameters( self, format ):
         self.format = format
@@ -181,19 +166,18 @@ class Decode( Validator ):
 
         return value
 
+@messages\
+    ( type = "Unsupported type for insertion (%(value.type)s)"
+    , fail = "Can not insert %(what)s at %(where)i"
+    )
 class Insert( Validator ):
-
-    messages\
-        ( type = u"Unsupported type for insertion (%(value.type)s)"
-        , fail = u"Can not insert %(what)s at %(where)i"
-        )
 
     def setParameters( self, what, where=0 ):
         self.what = what
         self.where = where
 
     def on_value( self, context, value ):
-        if ( isinstance( value, basestring ) and isinstance(value,basestring) )\
+        if ( isinstance( value, str ) and isinstance(value,str) )\
         or ( isinstance( value, list ) and isinstance( value, list ) ):
             if self.where is 0:
                 return self.what + value

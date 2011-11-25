@@ -1,29 +1,26 @@
 # -*- coding: utf-8 -*-
 
-from ..lib import PASS, MISSING, messages, inherit
+from ..lib import PASS, MISSING, inherit
 from ..error import Invalid
 
-from .core import ValidatorBase, Validator
+from .core import ValidatorBase, Validator, messages
 from .check import Match
 
 
 import logging
 log = logging.getLogger(__name__)
 
-
+@inherit\
+    ( 'validators'
+    , 'keyIndexRelation'
+    , 'index'
+    )
+@messages\
+    ( fail=None
+    , extraFields='No extra fields allowed (extra fields: %(extraFields)s)'
+    , type='Invalid input type (%(value.type)s) - must be dict, list or tuple.'
+    )
 class Schema( Validator ):
-
-    inherit\
-        ( 'validators'
-        , 'keyIndexRelation'
-        , 'index'
-        )
-
-    messages\
-        ( fail=None
-        , extraFields='No extra fields allowed (extra fields: %(extraFields)s)'
-        , type='Invalid input type (%(value.type)s) - must be dict, list or tuple.'
-        )
 
     def setArguments( self, *_fieldset ):
         if not hasattr(self,'__fieldset__') and ((len(_fieldset)%2 != 0) or (len(_fieldset)<2)):
@@ -59,7 +56,7 @@ class Schema( Validator ):
 
 
     def appendSubValidators( self, subValidators ):
-        for validator in self.validators.values():
+        for validator in list(self.validators.values()):
             validator.appendSubValidators( subValidators )
             subValidators.append(validator)
 
@@ -81,7 +78,7 @@ class Schema( Validator ):
             if isList:
                 extraFields = max( len(value), len(self.index) )
             else:
-                extraFields = value.keys()
+                extraFields = list(value.keys())
 
         if self.returnList:
             result = []
@@ -90,7 +87,7 @@ class Schema( Validator ):
 
         numValues = len(value)
 
-        for pos in xrange(len(self.index)):
+        for pos in range(len(self.index)):
             key = self.index[pos]
             if isList:
                 if numValues>pos:
@@ -128,7 +125,7 @@ class Schema( Validator ):
             if isList:
                 extraFields = max( len(value), len(self.index) )
             else:
-                extraFields = value.keys()
+                extraFields = list(value.keys())
 
         errors = []
 
@@ -142,7 +139,7 @@ class Schema( Validator ):
         len_index = len(self.index)
 
         # populate
-        for pos in xrange(len_index):
+        for pos in range(len_index):
             key = self.index[pos]
             childContext = context( key )
             try:
@@ -208,15 +205,13 @@ class Schema( Validator ):
 
         return (validators,index,keyIndexRelation)
 
-
+@messages\
+    ( fail=None
+    , numericKeys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
+    , type='Invalid input type (%(value.type)s) - must be dict, list, tuple or set'
+    , listType='Invalid input type (must be list, tuple or set)'
+    )
 class ForEach( Validator ):
-
-    messages\
-        ( fail=None
-        , numericKeys='Invalid keys, please use 0,1,2,... (keys: %(keys)s)'
-        , type='Invalid input type (%(value.type)s) - must be dict, list, tuple or set'
-        , listType='Invalid input type (must be list, tuple or set)'
-        )
 
     def setParameters\
         ( self
@@ -257,11 +252,11 @@ class ForEach( Validator ):
                 raise Invalid( value, self,'type' )
 
         if isList or self.numericKeys:
-            for pos in xrange( len( value ) ):
+            for pos in range( len( value ) ):
                 if not isList:
                     val = value.get(str(pos),MISSING)
                     if val is MISSING:
-                        raise Invalid( value, self, 'numericKeys', keys=value.keys() )
+                        raise Invalid( value, self, 'numericKeys', keys=list(value.keys()) )
                 else:
                     val = value[pos]
 
@@ -272,7 +267,7 @@ class ForEach( Validator ):
                 else:
                     result[pos] = res
         else:
-            for (key, val) in value.iteritems():
+            for (key, val) in value.items():
 
                 res = self.validator.validate( context, val )
 
@@ -301,12 +296,12 @@ class ForEach( Validator ):
         if isList or self.numericKeys:
             context.setIndexFunc( lambda index: str(index) )
 
-            for pos in xrange( len( value ) ):
+            for pos in range( len( value ) ):
                 if not isList:
                     val = value.get(str(pos),MISSING)
                     if value.get(str(pos),MISSING) is MISSING:
                         context.setIndexFunc( None )
-                        raise Invalid( value, self, 'numericKeys',keys=value.keys())
+                        raise Invalid( value, self, 'numericKeys',keys=list(value.keys()))
 
                 else:
                     val = value[ pos ]
@@ -321,7 +316,7 @@ class ForEach( Validator ):
 
             if self.returnList:
                 raise Invalid( value, self, 'listType' )
-            for (key,val) in value.iteritems():
+            for (key,val) in value.items():
                 contextChild = context( key )
                 contextChild.validator = self.validator
                 contextChild.__value__ = val
@@ -374,12 +369,10 @@ class FieldValidator( Validator ):
 
         return fieldcontext
 
-
+@messages\
+    ( noResult='Field %(path)s has no result'
+    )
 class Field( FieldValidator ):
-
-    messages\
-        ( noResult='Field %(path)s has no result'
-        )
 
     def setParameters(self, path, criteria=None, useResult=False, copy=False, writeToContext=False):
         self.path = path
@@ -400,7 +393,7 @@ class Field( FieldValidator ):
 
     def validate(self, context, value):
         fieldcontext = self.getField( context, self.path )
-        print('fieldcontext: %s' % (fieldcontext,))
+        print(('fieldcontext: %s' % (fieldcontext,)))
         result = PASS
 
         if not self.useResult:
@@ -412,7 +405,7 @@ class Field( FieldValidator ):
             except Invalid:
                 result = PASS
 
-        print('fieldcontext.value: %s' % (result) )
+        print(('fieldcontext.value: %s' % (result) ))
         if self.validator is not None:
             if result is not PASS:
                 result = self.validator.validate( fieldcontext, result )

@@ -5,12 +5,14 @@ from twisted.internet import defer
 from ..lib import Invalid
 from ..util import varargs2kwargs
 
-import logging
+import logging, sys
 log = logging.getLogger( __name__ )
 
 # hacky and redundant, but it'll do for now ..
 # TODO: move to proper twisted specific classes under .tx.*
 #       and get rid of the monkey
+
+_python3 = sys.version_info[0]>=3
 
 def monkeyPatch( ):
     if getattr( monkeyPatch,'_isMonkeyPatched',False):
@@ -97,7 +99,7 @@ def monkeyPatch( ):
             extra['value.type'] = getattr(value, '__class__', None) is not None \
                 and getattr(value.__class__,'__name__', False) or 'unknown'
 
-            if isinstance(value,basestring):
+            if isinstance(value,str) or not _python3 and isinstance(value,basestring):
                 extra['value'] = value
             else:
                 extra['value'] = str(value)
@@ -439,7 +441,7 @@ def monkeyPatch( ):
             if isList:
                 extraFields = max( len(value), len(self.index) )
             else:
-                extraFields = value.keys()
+                extraFields = list(value.keys())
 
         if self.returnList:
             result = []
@@ -450,7 +452,7 @@ def monkeyPatch( ):
         jobs = []
 
         errorset = []
-        for pos in xrange(len(self.index)):
+        for pos in range(len(self.index)):
             key = self.index[pos]
             if isList:
                 if numValues>pos:
@@ -503,7 +505,7 @@ def monkeyPatch( ):
             if isList:
                 extraFields = max( len(value), len(self.index) )
             else:
-                extraFields = value.keys()
+                extraFields = list(value.keys())
 
         errors = []
 
@@ -516,7 +518,7 @@ def monkeyPatch( ):
         len_index = len(self.index)
 
         # populate
-        for pos in xrange(len_index):
+        for pos in range(len_index):
             key = self.index[pos]
             childContext = context( key )
             try:
@@ -578,11 +580,11 @@ def monkeyPatch( ):
         errorset = []
         jobs = []
         if isList or self.numericKeys:
-            for pos in xrange( len( value ) ):
+            for pos in range( len( value ) ):
                 if not isList:
                     val = value.get(str(pos),MISSING)
                     if val is MISSING:
-                        raise Invalid( value, self, 'numericKeys', keys=value.keys() )
+                        raise Invalid( value, self, 'numericKeys', keys=list(value.keys()) )
                 else:
                     val = value[pos]
                 key = str(pos)
@@ -604,7 +606,7 @@ def monkeyPatch( ):
                             )
                     )
         else:
-            for (key, val) in value.iteritems():
+            for (key, val) in value.items():
 
                 jobs.append\
                     ( defer.maybeDeferred\
@@ -656,12 +658,12 @@ def monkeyPatch( ):
         if isList or self.numericKeys:
             context.setIndexFunc( lambda index: str(index) )
 
-            for pos in xrange( len( value ) ):
+            for pos in range( len( value ) ):
                 if not isList:
                     val = value.get(str(pos),MISSING)
                     if value.get(str(pos),MISSING) is MISSING:
                         context.setIndexFunc( None )
-                        raise Invalid( value, self, 'numericKeys',keys=value.keys())
+                        raise Invalid( value, self, 'numericKeys',keys=list(value.keys()))
 
                 else:
                     val = value[ pos ]
@@ -676,7 +678,7 @@ def monkeyPatch( ):
 
             if self.returnList:
                 raise Invalid( value, self, 'listType' )
-            for (key,val) in value.iteritems():
+            for (key,val) in value.items():
                 contextChild = context( key )
                 contextChild.validator = self.validator
                 contextChild.__value__ = val
@@ -891,7 +893,7 @@ def validateDecorator( validator, method, include, exclude, onInvalid ):
         if keywords is not False:
             restKwargs = dict(\
                 ( key, fkwargs.pop(key))\
-                    for key in fkwargs.keys() if key not in methodParameterNames
+                    for key in list(fkwargs.keys()) if key not in methodParameterNames
                 )
             fkwargs[ keywords ] = restKwargs
 

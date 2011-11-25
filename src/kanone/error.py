@@ -1,3 +1,6 @@
+import sys
+_python3 = sys.version_info[0]>=3
+
 class Invalid(BaseException):
     context = None
 
@@ -27,7 +30,10 @@ class Invalid(BaseException):
         return 'Invalid(%s, %s)' % (self.value, self.key)
 
     def __str__(self):
-        return self.__unicode__().encode('utf8')
+        text = self.__unicode__()
+        if not _python3:
+            return text.encode('utf8')
+        return text
 
     def __unicode__(self):
         if self.context is not None and self.message is not None:

@@ -6,5 +6,5 @@ class Print( ValidatorBase ):
         self.formatter=formatter
 
     def validate( self, context, value):
-        print ( self.formatter % {'value':value} )
+        print(( self.formatter % {'value':value} ))
         return value

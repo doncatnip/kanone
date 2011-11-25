@@ -37,7 +37,7 @@ def validateDecorator( validator, method, include, exclude, onInvalid ):
         if keywords is not False:
             restKwargs = dict(\
                 ( key, fkwargs.pop(key))\
-                    for key in fkwargs.keys() if key not in methodParameterNames
+                    for key in list(fkwargs.keys()) if key not in methodParameterNames
                 )
             fkwargs[ keywords ] = restKwargs
 

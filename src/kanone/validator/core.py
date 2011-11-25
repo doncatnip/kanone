@@ -1,16 +1,28 @@
-from ..lib import Context as __Context__, messages, MISSING, PASS, Parameterized, inherit
+from ..lib import Context as __Context__, MISSING, PASS, inherit, Parameterized
 from ..error import Invalid
 
 import logging
+from functools import reduce
 
 log = logging.getLogger(__name__)
 
 #### Basic stuff
 
+def messages( **_messages ):
+    def decorate( klass ):
+        klassMessages = dict(getattr(klass,'__messages__', {} ))
+        klassMessages.update( _messages )
+
+        setattr( klass, '__messages__', klassMessages )
+        return klass
+
+    return decorate
+
+
 def validator2parameter( hostValidator, name, param, force=False ):
     paramWrapper =  getattr(hostValidator,'__paramWrapper__',None)
     if not paramWrapper:
-        class ParamWrapper():
+        class ParamWrapper:
             def __init__( self, context, value ):
                 self.__context = context
                 self.__value = value
@@ -34,7 +46,7 @@ def validator2parameter( hostValidator, name, param, force=False ):
             raise SyntaxError('Parameter has to be a validator')
         prop = param
         
-    paramWrapper.__dict__[name] = prop
+    setattr( paramWrapper, name, prop )
 
 
 # validators without messages and changeable parameters should derive from this
@@ -78,17 +90,15 @@ class ValidatorBase(object):
     def context( self, value=MISSING ):
         return __Context__( self, value )
 
+@messages\
+    ( fail='Validation failed'
+    , missing= 'Please provide a value'
+    , blank='Field cannot be empty'
+    )
+@inherit\
+    ( '__messages__'
+    )
 class Validator( ValidatorBase, Parameterized ):
-
-    messages\
-        ( fail='Validation failed'
-        , missing= 'Please provide a value'
-        , blank='Field cannot be empty'
-        )
-
-    inherit\
-        ( '__messages__'
-        )
 
     def __init__( self, *args, **kwargs ):
         Parameterized.__init__( self, *args, **kwargs )
@@ -168,7 +178,7 @@ def _parseTaggedKeywords( kwargs, alias ):
 
     tagKwargs = {}
 
-    for (key,value) in kwargs.iteritems():
+    for (key,value) in kwargs.items():
         if key.startswith('_'):
             continue
 
@@ -178,7 +188,7 @@ def _parseTaggedKeywords( kwargs, alias ):
                     _setParsedKeywordArg( tagKwargs, realKey, value )
             elif hasattr( alias[key], '__call__' ):
                 realKwargs = alias[key]( key, value )
-                for (realKey, realValue) in realKwargs.iteritems():
+                for (realKey, realValue) in realKwargs.items():
                     _setParsedKeywordArg( tagKwargs, realKey, realValue )
             else:
                 _setParsedKeywordArg( tagKwargs, alias[key], value )
@@ -188,7 +198,14 @@ def _parseTaggedKeywords( kwargs, alias ):
 
     return tagKwargs
 
-
+@inherit\
+    ( '__paramAlias__'
+    , '__messageAlias__'
+    , 'tagIDs'
+    , 'taggedValidators'
+    , 'currentTaggedValidators'
+    , 'validator'
+    )
 class Compose( Validator ):
 
     """
@@ -205,14 +222,6 @@ class Compose( Validator ):
 
     # stuff defined here will be inherited by childs of this Validator
 
-    inherit\
-        ( '__paramAlias__'
-        , '__messageAlias__'
-        , 'tagIDs'
-        , 'taggedValidators'
-        , 'currentTaggedValidators'
-        , 'validator'
-        )
 
     __paramAlias__ = None
     __messageAlias__ = None
@@ -252,7 +261,7 @@ class Compose( Validator ):
             self.taggedValidators = dict( self.taggedValidators )
             self.currentTaggedValidators = dict( self.currentTaggedValidators )
 
-        for (tagName, args) in taggedKwargs.iteritems():
+        for (tagName, args) in taggedKwargs.items():
             tagIDs = self.tagIDs.get( tagName, None )
 
             if tagIDs is None:
@@ -298,7 +307,7 @@ class Compose( Validator ):
 
         notFound = []
 
-        for (tagName,args) in taggedKwargs.iteritems():
+        for (tagName,args) in taggedKwargs.items():
             tagIDs = self.tagIDs.get(tagName,None)
             if tagIDs is None:
                 notFound.append( tagName )
@@ -351,13 +360,11 @@ class Tmp( ValidatorBase ):
 
         return value
 
-
+@messages\
+    ( type='Unsupported type, must be list-like or dict'
+    , notFound='Item %(key)s not found'
+    )
 class Item( Validator ):
-
-    messages\
-        ( type='Unsupported type, must be list-like or dict'
-        , notFound='Item %(key)s not found'
-        )
 
     def setParameters( self, key=1, validator=None, alter=None ):
         if not validator and alter:
@@ -429,16 +436,13 @@ class Pass( Validator ):
 
         return self.default
 
-
+@messages\
+    ( fail='Field must not match criteria'
+    )
+@inherit\
+    ( 'validator'
+    )
 class Not( Validator ):
-
-    messages\
-        ( fail='Field must not match criteria'
-        )
-
-    inherit\
-        ( 'validator'
-        )
 
     def setArguments(self, criteria):
         self.validator = criteria

@@ -1,19 +1,21 @@
-from ..lib import messages, PASS, MISSING
+from ..lib import PASS, MISSING
 from ..error import Invalid
 
-from .core import Validator, ValidatorBase
+from .core import Validator, ValidatorBase, messages
 
 from copy import copy
 
-import logging
+import logging, sys
+
+_python3 = sys.version_info[0]>=3
+
 log = logging.getLogger(__name__)
 
 
+@messages\
+    ( fail='This field must be left out'
+    )
 class Missing( Validator ):
-
-    messages\
-        ( fail='This field must be left out'
-        )
 
     def setParameters(self, default=PASS ):
         self.default = default
@@ -25,12 +27,10 @@ class Missing( Validator ):
         if self.default is PASS:
             return MISSING
         return copy(self.default)
-
+@messages\
+    ( fail='This field must be blank'
+    )
 class Blank( Validator ):
-
-    messages\
-        ( fail='This field must be blank'
-        )
 
     def setParameters( self, default = PASS ):
         self.default = default
@@ -47,7 +47,7 @@ class Blank( Validator ):
             n = MISSING
             if len(value) > 0:
                 if isinstance( value, dict):
-                    for (key, val) in value.iteritems():
+                    for (key, val) in value.items():
                         if val not in [ MISSING, None, '']:
                             n = value
                             break
@@ -67,19 +67,17 @@ class Blank( Validator ):
             return value
         return copy(self.default)
 
-
+@messages\
+    ( fail='This field must be empty (missing or blank)'
+    )
 class Empty( Blank, Missing ):
-
-    messages\
-        ( fail='This field must be empty (missing or blank)'
-        )
+    pass
 
 
+@messages\
+    ( fail='Value must match %(criteria)s'
+    )
 class Match( Validator ):
-
-    messages\
-        ( fail='Value must match %(criteria)s'
-        )
 
     RAW         = 'Match_RAW'
     REGEX       = 'Match_REGEX'
@@ -103,8 +101,9 @@ class Match( Validator ):
             subValidators.append( self.required )
 
     def on_value(self, context, value ):
-
         if self.type is Match.REGEX:
+            if _python3 and isinstance( value, bytes):
+                value = value.decode('utf8')
             if not self.required.match(value):
                 raise Invalid( value, self, matchType=self.type, criteria=self.required.pattern)
             return value
@@ -137,14 +136,12 @@ class Match( Validator ):
         return Validator.on_blank( self, context, value )
 
 
-
+@messages\
+    ( type="Can not get len from values of type %(value.type)s"
+    , min="Value must have at least %(min)i elements/characters (has %(len)s)"
+    , max="Value cannot have more than least%(max)i elements/characters (has %(len)s)"
+    )
 class Len( Validator ):
-
-    messages\
-        ( type="Can not get len from values of type %(value.type)s"
-        , min="Value must have at least %(min)i elements/characters (has %(len)s)"
-        , max="Value cannot have more than least%(max)i elements/characters (has %(len)s)"
-        )
 
     def setParameters(self, min=1, max=None, returnLen=False):
         self.min = min
@@ -167,11 +164,10 @@ class Len( Validator ):
         else:
             return value
 
-
+@messages\
+    ( fail="Value must be one of %(required)s"
+    )
 class In( Validator ):
-    messages\
-        ( fail="Value must be one of %(required)s"
-        )
 
     def setParameters( self, required ):
         self.required = required

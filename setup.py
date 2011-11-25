@@ -1,7 +1,4 @@
-from setuptools import setup,find_packages
-import glob
-
-import subprocess, shlex
+from setuptools import setup, find_packages
 
 setup(
     name = 'kanone',

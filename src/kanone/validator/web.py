@@ -1,8 +1,8 @@
 import re
 
-from ..lib import messages, Invalid
+from ..lib import Invalid
 
-from .core import ValidatorBase, Validator, Compose, Tmp, Item, Call, If
+from .core import ValidatorBase, Validator, Compose, Tmp, Item, Call, If, messages
 from .basic import String, Dict, DateTime
 from .alter import Encode, Decode, Lower, EliminateWhiteSpace, Split, Join, UpdateValue
 from .check import Match, In, Len
@@ -10,11 +10,10 @@ from .schema import Schema, ForEach
 
 from . import cache
 
+@messages\
+    ( fail='Domain offers no mailserver'
+    )
 class MXLookup( Validator ):
-
-    messages\
-        ( fail='Domain offers no mailserver'
-        )
 
     def on_value( self, context, value ):
         import DNS
@@ -36,8 +35,8 @@ ComposedDomainLabel = Compose\
     ( CommonDomainPreValidaton
     & cache.Set('domainLabel')
     &   If  ( Match( re.compile(r'^xn--') )
-            , Tmp( Decode('idna').tag('decodeIdna') & cache.Set('domainLabelUnicode') )
-            , cache.Set('domainLabelUnicode') & Encode('idna').tag('encodeIdna')
+            , Tmp( Encode('utf8') & Decode('idna').tag('decodeIdna') & cache.Set('domainLabelUnicode') )
+            , cache.Set('domainLabelUnicode') & Encode('idna').tag('encodeIdna') & Decode('utf8')
             ).tag('idna')
     & cache.Set('domainLabel')
     & Len(max=63).tag('length')
@@ -64,9 +63,9 @@ ComposedDomainLabel = Compose\
             )
         , missing="string_missing"
     ).messages\
-        ( blank=u'Please provide a value'
-        , tooLong=u'A domain label can have max %(max)i characters'
-        , invalidSymbols=u'The domain name contains invalid symbols'
+        ( blank='Please provide a value'
+        , tooLong='A domain label can have max %(max)i characters'
+        , invalidSymbols='The domain name contains invalid symbols'
         )
 
 
@@ -83,8 +82,9 @@ def __restrictToTLDSetter( alias, param ):
 
 def __domain_save_nonidna( context, value ):
     domainName = context.cache.get('domainName',None)
+    
     if domainName is None:
-        context.cache['domainName'] = domainName = ''
+        domainName = ''
     else:
         domainName += '.'
 
@@ -128,10 +128,10 @@ Domain = Compose\
         , invalidSymbols='domainLabel_invalidSymbols'
         , resolve='mxLookup_fail'
     ).messages\
-        ( blank=u"Please provide a value"
-        , format=u'Invalid domain name format, try my.domain.com'
-        , restrictToTLD= u'TLD not allowed. Allowed TLDs are %(required)s'
-        , tooLong=u"A domain label cannot exceed %(max)i characters"
+        ( blank="Please provide a value"
+        , format='Invalid domain name format, try my.domain.com'
+        , restrictToTLD= 'TLD not allowed. Allowed TLDs are %(required)s'
+        , tooLong="A domain label cannot exceed %(max)i characters"
         )
 
 
@@ -153,8 +153,8 @@ EmailLocalPart = Compose\
         , type='string_type'
         , invalidSymbols='validSymbols_fail'
     ).messages\
-        ( tooLong=u'Email local-part may only be up to %(max)i characters long'
-        , invalidSymbols=u'Localpart contains invalid symbols'
+        ( tooLong='Email local-part may only be up to %(max)i characters long'
+        , invalidSymbols='Localpart contains invalid symbols'
         )
 
 
@@ -191,13 +191,13 @@ Email = Compose\
             , 'domainPart_blank'
             )
     ).messages\
-        ( blank = u'Please enter an email address'
-        , format = u'Invalid email format ( try my.email@address.com )'
-        , localPart_invalidSymbols = u"The part before @ (%(localPart)s) contains invalid symbols"
-        , domainPart_restrictToTLD=u"Invalid top level domain %(domainLabel)s, allowed TLD are %(required)s"
-        , domainPart_tooLong=u"Domain part is too long. Max %(max)s characters allowed per domain label"
-        , domainPart_format=u"Invalid domain name format: %(domainPart)s"
-        , domainPart_invalidSymbols=u"Domain part contains invalid characters: %(domainLabel)s"
+        ( blank = 'Please enter an email address'
+        , format = 'Invalid email format ( try my.email@address.com )'
+        , localPart_invalidSymbols = "The part before @ (%(localPart)s) contains invalid symbols"
+        , domainPart_restrictToTLD="Invalid top level domain %(domainLabel)s, allowed TLD are %(required)s"
+        , domainPart_tooLong="Domain part is too long. Max %(max)s characters allowed per domain label"
+        , domainPart_format="Invalid domain name format: %(domainPart)s"
+        , domainPart_invalidSymbols="Domain part contains invalid characters: %(domainLabel)s"
         )
 
 
@@ -213,7 +213,7 @@ DateField = Compose\
     ).messageAlias\
         ( format='dateTimeConverter_convert'
     ).messages\
-        ( format=u'Invalid date format ( try YY(YY)-MM-DD or DD.MM.YY(YY) )'
+        ( format='Invalid date format ( try YY(YY)-MM-DD or DD.MM.YY(YY) )'
         )
 
 
@@ -223,7 +223,7 @@ class NestedPostConverter( ValidatorBase ):
     def validate( self, context, value ):
         resultset = {}
 
-        for (key, val) in value.iteritems():
+        for (key, val) in value.items():
             parts = key.split('.')
 
             result = resultset

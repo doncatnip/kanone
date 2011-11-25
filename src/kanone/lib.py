@@ -29,6 +29,8 @@ def _append_list(klass, key, data):
         )
 
 def _merge_dict(klass, key, data):
+    log.debug('merge dict %s in %s' % ( key, klass ))
+
     fields = dict(getattr\
         ( klass
         , '__%s__' % key
@@ -43,6 +45,8 @@ def _merge_dict(klass, key, data):
         , fields
         )
    
+    log.debug('%s.__%s__ = %s' % (  klass, key, getattr( klass, key ) ))
+
 def _merge_fields(klass, key, fields):
     if (len(fields)%2 != 0) or (len(fields)<2):
         raise SyntaxError("Invalid number of fields supplied (%s). Use: %s(key, value, key, value, …)" % (len(fields),key))
@@ -78,10 +82,11 @@ def _merge_fields(klass, key, fields):
         , newfields
         )
 
+
 def _callback(klass):
     advice_data = klass.__dict__['__advice_data__']
 
-    for key,(data, callback)  in advice_data.iteritems():
+    for key,(data, callback)  in advice_data.items():
         callback( klass, key, data)
 
     del klass.__advice_data__
@@ -118,11 +123,16 @@ def post_validate(*validators):
 def fieldset(*fields):
     _advice('fieldset', _merge_fields, fields )
 
+"""
 def messages(**fields):
     _advice('messages', _merge_dict, fields )
+"""
 
+"""
 def inherit(*keys):
     _advice('inherit', _append_list, keys)
+"""
+
 
 
 def defaultErrorFormatter( context, error ):
@@ -234,7 +244,7 @@ class Context( dict ):
             extra['value.type'] = getattr(value, '__class__', None) is not None \
                 and getattr(value.__class__,'__name__', False) or 'unknown'
 
-            if isinstance(value,basestring):
+            if isinstance(value,str):
                 extra['value'] = value
             else:
                 extra['value'] = str(value)
@@ -502,3 +512,14 @@ class Parameterized:
                 , names
                 )
         return klass.__parameterNames__
+
+def inherit( *members ):
+    def decorate( klass ):
+        klassInherits = list(getattr(klass,'__inherit__', [] ))
+        klassInherits += members
+
+        setattr( klass, '__inherit__', klassInherits )
+        return klass
+
+    return decorate
+
