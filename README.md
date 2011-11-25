@@ -173,8 +173,8 @@ You can set a tag to be disabled by default with .tag('tagName',False)
 
 ## Custom Validators
 
-    >>> class Quiz( Validator ):
-    ...     messages( wrong='Wrong answer ! %(question)s' )
+    >>> @messages( wrong='Wrong answer ! %(question)s' )
+    ... class Quiz( Validator ):
     ...
     ...     def setParameters( self, question, answer ):
     ...         self.question = question
