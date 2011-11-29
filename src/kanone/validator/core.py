@@ -90,6 +90,10 @@ class ValidatorBase(object):
     def context( self, value=MISSING ):
         return __Context__( self, value )
 
+    # just a passthrough for convinience
+    def __call__( self ):
+        return self
+
 @messages\
     ( fail='Validation failed'
     , missing= 'Please provide a value'
@@ -98,7 +102,7 @@ class ValidatorBase(object):
 @inherit\
     ( '__messages__'
     )
-class Validator( ValidatorBase, Parameterized ):
+class Validator( Parameterized, ValidatorBase ):
 
     def __init__( self, *args, **kwargs ):
         Parameterized.__init__( self, *args, **kwargs )

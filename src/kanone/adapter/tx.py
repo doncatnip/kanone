@@ -129,7 +129,7 @@ def monkeyPatch( ):
 
     def tag_validate( self, context, value ):
         validator = context.root.taggedValidators.get(self.tagID, None)
-        if not validator:
+        if validator is None:
             validator = self.enabled and self.validator
 
         if not validator:
