@@ -170,43 +170,28 @@ You can set a tag to be disabled by default with .tag('tagName',False)
     ...
     Invalid: Please enter one of ['there', 'bob']
 
+
 ## Blank(), Empty() and Missing()
 
 While most validation libaries have parameters to test for null values
 or to allow a value to be missing, kanone has seperate Validators to do that.
 
 Instead of something like String( required=False, default='' ) you'd write
+
     Empty('') | String()
 
 *Blank* tests if the value is Null or ''
+
 *Missing* tests if the value is not given
+
 *Empty* tests if the value is either Missing or Blank
 
 Any of them accept a value as optional parameter which will be used as default.
 If you pass a dict or list to them, the condition will also be met if the input
 value is an empty dict or list respectiveley.
 
+
 ## Custom Validators
-
-Possible method overrides:
-* `validate( self, context, value)`
-
-  Will allways be called. Override this if you have no need to filter
-  blank or missing values. Returns a value or raises Invalid.
-
-* `on_value( self, context, value)`
-
-  Will be called if a value is given and it is not None or ''. Returns a value
-  or raises Invalid.
-
-* `on_blank( self, context, value)`
-
-  Will be called if the value is None or ''. Raises Invalid with type 'blank'.
-
-* `on_missing( self, context)`
-
-  Will be called if the value is missing. Raises Invalid with type 'missing'.
- 
 
     >>> @messages( wrong='Wrong answer ! %(question)s' )
     ... class Quiz( Validator ):
@@ -229,6 +214,22 @@ Possible method overrides:
     >>> cheat = q( answer=43 )
     >>> cheat.context( 43 ).result
     43
+
+Possible method overrides:
+
+* `validate( self, context, value)`
+  Will allways be called. Override this if you have no need to filter
+  blank or missing values. Returns a value or raises Invalid.
+
+* `on_value( self, context, value)`
+  Will be called if a value is given and it is not None or ''. Returns a value
+  or raises Invalid.
+
+* `on_blank( self, context, value)`
+  Will be called if the value is None or ''. Raises Invalid with type 'blank'.
+
+* `on_missing( self, context)`
+  Will be called if the value is missing. Raises Invalid with type 'missing'.
 
 *Note*: Parameters which are defined in setParameters are adjustable when tagged
 or cloned. Use setArguments to set immutable arguments.
