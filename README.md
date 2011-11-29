@@ -50,6 +50,10 @@ parameters.
 
 # Getting started
 
+## Installation
+
+    pip install kanone
+
 ## Because we all like Hello World's
 
 1) create a Validator
@@ -434,3 +438,9 @@ You can find a Pylons example app in examples/pylons.
 From now on, context.validate() and context.result are returning Deferreds.
 Schema and ForEach are validating their fields concurrently if possible.
 
+If you need a method decorator, use
+
+    >>> from kanone.adapter.tx import validate
+
+It behaves similar to the native validate decorator described above, but will
+always return a deferred.

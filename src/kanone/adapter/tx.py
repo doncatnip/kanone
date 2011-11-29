@@ -809,15 +809,6 @@ def monkeyPatch( ):
 from ..util import getArgSpec, getParameterNames
 
 
-def validateDecorator_gotResult( result, d ):
-    if isinstance( result, Failure ):
-        if not isinstance(result.value, Invalid):
-            d.errback( result )
-        else:
-            d.errback( result.value )
-    else:
-        d.callback( result )
-
 
 def validateDecorator_gotValidationResult\
         ( result
@@ -842,7 +833,7 @@ def validateDecorator_gotValidationResult\
             else:
                 d.callback( result )
         else:
-            d.errback( result.value )
+            d.errback( result )
 
     else:
         origKwargs.update( result )
@@ -853,13 +844,11 @@ def validateDecorator_gotValidationResult\
         if keywords is not False:
             origKwargs.update( origKwargs.pop( keywords ) )
         
- 
-        result = defer.maybeDeferred( method, *resultArgs, **origKwargs )
-        result.addBoth( validateDecorator_gotResult, d )
-
+        defer.maybeDeferred( method, *resultArgs, **origKwargs )\
+            .chainDeferred( d )
    
 
-def validateDecorator( validator, method, include, exclude, onInvalid ):
+def validateDecorator( validator, method, include, exclude, onInvalid, inlineCallbacks ):
 
     if include and exclude:
         raise SyntaxError("'include' and 'exclude' cannot be used at the same time")
@@ -882,6 +871,9 @@ def validateDecorator( validator, method, include, exclude, onInvalid ):
     hasVarargs = spec.varargs not in skip and hasVarargs
 
     keywords   = keywords not in skip and keywords
+
+    if inlineCallbacks:
+        method = defer.inlineCallbacks( method )
 
     def __wrap( *fargs, **fkwargs):
 
@@ -910,8 +902,8 @@ def validateDecorator( validator, method, include, exclude, onInvalid ):
 
     return __wrap
 
-def validate( validator, include=None, exclude=None, onInvalid=None ):
+def validate( validator, include=None, exclude=None, onInvalid=None, inlineCallbacks=False ):
     def __createDecorator( method ):
-        return validateDecorator( validator, method, include, exclude, onInvalid)
+        return validateDecorator( validator, method, include, exclude, onInvalid, inlineCallbacks)
     return __createDecorator
 

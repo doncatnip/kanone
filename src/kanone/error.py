@@ -1,7 +1,7 @@
 import sys
 _python3 = sys.version_info[0]>=3
 
-class Invalid(BaseException):
+class Invalid(Exception):
     context = None
 
     def __init__(self, value, _validator=None, _key='fail', **kwargs):
