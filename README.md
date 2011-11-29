@@ -170,8 +170,43 @@ You can set a tag to be disabled by default with .tag('tagName',False)
     ...
     Invalid: Please enter one of ['there', 'bob']
 
+## Blank(), Empty() and Missing()
+
+While most validation libaries have parameters to test for null values
+or to allow a value to be missing, kanone has seperate Validators to do that.
+
+Instead of something like String( required=False, default='' ) you'd write
+    Empty('') | String()
+
+*Blank* tests if the value is Null or ''
+*Missing* tests if the value is not given
+*Empty* tests if the value is either Missing or Blank
+
+Any of them accept a value as optional parameter which will be used as default.
+If you pass a dict or list to them, the condition will also be met if the input
+value is an empty dict or list respectiveley.
 
 ## Custom Validators
+
+Possible method overrides:
+* `validate( self, context, value)`
+
+  Will allways be called. Override this if you have no need to filter
+  blank or missing values. Returns a value or raises Invalid.
+
+* `on_value( self, context, value)`
+
+  Will be called if a value is given and it is not None or ''. Returns a value
+  or raises Invalid.
+
+* `on_blank( self, context, value)`
+
+  Will be called if the value is None or ''. Raises Invalid with type 'blank'.
+
+* `on_missing( self, context)`
+
+  Will be called if the value is missing. Raises Invalid with type 'missing'.
+ 
 
     >>> @messages( wrong='Wrong answer ! %(question)s' )
     ... class Quiz( Validator ):
@@ -248,7 +283,7 @@ Provide a list as input
 
 *Note*: The domain part will be lowered ( local part is case-sensitive
 acc. to specs )
-you can disable this behaviour with Email(domainPart_toLower=False)
+you can disable this behaviour with `Email(domainPart_toLower=False)`
 
 ###  Nested Schemas
 
@@ -352,11 +387,11 @@ This is farly easy, since a context is a native dict.
 *Notes*:
 
 * You could also use a Schema instead of ForEach, it just have to return a list
-  when used with *varargs or a dict when used with **kwargs
+  when used with `*varargs` or a dict when used with `**kwargs`
 * The order does not matter in the root Schema, as the function will be
-  inspected to convert any input *args, **kwargs into a dict.
+  inspected to convert any input `*args, **kwargs` into a dict.
 * Use `exclude`/`include` to exclude/include arguments from being validated.
-  *vararg and **kwarg names can also be specified here.
+  vararg and kwarg names can also be specified here.
 * Use `onInvalid` to specify an error callback. The signature of the error
   function is ( context, error ). It should raise an error or return a value.
 
