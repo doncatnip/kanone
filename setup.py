@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup\
     ( name = 'kanone'
-    , version = '0.3.2'
+    , version = '0.3.3'
     , description = 'a validation library'
     , long_description = open('README.txt').read()
     , author = 'don`catnip'
@@ -10,7 +10,10 @@ setup\
     , url = 'http://github.com/doncatnip/kanone'
     , classifiers =\
         [ "Development Status :: 4 - Beta"
-        , "Topic :: Software Development :: Libraries"
+        , "Topic :: Software Development :: Libraries :: Python Modules"
+        , "License :: Public Domain"
+        , "Programming Language :: Python :: 2.7"
+        , "Programming Language :: Python :: 3"
         ]
     , license = 'Unlicense'
     , keywords = 'validation library form twisted stateful'
