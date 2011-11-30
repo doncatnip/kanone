@@ -443,4 +443,5 @@ If you need a method decorator, use
     >>> from kanone.adapter.tx import validate
 
 It behaves similar to the native validate decorator described above, but will
-always return a deferred.
+always return a deferred. Pass `inlineCallbacks=True` to the decorator in order
+to use twisted's inlineCallbacks within a validated method.
