@@ -8,6 +8,7 @@ from .error import  Invalid
 import logging, inspect
 log = logging.getLogger(__name__)
 
+_python3 = sys.version_info[0]>=3
 
 class PASS:
     pass
@@ -244,10 +245,28 @@ class Context( dict ):
             extra['value.type'] = getattr(value, '__class__', None) is not None \
                 and getattr(value.__class__,'__name__', False) or 'unknown'
 
-            if isinstance(value,str):
-                extra['value'] = value
-            else:
-                extra['value'] = str(value)
+            value_str = value
+            decode_utf8 = False
+
+            if not isinstance(value, str):
+                if _python3 and isinstance( value, bytes ):
+                    decode_utf8 = True
+                else:
+                    try:
+                        value_str = str(value)
+                    except:
+                        value_str = ''
+
+            elif not _python3:
+                decode_utf8 = True
+
+            if decode_utf8:
+                try:
+                    value_str = value.decode('utf-8')
+                except UnicodeDecodeError:
+                    value_str = ''
+
+            extra['value'] = value_str
 
             cache = getattr( self, 'cache', None)
             if cache is not None:
