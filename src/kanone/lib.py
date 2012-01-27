@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from zope.interface.advice import addClassAdvisor
 import sys
 
 from .error import  Invalid
@@ -94,35 +93,39 @@ def _callback(klass):
 
     return klass
 
-def _advice(name, callback,  data, depth=3 ):
-    frame = sys._getframe(depth-1)
-    locals = frame.f_locals
+if not _python3:
+    # no longer supported with py3
+    from zope.interface.advice import addClassAdvisor
 
-    if (locals is frame.f_globals) or (
-        ('__module__' not in locals) and sys.version_info[:3] > (2, 2, 0)):
-        raise SyntaxError("%s can be used only from a class definition." % name)
+    def _advice(name, callback,  data, depth=3 ):
+        frame = sys._getframe(depth-1)
+        locals = frame.f_locals
 
-    if not '__advice_data__' in locals:
-        locals['__advice_data__'] = {}
+        if (locals is frame.f_globals) or (
+            ('__module__' not in locals) and sys.version_info[:3] > (2, 2, 0)):
+            raise SyntaxError("%s can be used only from a class definition." % name)
 
-    if name in locals['__advice_data__']:
-        raise SyntaxError("%s can be used only once in a class definition." % name)
+        if not '__advice_data__' in locals:
+            locals['__advice_data__'] = {}
 
-
-    if not locals['__advice_data__']:
-        addClassAdvisor(_callback, depth=depth)
-
-    locals['__advice_data__'][name] = (data, callback)
+        if name in locals['__advice_data__']:
+            raise SyntaxError("%s can be used only once in a class definition." % name)
 
 
-def pre_validate(*validators):
-    _advice('pre_validate', _append_list,  validators)
+        if not locals['__advice_data__']:
+            addClassAdvisor(_callback, depth=depth)
 
-def post_validate(*validators):
-    _advice('post_validate', _append_list,  validators)
+        locals['__advice_data__'][name] = (data, callback)
 
-def fieldset(*fields):
-    _advice('fieldset', _merge_fields, fields )
+
+    def pre_validate(*validators):
+        _advice('pre_validate', _append_list,  validators)
+
+    def post_validate(*validators):
+        _advice('post_validate', _append_list,  validators)
+
+    def fieldset(*fields):
+        _advice('fieldset', _merge_fields, fields )
 
 """
 def messages(**fields):
