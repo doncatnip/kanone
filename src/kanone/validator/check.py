@@ -127,7 +127,7 @@ class Match( Validator ):
 
     def on_missing(self, context ):
         if self.type is Match.VALIDATOR:
-            return self.on_value( self, context, MISSING )
+            return self.on_value( context, MISSING )
         return Validator.on_missing( self, context )
 
     def on_blank(self, context, value ):
@@ -139,7 +139,7 @@ class Match( Validator ):
 @messages\
     ( type="Can not get len from values of type %(value.type)s"
     , min="Value must have at least %(min)i elements/characters (has %(len)s)"
-    , max="Value cannot have more than least%(max)i elements/characters (has %(len)s)"
+    , max="Value cannot have more than least %(max)i elements/characters (has %(len)s)"
     )
 class Len( Validator ):
 
