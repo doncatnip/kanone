@@ -178,3 +178,33 @@ class In( Validator ):
 
         return value
 
+
+@messages\
+    ( fail="Value must lower or equal to %(max)s"
+    )
+class Max( Validator ):
+
+    def setParameters( self, max ):
+        self.max = max
+
+    def on_value(self, context, value):
+        if value > self.max:
+            raise Invalid( value, self, max=self.max )
+
+        return value
+
+
+
+@messages\
+    ( fail="Value must greater or equal to %(min)s"
+    )
+class Min( Validator ):
+
+    def setParameters( self, min ):
+        self.min = min
+
+    def on_value(self, context, value):
+        if value < self.min:
+            raise Invalid( value, self, min=self.min )
+
+        return value
