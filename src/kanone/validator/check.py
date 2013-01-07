@@ -132,7 +132,7 @@ class Match( Validator ):
 
     def on_blank(self, context, value ):
         if self.type is Match.VALIDATOR:
-            return self.on_value( self, context, value )
+            return self.on_value( context, value )
         return Validator.on_blank( self, context, value )
 
 
