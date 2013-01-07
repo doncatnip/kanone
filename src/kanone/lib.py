@@ -127,18 +127,6 @@ if not _python3:
     def fieldset(*fields):
         _advice('fieldset', _merge_fields, fields )
 
-"""
-def messages(**fields):
-    _advice('messages', _merge_dict, fields )
-"""
-
-"""
-def inherit(*keys):
-    _advice('inherit', _append_list, keys)
-"""
-
-
-
 def defaultErrorFormatter( context, error ):
     return error.message % error.extra
 
@@ -364,68 +352,6 @@ class Context( dict ):
         finally:
             self.isValidated = True
             self.isValidating = False
-
-
-
-
-    """
-    def populate(self ):
-        if self.isPopulated:
-            if 'value' in self:
-                return self['value']
-            return self.__value__
-
-        if self.parent is not None:
-            self.parent.populate()
-
-        schemaData = None
-        if self.parent:
-            schemaData = getattr(self.parent,'currentSchemaData',None)
-
-        if self.validator is None:
-            raise AttributeError("No validator set for context '%s'" % self.path )
-
-        result = PASS
-        try:
-            if schemaData:
-                result = schemaData.validationFunc( self, schemaData )
-            else:
-                result = self.validator.validate( self, self.__value__)
-        except Invalid as e:
-            self.__error__ = e
-
-        if not self.__error__:
-            if result is not PASS:
-                self.__result__ = result
-            else:
-                self.__result__ = self.__value__
-
-        self.isPopulated = True
-        if not 'value' in self:
-            self['value'] = self.__value__
-
-        return self['value']
-
-    def validate(self ):
-
-        if not self.isPopulated:
-            self.populate()
-
-        if not self.isValidated:
-
-            if self.__result__ is not MISSING:
-                self['result'] = self.__result__
-            elif self.__error__ is not MISSING:
-                self.errorlist.append( self.path )
-                self['error'] = self.__error__
-
-            self.isValidated = True
-
-        if self.__error__ is MISSING:
-            return self.__result__
-
-        raise self.__error__
-    """
 
     def __call__( self, path ):
         if path.__class__ is int:
