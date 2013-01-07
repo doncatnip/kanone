@@ -71,20 +71,29 @@ class List( TypeValidator ):
 
 @messages\
     ( type="Invalid type (%(value.type)s), must be a bool"
+    , convert="Could not convert %(value.type)s to bool"
     )
 class Boolean( TypeValidator):
 
+    def setParameters( self, convert=False ):
+        TypeValidator.setParameters( self, convert )
+
     def on_value(self, context, value):
-        if isinstance(value, int )\
-        and not(value<0 or value>1):
-            value = bool(value)
-
         if not (isinstance( value, bool )):
-            if self._convert:
-                return bool(value)
-            raise Invalid( value, self, 'type' )
+            if not self._convert:
+                raise Invalid( value, self, 'type' )
+            else:
+                try:
+                    value = str(value).lower()
+                except Exception as e:
+                    raise Invalid( value, self, 'convert' )
+                if value in ('1', 'true', 'yes', 'on'):
+                    value = True
+                elif value in ('0', 'false', 'no', 'off'):
+                    value = False
+                else:
+                    raise Invalid( value, self, 'convert' )
         return value
-
 
 @messages\
     ( type="Invalid type (%(value.type)s), must be a string"
