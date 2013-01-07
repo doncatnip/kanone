@@ -188,7 +188,7 @@ class Schema( Validator ):
 
 
     @classmethod
-    def getValidators( klass, _fieldset  ):
+    def getValidators( cls, _fieldset  ):
         if not _fieldset:
             return None
 

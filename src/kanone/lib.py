@@ -445,20 +445,20 @@ class Parameterized:
 
 
     @classmethod
-    def __getParameterNames__( klass ):
-        if not hasattr( klass, '__parameterNames__'):
-            if not hasattr( klass, 'setParameters'):
+    def __getParameterNames__( cls ):
+        if not hasattr( cls, '__parameterNames__'):
+            if not hasattr( cls, 'setParameters'):
                 names = ()
             else:
-                spec = inspect.getargspec( klass.setParameters )
+                spec = inspect.getargspec( cls.setParameters )
                 if spec.varargs:
-                    raise SyntaxError('Cannot use *varargs in setParameters, please use %s.setArguments' % klass.__name__)
+                    raise SyntaxError('Cannot use *varargs in setParameters, please use %s.setArguments' % cls.__name__)
                 names = spec.args[1:]
             setattr\
-                ( klass,'__parameterNames__'
+                ( cls,'__parameterNames__'
                 , names
                 )
-        return klass.__parameterNames__
+        return cls.__parameterNames__
 
 def inherit( *members ):
     def decorate( klass ):

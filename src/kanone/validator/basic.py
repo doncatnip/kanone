@@ -18,11 +18,11 @@ class TypeValidator( Validator ):
         self._convert = convert
 
     @classmethod
-    def convert( klass, *args, **kwargs ):
-        if not klass.converter:
+    def convert( cls, *args, **kwargs ):
+        if not cls.converter:
             kwargs['convert'] = True
-            klass.converter = klass( *args, **kwargs )
-        return klass.converter
+            cls.converter = cls( *args, **kwargs )
+        return cls.converter
 
 @messages\
     ( type="Invalid type (%(value.type)s), must be a dictionary"
@@ -190,5 +190,5 @@ class DateTime( Validator ):
         return value
 
     @classmethod
-    def convert( klass, formatter ):
-        return klass( formatter=formatter, convert=True )
+    def convert( cls, formatter ):
+        return cls( formatter=formatter, convert=True )
