@@ -203,7 +203,7 @@ class Schema( Validator ):
             index.append( name )
             pos += 1
 
-        return (validators,index,keyIndexRelation)
+        return validators,index,keyIndexRelation
 
 @messages\
     ( fail=None

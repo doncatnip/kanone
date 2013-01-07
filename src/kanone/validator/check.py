@@ -156,7 +156,7 @@ class Len( Validator ):
 
         if result<self.min:
             raise Invalid( value, self, 'min', min=self.min, max=self.max, len=result)
-        if (self.max is not None and (result>self.max )):
+        if self.max is not None and result > self.max:
             raise Invalid( value, self, 'max', min=self.min, max=self.max, len=result)
 
         if self.returnLen:

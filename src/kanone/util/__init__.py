@@ -14,7 +14,7 @@ def varargs2kwargs( function, args, kwargs, skipSelf=True ):
         shifted.append( key )
         del realargs[0]
 
-    return (realargs,kwargs,shifted)
+    return realargs,kwargs,shifted
 
 def getArgSpec( function ):
     function = getattr( function, '__func__', function )

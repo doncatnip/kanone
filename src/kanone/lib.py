@@ -140,7 +140,7 @@ def inherit(*keys):
 
 
 def defaultErrorFormatter( context, error ):
-    return error.message % (error.extra)
+    return error.message % error.extra
 
 class Context( dict ):
 
@@ -444,7 +444,7 @@ class Context( dict ):
         except KeyError:
             child = self.childs[path[0]] = Context( key=path[0], parent=self )
 
-        if(len(path)==1):
+        if len(path) == 1:
             return child
         else:
             path=path[1]

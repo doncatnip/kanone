@@ -82,7 +82,7 @@ class EliminateWhiteSpace( Validator ):
 
     def on_value( self, context, value):
         try:
-            return (''.join(value.split()))
+            return ''.join(value.split())
         except AttributeError:
             raise Invalid( value, self, 'type' )
 
@@ -93,7 +93,7 @@ class Strip( Validator ):
 
     def on_value( self, context, value):
         try:
-            return (value.strip())
+            return value.strip()
         except AttributeError:
             raise Invalid( value, self, 'type' )
 
