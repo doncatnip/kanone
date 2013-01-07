@@ -52,13 +52,13 @@ def validator2parameter( hostValidator, name, param, force=False ):
 # validators without messages and changeable parameters should derive from this
 class ValidatorBase(object):
 
-    def __new__( klass, *args, **kwargs ):
-        self = object.__new__( klass )
+    def __new__( cls, *args, **kwargs ):
+        self = object.__new__( cls )
 
         preValidators =\
-            getattr(klass,'__pre_validate__',[])
+            getattr(cls,'__pre_validate__',[])
         postValidators =\
-            getattr(klass,'__post_validate__',[])
+            getattr(cls,'__post_validate__',[])
 
         if preValidators or preValidators:
             self.__init__( *args, **kwargs )
@@ -224,7 +224,7 @@ class Compose( Validator ):
     and returning dict { realtag:value, .. }
     """
 
-    # stuff defined here will be inherited by childs of this Validator
+    # stuff defined here will be inherited by children of this Validator
 
 
     __paramAlias__ = None

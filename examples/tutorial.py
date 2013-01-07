@@ -184,10 +184,10 @@ PostedSchema = \
     )
 
 # notes:
-# * ForEach creates new context childs ( as well as Schema )
-#   use ForEach( createContextChilds=False ) to disable this behaviour
+# * ForEach creates new context children ( as well as Schema )
+#   use ForEach( createContextChildren=False ) to disable this behaviour
 # * you could just remove NestedPost and use native nested dicts
-#   as input, or you can set the values of childs manually - e.g.:
+#   as input, or you can set the values of children manually - e.g.:
 #   context('people.0.nick').value = 'bob'
 
 
