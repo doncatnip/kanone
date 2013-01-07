@@ -314,7 +314,7 @@ class Context( dict ):
             self.indexKeyRelation[ index ] = indexFunc( index )
             return self.indexKeyRelation[ index ]
         else:
-            raise SyntaxError('Context %s has no childs supporting indexing' % (self.path))
+            raise SyntaxError('Context %s has no childs supporting indexing' % self.path)
 
     def clear( self, force=False ):
         if not self.isValidated and not force:
