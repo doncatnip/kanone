@@ -348,7 +348,6 @@ class Context( dict ):
         if self.validator is None:
             raise AttributeError("No validator set for context '%s'" % self.path )
 
-        result = PASS
         try:
             result = self.validator.validate( self, self.__value__)
 
