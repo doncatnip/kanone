@@ -224,7 +224,7 @@ class Compose( Validator ):
     and returning dict { realtag:value, .. }
     """
 
-    # stuff defined here will be inherited by childs of this Validator
+    # stuff defined here will be inherited by children of this Validator
 
 
     __paramAlias__ = None

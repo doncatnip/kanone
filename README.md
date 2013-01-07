@@ -295,8 +295,8 @@ you can disable this behaviour with `Email(domainPart_toLower=False)`
             , ForEach( HelloSchema ) & Len( max=2 )
         )
 
-*Note*: ForEach creates new context childs ( as well as Schema ),
-use ForEach( createContextChilds=False ) to disable this behaviour.
+*Note*: ForEach creates new context children ( as well as Schema ),
+use ForEach( createContextChildren=False ) to disable this behaviour.
 
     >>> context = NestedSchema.context\
         (   { 'people':\

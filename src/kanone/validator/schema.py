@@ -46,12 +46,12 @@ class Schema( Validator ):
         ( self
         , allowExtraFields=False
         , returnList=False
-        , createContextChilds=True
+        , createContextChildren=True
         ):
 
         self.returnList = returnList
 
-        self.createContextChilds = createContextChilds
+        self.createContextChildren = createContextChildren
         self.allowExtraFields = allowExtraFields
 
 
@@ -61,8 +61,8 @@ class Schema( Validator ):
             subValidators.append(validator)
 
     def on_value( self, context, value ):
-        if self.createContextChilds:
-            self.on_value = self._createContextChilds_on_value
+        if self.createContextChildren:
+            self.on_value = self._createContextChildren_on_value
         else:
             self.on_value = self._on_value
 
@@ -114,7 +114,7 @@ class Schema( Validator ):
         return result
 
 
-    def _createContextChilds_on_value( self, context, value ):
+    def _createContextChildren_on_value( self, context, value ):
         isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
 
         if not isList and not isinstance( value, dict ):
@@ -218,7 +218,7 @@ class ForEach( Validator ):
         , criteria
         , numericKeys=True
         , returnList=True
-        , createContextChilds=True ):
+        , createContextChildren=True ):
 
         if not isinstance( criteria, ValidatorBase ):
             criteria = Match( criteria )
@@ -226,11 +226,11 @@ class ForEach( Validator ):
         self.returnList = returnList
         self.numericKeys = numericKeys
         self.validator = criteria
-        self.createContextChilds = createContextChilds
+        self.createContextChildren = createContextChildren
 
     def on_value( self, context, value ):
-        if self.createContextChilds:
-            self.on_value = self._createContextChilds_on_value
+        if self.createContextChildren:
+            self.on_value = self._createContextChildren_on_value
         else:
             self.on_value = self._on_value
 
@@ -278,7 +278,7 @@ class ForEach( Validator ):
 
         return result
 
-    def _createContextChilds_on_value( self, context, value ):
+    def _createContextChildren_on_value( self, context, value ):
         isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
 
         if not isList:
@@ -292,7 +292,7 @@ class ForEach( Validator ):
         errors = []
 
         # populate
-        childs = []
+        children = []
         if isList or self.numericKeys:
             context.setIndexFunc( lambda index: str(index) )
 
@@ -309,7 +309,7 @@ class ForEach( Validator ):
                 contextChild = context( str( pos ) )
                 contextChild.validator = self.validator
                 contextChild.__value__ = val
-                childs.append( contextChild )
+                children.append( contextChild )
 
         else:
             context.setIndexFunc( None )
@@ -320,10 +320,10 @@ class ForEach( Validator ):
                 contextChild = context( key )
                 contextChild.validator = self.validator
                 contextChild.__value__ = val
-                childs.append( contextChild )
+                children.append( contextChild )
 
         #validate
-        for childContext in childs:
+        for childContext in children:
             try:
                 res = childContext.result
             except Invalid:

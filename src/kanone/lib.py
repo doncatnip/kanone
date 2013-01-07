@@ -169,11 +169,11 @@ class Context( dict ):
         return self['path']
 
     @property
-    def childs(self):
-        childs = self.get('childs',None)
-        if childs is None:
-            childs = self[ 'childs' ] = {}
-        return childs
+    def children(self):
+        children = self.get('children',None)
+        if children is None:
+            children = self[ 'children' ] = {}
+        return children
 
     @property
     def errorlist(self):
@@ -297,12 +297,12 @@ class Context( dict ):
         indexFunc = getattr(self,'indexFunc',None)
         if indexFunc:
             if not self.indexKeyRelation:
-                self.numValues = len(self.childs)
+                self.numValues = len(self.children)
 
             self.indexKeyRelation[ index ] = indexFunc( index )
             return self.indexKeyRelation[ index ]
         else:
-            raise SyntaxError('Context %s has no childs supporting indexing' % self.path)
+            raise SyntaxError('Context %s has no children supporting indexing' % self.path)
 
     def clear( self, force=False ):
         if not self.isValidated and not force:
@@ -365,9 +365,9 @@ class Context( dict ):
         path = path.split('.',1)
 
         try:
-            child = self.childs[path[0]]
+            child = self.children[path[0]]
         except KeyError:
-            child = self.childs[path[0]] = Context( key=path[0], parent=self )
+            child = self.children[path[0]] = Context( key=path[0], parent=self )
 
         if len(path) == 1:
             return child

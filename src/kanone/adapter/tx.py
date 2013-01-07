@@ -425,7 +425,7 @@ def monkeyPatch():
         else:
             d.errback( errors.pop(0) )
 
-    def schema__createContextChilds_on_value_done( waste, d, schema, value, result, errors ):
+    def schema__createContextChildren_on_value_done( waste, d, schema, value, result, errors ):
         if not errors:
             d.callback( result )
         else:
@@ -494,7 +494,7 @@ def monkeyPatch():
 
         return d
 
-    def schema__createContextChilds_on_value( self, context, value ):
+    def schema__createContextChildren_on_value( self, context, value ):
         isList = isinstance(value, list) or isinstance(value,tuple) or isinstance(value,set)
 
         if not isList and not isinstance( value, dict ):
@@ -560,7 +560,7 @@ def monkeyPatch():
         d = defer.Deferred()
         jobs = defer.DeferredList( jobs )
         jobs.addCallback\
-            ( schema__createContextChilds_on_value_done
+            ( schema__createContextChildren_on_value_done
             , d
             , self
             , value
@@ -640,7 +640,7 @@ def monkeyPatch():
         return d
 
 
-    def forEach__createContextChilds_on_value( self, context, value ):
+    def forEach__createContextChildren_on_value( self, context, value ):
         isList = isinstance( value, list) or isinstance(value, tuple) or isinstance(value, set)
 
         if not isList:
@@ -654,7 +654,7 @@ def monkeyPatch():
         errors = []
 
         # populate
-        childs = []
+        children = []
         if isList or self.numericKeys:
             context.setIndexFunc( lambda index: str(index) )
 
@@ -671,7 +671,7 @@ def monkeyPatch():
                 contextChild = context( str( pos ) )
                 contextChild.validator = self.validator
                 contextChild.__value__ = val
-                childs.append( contextChild )
+                children.append( contextChild )
 
         else:
             context.setIndexFunc( None )
@@ -682,11 +682,11 @@ def monkeyPatch():
                 contextChild = context( key )
                 contextChild.validator = self.validator
                 contextChild.__value__ = val
-                childs.append( contextChild )
+                children.append( contextChild )
 
         jobs = []
         #validate
-        for childContext in childs:
+        for childContext in children:
             jobs.append\
                 ( childContext.validate()\
                     .addCallback\
@@ -706,7 +706,7 @@ def monkeyPatch():
         d = defer.Deferred()
         jobs = defer.DeferredList( jobs )
         jobs.addCallback\
-            ( schema__createContextChilds_on_value_done
+            ( schema__createContextChildren_on_value_done
             , d
             , self
             , value
@@ -796,9 +796,9 @@ def monkeyPatch():
     Match.on_value = match_on_value
     If.validate = if_validate
     Schema._on_value = schema__on_value
-    Schema._createContextChilds_on_value = schema__createContextChilds_on_value
+    Schema._createContextChildren_on_value = schema__createContextChildren_on_value
     ForEach._on_value = forEach__on_value
-    ForEach._createContextChilds_on_value = forEach__createContextChilds_on_value
+    ForEach._createContextChildren_on_value = forEach__createContextChildren_on_value
     Field.validate = field_validate
     MXLookup.on_value = mxLookup_on_value
 
