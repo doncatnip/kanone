@@ -107,13 +107,13 @@ class Match( Validator ):
             if not self.required.match(value):
                 raise Invalid( value, self, matchType=self.type, criteria=self.required.pattern)
             return value
-        elif self.type is Match.RAW:
-            compare = self.required
         elif self.type is Match.VALIDATOR:
             try:
                 compare = self.required.validate( context, value )
             except Invalid as e:
                 raise Invalid( value, self, matchType=self.type, criteria=e )
+        else:
+            compare = self.required
 
         val = value
         if self.ignoreCase:

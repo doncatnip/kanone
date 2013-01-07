@@ -349,8 +349,6 @@ def monkeyPatch():
             if not self.required.match(value):
                 raise Invalid( value, self, matchType=self.type, criteria=self.required.pattern)
             return value
-        elif self.type is Match.RAW:
-            compare = self.required
         elif self.type is Match.VALIDATOR:
             compare = defer.maybeDeferred\
                 ( self.required.validate
@@ -361,6 +359,8 @@ def monkeyPatch():
             d = defer.Deferred()
             compare.addBoth( match_gotResult, self, value, d )
             return d
+        else:
+            compare = self.required
 
         val = value
         if self.ignoreCase:
