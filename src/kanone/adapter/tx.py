@@ -334,11 +334,12 @@ def monkeyPatch():
 
             d.errback( Invalid( value, self, matchType=self.type, criteria=result.value ) )
         else:
+            val = value
             if self.ignoreCase:
                 result = str(result).lower()
-                value = str(value).lower()
+                val = str(value).lower()
 
-            if value != result:
+            if val != result:
                 d.errback( Invalid( value, self, matchType=self.type, criteria=result ) )
             else:
                 d.callback( value )
