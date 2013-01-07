@@ -14,14 +14,14 @@ log = logging.getLogger( __name__ )
 
 _python3 = sys.version_info[0]>=3
 
-def monkeyPatch( ):
-    if getattr( monkeyPatch,'_isMonkeyPatched',False):
-        return
+def monkeyPatch():
     """
     Patches Kanone so that any validation returns a Deferred, thus
     one can write asynchronous validators using Twisted's non-blocking API.
     Schema and ForEach fields are validated concurrently.
     """
+    if getattr( monkeyPatch,'_isMonkeyPatched',False):
+        return
 
     from ..lib import Context, PASS, MISSING
 
