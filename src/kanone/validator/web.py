@@ -14,11 +14,14 @@ from . import cache
     ( fail='Domain offers no mailserver'
     )
 class MXLookup( Validator ):
-
     def on_value( self, context, value ):
-        import DNS
-
-        if not DNS.mxlookup(value):
+        import dns.resolver
+        r = None
+        try:
+            r = dns.resolver.query(value, 'MX')
+        except dns.resolver.NXDOMAIN:
+            pass
+        if not r:
             raise Invalid( value, self )
 
         return value
