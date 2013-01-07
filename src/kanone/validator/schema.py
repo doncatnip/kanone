@@ -393,7 +393,6 @@ class Field( FieldValidator ):
 
     def validate(self, context, value):
         fieldcontext = self.getField( context, self.path )
-        result = PASS
 
         if not self.useResult:
             result = fieldcontext.value
