@@ -4,6 +4,7 @@ import sys
 
 from .error import  Invalid
 
+import warnings
 import logging, inspect
 log = logging.getLogger(__name__)
 
@@ -167,6 +168,11 @@ class Context( dict ):
     @property
     def path(self):
         return self['path']
+
+    @property
+    def childs(self):
+        warnings.warn("Context.childs is deprecated. Please context.children instead", DeprecationWarning, stacklevel=2)
+        return self.children
 
     @property
     def children(self):
