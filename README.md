@@ -96,7 +96,7 @@ shortcut: `Validator1 & Validator2 & ...`
 Alternation: `Or( Validator1, Validator2, ... )`,
 shortcut: `Validator1 | Validator2 | ...`
 
-Negation: `Not( Validator )`, shortcut: `!Validator`
+Negation: `Not( Validator )`, shortcut: `~Validator`
 
 ### Blank(), Empty() and Missing()
 
