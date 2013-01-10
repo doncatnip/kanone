@@ -6,11 +6,11 @@ from kanone import *
 ## Except that results are encapsuled in Deferreds and errors
 ## are not catched, but printed as unhandled Faults instead.
 #
-# from require.adapter import tx
+# from kanone.adapter import tx
 # tx.monkeyPatch()
 
 
-# require - stateful validation
+# kanone - stateful validation
 
 
 #*************
@@ -86,7 +86,7 @@ except Invalid as e:
 # composing is useful if you want to reuse a certain validator with different
 # parameters or messages
 
-# note: please take a look at require.validator.web for advanced
+# note: please take a look at kanone.validator.web for advanced
 # tag usage, since DomainLabel, Domain, EmailLocalPart and
 # Email are all composed
 
@@ -101,7 +101,7 @@ Hello = Compose\
             ) \
         & alter.Format('Hello %(value)s !').tag('output')
         ).paramAlias\
-        ( restrict='restrictInput_required'
+        ( restrict='restrictInput_criteria'
         ).messageAlias\
         ( restrict='restrictInput_fail'
         )
@@ -113,7 +113,7 @@ myHello = Hello\
         ( restrict=['there','bob']
         , output_formatter='Hey %(value)s !'
         , printInput_enabled=True
-        ).messages(restrict='Please enter one of %(required)s')
+        ).messages(restrict='Please enter one of %(criteria)s')
 
 context = myHello.context( 'there' ) 
 

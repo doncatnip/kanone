@@ -86,7 +86,37 @@ re-validate
     u'Hello Bob !'
 
 
-##  Errors
+## Basics
+
+### Chaining, Alternation and Negation
+
+Chaining: `And( Validator1, Validator2, ... )`,
+shortcut: `Validator1 & Validator2 & ...`
+
+Alternation: `Or( Validator1, Validator2, ... )`,
+shortcut: `Validator1 | Validator2 | ...`
+
+Negation: `Not( Validator )`, shortcut: `!Validator`
+
+### Blank(), Empty() and Missing()
+
+While most validation libraries have parameters to test for null values
+or to allow a value to be missing, kanone has seperate Validators to do that.
+
+Instead of something like String( required=False, default='' ) you'd write
+
+    Empty('') | String()
+
+*Blank* tests if the value is Null or ''  
+*Missing* tests if the value is not given  
+*Empty* tests if the value is either Missing or Blank
+
+All of them accept a value as optional parameter which will be used as default.
+If you pass a dict or list, the condition will also be met if the input value
+is an empty dict or list respectiveley.
+
+
+## Errors
 
     >>> context.value = 42
     >>> context.result
@@ -148,7 +178,7 @@ tag usage, since `DomainLabel`, `Domain`, `EmailLocalPart`, `Email` and
             )
         & alter.Format('Hello %(value)s !').tag('output')
         ).paramAlias\
-            ( restrict='restrictInput_required'
+            ( restrict='restrictInput_criteria'
             )\
          .messageAlias\
             ( restrict='restrictInput_fail'
@@ -162,7 +192,7 @@ You can set a tag to be disabled by default with .tag('tagName',False)
         ( restrict=['there','bob']
         , output_formatter='Hey %(value)s !'
         , printInput_enabled=True
-        ).messages(restrict='Please enter one of %(required)s')
+        ).messages(restrict='Please enter one of %(criteria)s')
     >>> context = myHello.context( 'there' )
     >>> context.result
     Entered: there
@@ -173,24 +203,6 @@ You can set a tag to be disabled by default with .tag('tagName',False)
     Traceback (most recent call last):
     ...
     Invalid: Please enter one of ['there', 'bob']
-
-
-## Blank(), Empty() and Missing()
-
-While most validation libaries have parameters to test for null values
-or to allow a value to be missing, kanone has seperate Validators to do that.
-
-Instead of something like String( required=False, default='' ) you'd write
-
-    Empty('') | String()
-
-*Blank* tests if the value is Null or ''  
-*Missing* tests if the value is not given  
-*Empty* tests if the value is either Missing or Blank
-
-Any of them accept a value as optional parameter which will be used as default.
-If you pass a dict or list to them, the condition will also be met if the input
-value is an empty dict or list respectiveley.
 
 
 ## Custom Validators

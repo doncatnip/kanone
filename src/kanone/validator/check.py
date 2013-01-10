@@ -75,7 +75,7 @@ class Empty( Blank, Missing ):
 
 
 @messages\
-    ( fail='Value must match %(criteria)s'
+    ( fail='Value must match %(criterion)s'
     )
 class Match( Validator ):
 
@@ -83,9 +83,9 @@ class Match( Validator ):
     REGEX       = 'Match_REGEX'
     VALIDATOR   = 'Match_VALIDATOR'
 
-    def setParameters(self, required, ignoreCase=False):
-        if not isinstance( required, ValidatorBase ):
-            if hasattr(getattr( required, 'match', None ),'__call__'):
+    def setParameters(self, criterion, ignoreCase=False):
+        if not isinstance( criterion, ValidatorBase ):
+            if hasattr(getattr( criterion, 'match', None ),'__call__'):
                 self.type = Match.REGEX
             else:
                 self.type = Match.RAW
@@ -93,27 +93,27 @@ class Match( Validator ):
             self.type = Match.VALIDATOR
 
         self.ignoreCase = ignoreCase
-        self.required = required
+        self.criterion = criterion
 
     def appendSubValidators( self, subValidators ):
         if self.type == Match.VALIDATOR:
-            self.required.appendSubValidators( subValidators )
-            subValidators.append( self.required )
+            self.criterion.appendSubValidators( subValidators )
+            subValidators.append( self.criterion )
 
     def on_value(self, context, value ):
         if self.type is Match.REGEX:
             if _python3 and isinstance( value, bytes):
                 value = value.decode('utf8')
-            if not self.required.match(value):
-                raise Invalid( value, self, matchType=self.type, criteria=self.required.pattern)
+            if not self.criterion.match(value):
+                raise Invalid( value, self, matchType=self.type, criterion=self.criterion.pattern)
             return value
         elif self.type is Match.VALIDATOR:
             try:
-                compare = self.required.validate( context, value )
+                compare = self.criterion.validate( context, value )
             except Invalid as e:
-                raise Invalid( value, self, matchType=self.type, criteria=e )
+                raise Invalid( value, self, matchType=self.type, criterion=e )
         else:
-            compare = self.required
+            compare = self.criterion
 
         val = value
         if self.ignoreCase:
@@ -121,7 +121,7 @@ class Match( Validator ):
             val = str(value).lower()
 
         if val != compare:
-            raise Invalid( value, self, matchType=self.type, criteria=compare )
+            raise Invalid( value, self, matchType=self.type, criterion=compare )
 
         return value
 
@@ -165,18 +165,31 @@ class Len( Validator ):
             return value
 
 @messages\
-    ( fail="Value must be one of %(required)s"
+    ( fail="Value must be one of %(criteria)s"
     )
 class In( Validator ):
 
-    def setParameters( self, required ):
-        self.required = required
+    def setParameters( self, criteria ):
+        self.criteria = criteria
 
     def on_value(self, context, value):
-        if not value in self.required:
-            raise Invalid( value, self, required=self.required )
+        if not value in self.criteria:
+            raise Invalid( value, self, criteria=self.criteria )
 
         return value
+
+@messages\
+    ( min="Value must be greater or equal  %(min)i"
+    , max="Value must be less or equal %(max)i"
+    )
+class Range( Validator ):
+    def setParameters( self, min=None, max=None ):
+        self.min = min
+        self.max = max
+
+    def on_value(self, context, value):
+        if value<self,min:
+            raise Invalid( value, self, 'min', 
 
 
 @messages\
@@ -208,3 +221,5 @@ class Min( Validator ):
             raise Invalid( value, self, min=self.min )
 
         return value
+
+

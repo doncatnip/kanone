@@ -215,17 +215,17 @@ class ForEach( Validator ):
 
     def setParameters\
         ( self
-        , criteria
+        , criterion
         , numericKeys=True
         , returnList=True
         , createContextChildren=True ):
 
-        if not isinstance( criteria, ValidatorBase ):
-            criteria = Match( criteria )
+        if not isinstance( criterion, ValidatorBase ):
+            criterion = Match( criterion )
 
         self.returnList = returnList
         self.numericKeys = numericKeys
-        self.validator = criteria
+        self.validator = criterion
         self.createContextChildren = createContextChildren
 
     def on_value( self, context, value ):
@@ -374,18 +374,18 @@ class FieldValidator( Validator ):
     )
 class Field( FieldValidator ):
 
-    def setParameters(self, path, criteria=None, useResult=False, copy=False, writeToContext=False):
+    def setParameters(self, path, criterion=None, useResult=False, copy=False, writeToContext=False):
         self.path = path
         self.copy = copy
         self.useResult = useResult
         self.writeToContext = writeToContext
 
-        if criteria is None:
+        if criterion is None:
             self.copy = True
-        elif not isinstance( criteria, ValidatorBase):
-            criteria = Match( criteria )
+        elif not isinstance( criterion, ValidatorBase):
+            criterion = Match( criterion )
 
-        self.validator  = criteria
+        self.validator  = criterion
 
     def appendSubValidators( self, subValidators ):
         self.validator.appendSubValidators( subValidators )

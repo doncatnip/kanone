@@ -405,23 +405,23 @@ class Item( Validator ):
 
 class If( ValidatorBase ):
 
-    def __init__( self, criteria, _then, _else=None):
+    def __init__( self, criterion, _then, _else=None):
 
-        self.criteria = criteria
+        self.criterion = criterion
         self._then = _then
         self._else = _else
 
     def appendSubValidators( self, subValidators ):
-        self.criteria.appendSubValidators( subValidators )
+        self.criterion.appendSubValidators( subValidators )
         self._then.appendSubValidators( subValidators )
         self._else.appendSubValidators( subValidators )
-        subValidators.append( self.criteria )
+        subValidators.append( self.criterion )
         subValidators.append( self._then )
         subValidators.append( self._else )
 
     def validate( self, context, value ):
         try:
-            value = self.criteria.validate( context, value )
+            value = self.criterion.validate( context, value )
         except Invalid:
             value = self._else.validate( context, value)
         else:
@@ -441,15 +441,15 @@ class Pass( Validator ):
         return self.default
 
 @messages\
-    ( fail='Field must not match criteria'
+    ( fail='Field must not match criterion'
     )
 @inherit\
     ( 'validator'
     )
 class Not( Validator ):
 
-    def setArguments(self, criteria):
-        self.validator = criteria
+    def setArguments(self, criterion):
+        self.validator = criterion
 
     def appendSubValidators( self, subValidators):
         self.validator.appendSubValidators( subValidators )

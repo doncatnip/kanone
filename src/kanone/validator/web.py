@@ -75,8 +75,8 @@ ComposedDomainLabel = Compose\
 def __restrictToTLDSetter( alias, param ):
     if isinstance( param, list ) or isinstance( param, tuple ) or isinstance( param, set ):
         return\
-            { 'restrictToTLDValidator_enabled':True
-            , 'restrictToTLD_required': param
+            { 'restrictToTLDValidator_enabled': True
+            , 'restrictToTLD_criteria': param
             }
     else:
         return\
@@ -133,7 +133,7 @@ Domain = Compose\
     ).messages\
         ( blank="Please provide a value"
         , format='Invalid domain name format, try my.domain.com'
-        , restrictToTLD= 'TLD not allowed. Allowed TLDs are %(required)s'
+        , restrictToTLD= 'TLD not allowed. Allowed TLDs are %(criteria)s'
         , tooLong="A domain label cannot exceed %(max)i characters"
         )
 
@@ -197,7 +197,7 @@ Email = Compose\
         ( blank = 'Please enter an email address'
         , format = 'Invalid email format ( try my.email@address.com )'
         , localPart_invalidSymbols = "The part before @ (%(localPart)s) contains invalid symbols"
-        , domainPart_restrictToTLD="Invalid top level domain %(domainLabel)s, allowed TLD are %(required)s"
+        , domainPart_restrictToTLD="Invalid top level domain %(domainLabel)s, allowed TLD are %(criteria)s"
         , domainPart_tooLong="Domain part is too long. Max %(max)s characters allowed per domain label"
         , domainPart_format="Invalid domain name format: %(domainPart)s"
         , domainPart_invalidSymbols="Domain part contains invalid characters: %(domainLabel)s"

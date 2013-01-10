@@ -332,7 +332,7 @@ def monkeyPatch():
             if not isinstance(result.value, Invalid):
                 raise
 
-            d.errback( Invalid( value, self, matchType=self.type, criteria=result.value ) )
+            d.errback( Invalid( value, self, matchType=self.type, criterion=result.value ) )
         else:
             val = value
             if self.ignoreCase:
@@ -340,19 +340,19 @@ def monkeyPatch():
                 val = str(value).lower()
 
             if val != result:
-                d.errback( Invalid( value, self, matchType=self.type, criteria=result ) )
+                d.errback( Invalid( value, self, matchType=self.type, criterion=result ) )
             else:
                 d.callback( value )
            
 
     def match_on_value(self, context, value ):
         if self.type is Match.REGEX:
-            if not self.required.match(value):
-                raise Invalid( value, self, matchType=self.type, criteria=self.required.pattern)
+            if not self.criterion.match(value):
+                raise Invalid( value, self, matchType=self.type, criterion=self.criterion.pattern)
             return value
         elif self.type is Match.VALIDATOR:
             compare = defer.maybeDeferred\
-                ( self.required.validate
+                ( self.criterion.validate
                 , context
                 , value
                 )
@@ -361,7 +361,7 @@ def monkeyPatch():
             compare.addBoth( match_gotResult, self, value, d )
             return d
         else:
-            compare = self.required
+            compare = self.criterion
 
         val = value
         if self.ignoreCase:
@@ -369,7 +369,7 @@ def monkeyPatch():
             val = str(value).lower()
 
         if val != compare:
-            raise Invalid( value, self, matchType=self.type, criteria=compare )
+            raise Invalid( value, self, matchType=self.type, criterion=compare )
 
         return value
 
@@ -399,7 +399,7 @@ def monkeyPatch():
 
     def if_validate( self, context, value ):
         d = defer.Deferred()
-        result = defer.maybeDeferred( self.criteria.validate, context, value )
+        result = defer.maybeDeferred( self.criterion.validate, context, value )
         result.addBoth( if_gotResultExpression, self, d, context, value )
         return d
 
