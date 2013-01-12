@@ -406,7 +406,6 @@ class Item( Validator ):
 class If( ValidatorBase ):
 
     def __init__( self, criterion, _then, _else=None):
-
         self.criterion = criterion
         self._then = _then
         self._else = _else
@@ -414,15 +413,19 @@ class If( ValidatorBase ):
     def appendSubValidators( self, subValidators ):
         self.criterion.appendSubValidators( subValidators )
         self._then.appendSubValidators( subValidators )
-        self._else.appendSubValidators( subValidators )
         subValidators.append( self.criterion )
         subValidators.append( self._then )
-        subValidators.append( self._else )
+
+        if self._else:
+            self._else.appendSubValidators( subValidators )
+            subValidators.append( self._else )
 
     def validate( self, context, value ):
         try:
             value = self.criterion.validate( context, value )
         except Invalid:
+            if not self._else:
+                raise
             value = self._else.validate( context, value)
         else:
             value = self._then.validate( context, value )
