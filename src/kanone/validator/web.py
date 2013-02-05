@@ -1,5 +1,3 @@
-import re
-
 from ..lib import Invalid
 
 from .core import ValidatorBase, Validator, Compose, Tmp, Item, Call, If, messages
@@ -10,16 +8,31 @@ from .schema import Schema, ForEach
 
 from . import cache
 
+import re
+import warnings
+
 @messages\
     ( fail='Domain offers no mailserver'
     )
 class MXLookup( Validator ):
+    def setArguments( self ):
+        try:
+            import dns.resolver
+        except:
+            warnings.warn('MX lookup disabled. Please install dnspython to enable dns lookups.', ImportWarning, stacklevel=2)
+            self.on_value = self.resolveDisabled
+        else:
+            self.resolver = dns.resolver
+
+    def resolveDisabled( self, context, value ):
+        warnings.warn('MX lookup failed for domain %s. Please install dnspython to enable dns lookups.', RuntimeWarning, stacklevel=2)
+        return value
+
     def on_value( self, context, value ):
-        import dns.resolver
         r = None
         try:
-            r = dns.resolver.query(value, 'MX')
-        except dns.resolver.NXDOMAIN:
+            r = self.resolver.query(value, 'MX')
+        except self.resolver.NXDOMAIN:
             pass
         if not r:
             raise Invalid( value, self )
