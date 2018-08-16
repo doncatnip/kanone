@@ -58,32 +58,32 @@ parameters.
 
 1) create a Validator
 
-    >>> from kanone import *
-    >>> Hello = String() \
-        & Tmp( alter.Lower() & In( ['world', 'bob'] ) ) \
-        & alter.Format('Hello %(value)s !')
+        >>> from kanone import *
+        >>> Hello = String() \
+            & Tmp( alter.Lower() & In( ['world', 'bob'] ) ) \
+            & alter.Format('Hello %(value)s !')
 
-*Note*: The `Tmp` validator means: do not return the result. 
-In this case, `In` uses the result of `alter.Lower`, while the input value
-for `alter.Format` remains unmodified.
+    *Note*: The `Tmp` validator means: do not return the result. 
+    In this case, `In` uses the result of `alter.Lower`, while the input value
+    for `alter.Format` remains unmodified.
 
 2) bring the validator and a value into a context
 
-    >>> context = Hello.context( 'World' )
+        >>> context = Hello.context( 'World' )
 
 3) get the result
 
-    >>> context.result
-    u'Hello World !'
+        >>> context.result
+        u'Hello World !'
 
-set another value
+    set another value
 
-    >>> context.value = 'Bob'
+        >>> context.value = 'Bob'
 
-re-validate
+    re-validate
 
-    >>> context.result
-    u'Hello Bob !'
+        >>> context.result
+        u'Hello Bob !'
 
 
 ## Basics
