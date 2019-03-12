@@ -40,7 +40,6 @@ class Blank( Validator ):
             or  isinstance( default, tuple )
 
     def on_value( self, context, value ):
- 
         if self.check_container \
         and not isinstance( value, str)\
         and ( isinstance( value, dict ) or isinstance( value, list ) or isinstance( value, tuple) ):
@@ -58,7 +57,7 @@ class Blank( Validator ):
                             n = value
                             break
             if n is MISSING:
-                return self.default
+                return copy(self.default)
 
         raise Invalid( value, self )
 
