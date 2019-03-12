@@ -66,6 +66,7 @@ class EliminateWhiteSpace( Validator ):
         except AttributeError:
             raise Invalid( value, self, 'type' )
 
+# TODO: don't set context.value to None when in fact "" is given, see lib
 @messages\
     ( type = "Can not strip white spaces in values of type %(value.type)s"
     )
@@ -76,6 +77,8 @@ class Strip( Validator ):
             return value.strip()
         except AttributeError:
             raise Invalid( value, self, 'type' )
+
+    on_blank = on_value
 
 @messages\
     ( type = "Can not split values of type %(value.type)s"

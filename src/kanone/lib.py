@@ -131,6 +131,8 @@ if not _python3:
 def defaultErrorFormatter( context, error ):
     return error.message % error.extra
 
+
+# TODO: don't set context.value to None when in fact "" is given
 class Context( dict ):
 
     __value__ = MISSING

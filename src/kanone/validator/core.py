@@ -483,8 +483,7 @@ class And( ValidatorBase ):
             subValidators.append( validator )
 
     def __and__( self, other ):
-        self.validators.append( other )
-        return self
+        return And(*self.validators+[other])
 
 class Or( ValidatorBase ):
 
@@ -512,9 +511,7 @@ class Or( ValidatorBase ):
         return value
 
     def __or__( self, other ):
-        self.validators.append( other )
-        return self
-
+        return Or(*self.validators+[other])
 
 class Call( Validator ):
 
