@@ -6,7 +6,6 @@ setup\
     , description = 'a validation library'
     , long_description = open('README.txt').read()
     , author = 'don`catnip'
-    , author_email = 'don dot t at pan1 dot cc'
     , url = 'http://github.com/doncatnip/kanone'
     , classifiers =\
         [ "Development Status :: 4 - Beta"
