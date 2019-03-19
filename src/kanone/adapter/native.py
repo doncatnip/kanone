@@ -5,7 +5,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-def validateDecorator( validator, method, include, exclude, onInvalid ):
+def validateDecorator( validator, method, include, exclude, onInvalid, createContext ):
 
     if include and exclude:
         raise SyntaxError("'include' and 'exclude' cannot be used at the same time")
@@ -14,6 +14,7 @@ def validateDecorator( validator, method, include, exclude, onInvalid ):
     hasVarargs = spec.varargs is not None
     varargs =  spec.varargs or '*varargs'
     keywords = spec.keywords or False
+    createContext = createContext or (lambda _validator, _data, **kwargs: _validator.context(_data))
 
     methodParameterNames = getParameterNames( method, skipSelf=False )
 
@@ -45,8 +46,11 @@ def validateDecorator( validator, method, include, exclude, onInvalid ):
             fkwargs[ varargs ] = list(fargs)
 
         try:
-            resultKwargs =validator.context\
-                ( dict( ( key, fkwargs[ key] ) for key in fkwargs if key not in skip ) ).result
+            resultKwargs = createContext\
+                ( validator
+                , dict( ( key, fkwargs[ key] ) for key in fkwargs if key not in skip )
+                , **fkwargs ).result
+
         except Invalid as e:
             if onInvalid is not None:
                 return onInvalid( e )
@@ -65,8 +69,8 @@ def validateDecorator( validator, method, include, exclude, onInvalid ):
 
     return __wrap
 
-def validate( validator, include=None, exclude=None, onInvalid=None ):
+def validate( validator, include=None, exclude=None, onInvalid=None, createContext=None ):
     def __createDecorator( method ):
-        return validateDecorator( validator, method, include, exclude, onInvalid)
+        return validateDecorator( validator, method, include, exclude, onInvalid, createContext)
     return __createDecorator
 
