@@ -1,7 +1,7 @@
 from ..lib import Invalid
 
 from .core import ValidatorBase, Validator, Compose, Tmp, Item, Call, If, messages
-from .basic import String, Dict, DateTime
+from .basic import String, Dict, Date, DateTime
 from .alter import Encode, Decode, Lower, EliminateWhiteSpace, Split, Join, UpdateValue
 from .check import Match, In, Len
 from .schema import Schema, ForEach
@@ -217,8 +217,21 @@ Email = Compose\
         )
 
 
-    
 DateField = Compose\
+    ( String.convert()
+    & EliminateWhiteSpace()
+    &   ( Date.convert( '%y-%m-%d' )
+        | Date.convert( '%Y-%m-%d' )
+        | Date.convert( '%d.%m.%y' )
+        | Date.convert( '%d.%m.%Y' ).tag('dateConverter')
+        )
+    ).messageAlias\
+        ( format='dateConverter_convert'
+    ).messages\
+        ( format='Invalid date format ( try YY(YY)-MM-DD or DD.MM.YY(YY) )'
+        )
+   
+DateTimeField = Compose\
     ( String.convert()
     & EliminateWhiteSpace()
     &   ( DateTime.convert( '%y-%m-%d' )

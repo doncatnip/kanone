@@ -2,7 +2,7 @@ from .core import Validator, validator2parameter, messages
 
 from ..error import Invalid
 
-from datetime import datetime
+from datetime import date, datetime
 
 import logging, sys
 log = logging.getLogger(__name__)
@@ -165,6 +165,34 @@ class Float( TypeValidator ):
                 raise Invalid( value, self,'convert' )
 
         return value
+
+@messages\
+    ( type="Invalid type (%(value.type)s), must be a date"
+    , convert='Could not convert "%(value)s"(%(value.type)s) to a date'
+    )
+class Date( Validator ):
+
+    def setParameters( self, formatter="%Y-%m-%d", convert=False ):
+        self._convert = convert
+        validator2parameter(self, 'formatter', formatter)
+
+    def on_value(self, context, value ):
+
+        if not isinstance( value, date):
+            if not self._convert:
+                raise Invalid( value, self, 'type' )
+            else:
+                try:
+                    return datetime.strptime( value, context.params.formatter ).date()
+                except ValueError:
+                    raise Invalid( value, self, 'convert' )
+            
+        return value
+
+    @classmethod
+    def convert( cls, formatter ):
+        return cls( formatter=formatter, convert=True )
+
 
 @messages\
     ( type="Invalid type (%(value.type)s), must be a datetime"
