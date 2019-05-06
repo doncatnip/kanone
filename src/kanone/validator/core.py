@@ -71,14 +71,12 @@ class ValidatorBase(object):
 
     def __and__( self, other ):
         if isinstance(other, And):
-            other.validators.insert(0, self)
-            return other
+            return And(*[self]+other.validators)
         return And( self, other )
 
     def __or__( self, other ):
         if isinstance(other, Or):
-            other.validators.insert(0,self)
-            return other
+            return Or(*[self]+other.validators)
         return Or( self, other )
 
     def __invert__( self ):
