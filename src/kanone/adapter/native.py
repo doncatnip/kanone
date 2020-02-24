@@ -1,3 +1,5 @@
+from functools import wraps
+
 from ..error import Invalid
 from ..util import varargs2kwargs, getArgSpec, getParameterNames
 
@@ -30,6 +32,7 @@ def validateDecorator( validator, method, include, exclude, onInvalid, createCon
 
     keywords   = keywords not in skip and keywords
 
+    @wraps(method)
     def __wrap( *fargs, **fkwargs):
 
         (fargs, fkwargs, shifted ) = varargs2kwargs( method, fargs, fkwargs, skipSelf=False )
